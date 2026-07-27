@@ -1,0 +1,30 @@
+import express from 'express';
+import cors from 'cors';
+import {connectDB} from './database/db.js';
+import user from './routes/auth.js';
+import examRoutes from './routes/exam.js';
+import course from './routes/course.js';
+import lesson from './routes/lesson.js';
+import questions from './routes/questions.js';
+const app = express();
+
+
+connectDB();
+
+app.use(cors());
+app.use(express.json());
+
+app.get('/', (req, res) => {
+  res.send('Hello, World!');
+});
+
+app.use('/auth', user)
+app.use('/exams', examRoutes)
+app.use('/course', course);
+app.use('/lesson', lesson);
+app.use('/questions', questions)
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
