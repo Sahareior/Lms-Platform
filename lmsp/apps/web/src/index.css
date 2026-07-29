@@ -1,1 +1,53 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #0B0D12;
+    --bg-surface: #111318;
+    --bg-card: #111318;
+    --bg-card-hover: #161920;
+    
+    --border-color: #23262D;
+    --border-subtle: #1C1F26;
+    --border-hover: #323742;
+
+    --text-primary: #F5F7FA;
+    --text-secondary: #A1A8B3;
+    --text-muted: #6B7280;
+
+    --brand-primary: #2F80ED;
+    --ai-teal: #00E5B3;
+    --analytics-cyan: #00C8FF;
+    --exam-purple: #9B51E0;
+    --achievement-gold: #F2C94C;
+  }
+
+  body {
+    font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: linear-gradient(180deg, #0B0D12 0%, #0E1016 60%, #12141B 100%);
+    color: var(--text-primary);
+    min-height: 100vh;
+    margin: 0;
+  }
+}
+
+/* Custom Semantic Glow Utilities */
+.glow-primary {
+  box-shadow: 0 0 20px -3px rgba(47, 128, 237, 0.35);
+}
+
+.glow-ai {
+  box-shadow: 0 0 20px -3px rgba(0, 229, 179, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px -3px rgba(0, 200, 255, 0.35);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px -3px rgba(155, 81, 224, 0.35);
+}
+
+.glow-gold {
+  box-shadow: 0 0 20px -3px rgba(242, 201, 76, 0.35);
+}

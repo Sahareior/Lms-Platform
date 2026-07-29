@@ -1,11 +1,15 @@
 import React from 'react'
+import { useSearchParams } from 'react-router-dom'
 import QuizPreatise from '../../(components)/QuizPreatise/QuizPreatise'
 
-const Exampage
- = () => {
+const Exampage = () => {
+  const [searchParams] = useSearchParams();
+  const examId = searchParams.get('examId') || '';
+  const versionId = searchParams.get('versionId') || '';
+
   return (
     <div>
-        <QuizPreatise />
+      <QuizPreatise examId={examId} versionId={versionId} />
     </div>
   )
 }

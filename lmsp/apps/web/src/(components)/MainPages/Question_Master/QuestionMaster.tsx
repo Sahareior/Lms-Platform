@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import {
-  FiArrowLeft,
-  FiClock,
-  FiFileText,
-  FiSearch,
-  FiGrid,
-} from "react-icons/fi";
+  ArrowLeft,
+  Clock,
+  FileText,
+  Search,
+  Grid3X3,
+} from "lucide-react";
 import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
 
 interface Exam {
@@ -152,13 +152,23 @@ const examDataByCategory: Record<string, { title: string; exams: Exam[] }> = {
   },
 };
 
-const categoryMeta: Record<string, { subtitle: string; color: string }> = {
-  bcs: { subtitle: "BCS প্রশ্ন ব্যাংক", color: "from-blue-600 via-blue-500 to-indigo-400" },
-  bank: { subtitle: "ব্যাংক জব প্রশ্ন ব্যাংক", color: "from-amber-500 via-amber-400 to-orange-300" },
-  ssc: { subtitle: "এসএসসি প্রশ্ন ব্যাংক", color: "from-emerald-500 via-emerald-400 to-teal-300" },
-  hsc: { subtitle: "এইচএসসি প্রশ্ন ব্যাংক", color: "from-violet-500 via-violet-400 to-purple-300" },
-  teacher: { subtitle: "শিক্ষক নিবন্ধন প্রশ্ন ব্যাংক", color: "from-rose-500 via-rose-400 to-pink-300" },
-  govt: { subtitle: "সরকারি চাকরি প্রশ্ন ব্যাংক", color: "from-cyan-500 via-cyan-400 to-sky-300" },
+// BrainForge semantic colors for each category
+const categoryAccent: Record<string, string> = {
+  bcs: "#2F80ED",    // Electric Blue
+  bank: "#F2C94C",   // Gold
+  ssc: "#00E5B3",    // Teal
+  hsc: "#9B51E0",    // Purple
+  teacher: "#EB5757", // Red
+  govt: "#00C8FF",   // Cyan
+};
+
+const categoryMeta: Record<string, { subtitle: string }> = {
+  bcs: { subtitle: "BCS প্রশ্ন ব্যাংক" },
+  bank: { subtitle: "ব্যাংক জব প্রশ্ন ব্যাংক" },
+  ssc: { subtitle: "এসএসসি প্রশ্ন ব্যাংক" },
+  hsc: { subtitle: "এইচএসসি প্রশ্ন ব্যাংক" },
+  teacher: { subtitle: "শিক্ষক নিবন্ধন প্রশ্ন ব্যাংক" },
+  govt: { subtitle: "সরকারি চাকরি প্রশ্ন ব্যাংক" },
 };
 
 export default function QuestionMaster() {
@@ -175,6 +185,7 @@ export default function QuestionMaster() {
     return examDataByCategory[examType];
   }, [examType]);
 
+  const accent = examType ? categoryAccent[examType] : "#9B51E0"; // fallback purple
   const meta = examType ? categoryMeta[examType] : null;
 
   // If on child route (exam-din), just render the outlet
@@ -189,48 +200,48 @@ export default function QuestionMaster() {
   }
 
   const { title, exams } = categoryData;
-  const headerGradient = meta?.color || "from-indigo-600 to-purple-600";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      {/* Header with gradient */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
+      {/* Header */}
+      <div className="sticky top-0 z-20 bg-[#111318]/95 backdrop-blur-xl border-b border-[#23262D]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           {/* Top Bar */}
           <div className="flex items-center justify-between py-4">
             <button
               onClick={() => navigate("/question-center")}
-              className="flex items-center gap-2 p-2 rounded-xl hover:bg-gray-100 transition-colors text-gray-600"
+              className="flex items-center gap-2 p-2 rounded-xl hover:bg-[#161920] transition-colors text-[#A1A8B3] hover:text-[#F5F7FA]"
             >
-              <FiArrowLeft size={20} />
+              <ArrowLeft size={20} />
             </button>
 
             <div className="flex items-center gap-2">
               <div
-                className={`h-2.5 w-2.5 rounded-full bg-gradient-to-r ${headerGradient} animate-pulse`}
+                className="h-2.5 w-2.5 rounded-full animate-pulse"
+                style={{ backgroundColor: accent }}
               />
-              <h1 className="font-bold text-lg text-slate-800">{title}</h1>
+              <h1 className="font-bold text-lg text-[#F5F7FA]">{title}</h1>
             </div>
 
             <button
               onClick={() => navigate("/question-center")}
-              className="flex items-center gap-2 p-2 rounded-xl hover:bg-gray-100 transition-colors text-gray-600"
+              className="flex items-center gap-2 p-2 rounded-xl hover:bg-[#161920] transition-colors text-[#A1A8B3] hover:text-[#F5F7FA]"
             >
-              <FiGrid size={18} />
+              <Grid3X3 size={18} />
             </button>
           </div>
 
           {/* Search */}
           <div className="pb-4">
             <div className="flex gap-3">
-              <div className="flex-1 flex items-center bg-gray-100 rounded-xl px-4">
-                <FiSearch className="text-gray-400 shrink-0" />
+              <div className="flex-1 flex items-center bg-[#161920] border border-[#23262D] rounded-xl px-4 focus-within:border-[#9B51E0] transition-colors">
+                <Search size={16} className="text-[#6B7280] shrink-0" />
                 <input
                   placeholder="Search exams..."
-                  className="bg-transparent flex-1 px-3 py-2.5 outline-none text-sm"
+                  className="bg-transparent flex-1 px-3 py-2.5 outline-none text-sm text-[#F5F7FA] placeholder-[#6B7280]"
                 />
               </div>
-              <select className="rounded-xl border border-gray-200 px-4 bg-white text-sm text-gray-600 outline-none">
+              <select className="rounded-xl border border-[#23262D] px-4 bg-[#161920] text-sm text-[#A1A8B3] outline-none focus:border-[#9B51E0]">
                 <option>All</option>
                 <option>Checked</option>
                 <option>Pending</option>
@@ -241,7 +252,14 @@ export default function QuestionMaster() {
           {/* Subtitle */}
           {meta && (
             <div className="pb-4">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 text-indigo-600 text-xs font-medium">
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium"
+                style={{
+                  backgroundColor: `${accent}1A`,
+                  color: accent,
+                  border: `1px solid ${accent}4D`,
+                }}
+              >
                 {meta.subtitle} • {exams.length} exams available
               </span>
             </div>
@@ -254,46 +272,47 @@ export default function QuestionMaster() {
         {exams.map((exam) => (
           <div
             key={exam.id}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 p-6 group"
+            className="bg-[#111318] rounded-2xl border border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.3)] transition-all duration-300 p-6 group"
           >
             {/* Top Row */}
             <div className="flex justify-between items-center mb-3">
-              <p className="text-sm text-gray-400">{exam.date}</p>
-              <span className="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
+              <p className="text-sm text-[#A1A8B3]">{exam.date}</p>
+              <span className="bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 text-xs font-semibold px-3 py-1 rounded-full">
                 {exam.status}
               </span>
             </div>
 
             {/* Title */}
-            <h2 className="font-bold text-lg sm:text-xl text-slate-800 mb-3 group-hover:text-indigo-600 transition-colors">
+            <h2 className="font-bold text-lg sm:text-xl text-[#F5F7FA] mb-3 group-hover:text-[#9B51E0] transition-colors">
               {exam.title}
             </h2>
 
             {/* Info Row */}
-            <div className="flex flex-wrap gap-5 text-sm text-gray-500 mb-4">
+            <div className="flex flex-wrap gap-5 text-sm text-[#A1A8B3] mb-4">
               <div className="flex items-center gap-2">
-                <FiFileText className="text-gray-400" size={15} />
+                <FileText size={15} className="text-[#6B7280]" />
                 Total Marks: {exam.marks}
               </div>
               <div className="flex items-center gap-2">
-                <FiClock className="text-gray-400" size={15} />
+                <Clock size={15} className="text-[#6B7280]" />
                 Duration: {exam.duration}
               </div>
             </div>
 
             {/* Description */}
-            <p className="text-gray-600 leading-7 mb-6 text-sm">
+            <p className="text-[#A1A8B3] leading-7 mb-6 text-sm">
               {exam.description}
             </p>
 
             {/* Buttons */}
             <div className="grid grid-cols-2 gap-4">
-              <button className="border border-gray-200 rounded-xl py-3 font-semibold text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all">
+              <button className="border border-[#23262D] rounded-xl py-3 font-semibold text-sm text-[#A1A8B3] hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition-all">
                 প্রশ্ন দেখুন
               </button>
               <button
                 onClick={() => navigate(`/question-center/${examType}/exam-din`)}
-                className={`bg-gradient-to-r ${headerGradient} hover:opacity-90 text-white rounded-xl py-3 font-semibold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all active:scale-[0.98]`}
+                className="text-white rounded-xl py-3 font-semibold text-sm transition-all active:scale-[0.98]"
+                style={{ backgroundColor: accent, boxShadow: `0 4px 14px ${accent}40` }}
               >
                 পরীক্ষা দিন
               </button>
@@ -302,7 +321,7 @@ export default function QuestionMaster() {
         ))}
       </div>
 
-      {/* Outlet for potential nested child routes */}
+      {/* Outlet for nested child routes (rendered after cards if not child) */}
       <Outlet />
     </div>
   );

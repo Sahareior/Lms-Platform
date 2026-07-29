@@ -5,7 +5,7 @@ import LessonPage from './(components)/MainPages/lesson/LessonPage';
 import ExamUI from './(components)/Quiz';
 import MockExamInterface from './(components)/MockExamInterface';
 import AIChatInterface from './(components)/MainPages/chat_interface/AIChatInterface';
-import QuestionPatterns from './(components)/MainPages/question_bank/QuestionPatterns';
+import QuestionPatterns from './(components)/MainPages/question_patterns/QuestionPatterns';
 import Perfomence from './(components)/MainPages/performence/Perfomence';
 import Settings from './(components)/Settings';
 import ExamSelection from './(components)/ExamSelection';
@@ -20,6 +20,15 @@ import QuestionMaster from './(components)/MainPages/Question_Master/QuestionMas
 import ExamDin from './(components)/MainPages/Question_Master/component/ExamDin';
 import ExamCategorySelection from './(components)/MainPages/Question_Master/_components/ExamCategorySelection';
 import AdminDashboard from './AdminDashboard/AdminDashboard';
+import DashboardOverview from './AdminDashboard/pages/DashboardOverview';
+import UserManagement from './AdminDashboard/pages/UserManagement';
+import ExamManagement from './AdminDashboard/pages/ExamManagement';
+import CourseManagement from './AdminDashboard/pages/CourseManagement';
+import LessonManagement from './AdminDashboard/pages/LessonManagement';
+import QuestionManagement from './AdminDashboard/pages/QuestionManagement';
+import QuestionBank from './AdminDashboard/pages/QuestionBank';
+import SubjectManagement from './AdminDashboard/pages/SubjectManagement';
+import ExamControl from './AdminDashboard/pages/ExamControl';
 
 const router = createBrowserRouter([  {
     path:'on-boarding',
@@ -76,10 +85,25 @@ const router = createBrowserRouter([  {
         ]
        },
       { path: 'settings', element: <Settings /> },
-      { path: 'admin', element: <AdminDashboard /> },
+  
 
     ],
   },
+      {
+        path: 'admin',
+        element: <AdminDashboard />,
+        children: [
+          { index: true, element: <DashboardOverview /> },
+          { path: 'users', element: <UserManagement /> },
+          { path: 'exams', element: <ExamManagement /> },
+          { path: 'courses', element: <CourseManagement /> },
+          { path: 'courses/:courseId/lessons', element: <LessonManagement /> },
+          { path: 'questions', element: <QuestionManagement /> },
+          { path: 'question-bank', element: <QuestionBank /> },
+          { path: 'subjects', element: <SubjectManagement /> },
+          { path: 'exam-control', element: <ExamControl /> },
+        ],
+      },
 ]);
 
 export default router;

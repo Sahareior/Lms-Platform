@@ -79,6 +79,18 @@ export type {
   Lesson,
 } from './redux/api/courseApi';
 
+// ─── RTK Query Note API ──────────────────────────────────────
+export {
+  useGetLessonNoteQuery,
+  useSaveLessonNoteMutation,
+  useGetAllUserNotesQuery,
+} from './redux/api/noteApi';
+export type {
+  Note,
+  NoteResponse,
+  NotesListResponse,
+} from './redux/api/noteApi';
+
 // ─── RTK Query Quiz / Exam API ──────────────────────────────
 export {
   useGetQuizzesQuery,
@@ -95,11 +107,81 @@ export type {
 } from './redux/api/quizApi';
 
 export {
-  useGetExamsQuery
+  useGetExamsQuery,
+  useGetAnalyzedQuestionsQuery,
+  useGetSubjectsByExamQuery,
+  useGetExamVersionsByExamQuery,
+  useGetQuestionsByExamQuery
 } from './redux/api/examApi';
-export type{
-  courseResponse
+export type {
+  courseResponse,
+  SubjectByExam
 } from "./redux/api/examApi"
+
+// ─── RTK Query Admin API ─────────────────────────────────────
+export {
+  useGetAdminUsersQuery,
+  useGetAdminUserByIdQuery,
+  useUpdateAdminUserMutation,
+  useGetAdminExamsQuery,
+  useCreateAdminExamMutation,
+  useUpdateAdminExamMutation,
+  useDeleteAdminExamMutation,
+  useGetAdminExamVersionsQuery,
+  useCreateAdminExamVersionMutation,
+  useUpdateAdminExamVersionMutation,
+  useDeleteAdminExamVersionMutation,
+  useGetAdminCoursesQuery,
+  useGetAdminCourseByIdQuery,
+  useCreateAdminCourseMutation,
+  useUpdateAdminCourseMutation,
+  useGetAdminQuestionsQuery,
+  useUpdateAdminQuestionDocumentMutation,
+  useDeleteAdminQuestionDocumentMutation,
+  useUpdateAdminSingleQuestionMutation,
+  useDeleteAdminSingleQuestionMutation,
+  useGetAdminQuestionPatternsQuery,
+  useGetCourseLessonsQuery,
+  useCreateAdminLessonMutation,
+  useUpdateAdminLessonMutation,
+  useDeleteAdminLessonMutation,
+  useDeleteAdminCourseMutation,
+  useDeleteAdminUserMutation,
+  useGetAdminSubjectsQuery,
+  useGetAdminSubjectsByExamQuery,
+  useCreateAdminSubjectMutation,
+  useUpdateAdminSubjectMutation,
+  useDeleteAdminSubjectMutation,
+
+  useGetScheduleExamsQuery,
+  useGetScheduleExamsByExamQuery,
+  useCreateScheduleExamMutation,
+  useUpdateScheduleExamMutation,
+  useDeleteScheduleExamMutation,
+} from './redux/api/adminApi';
+export type {
+  AdminUser,
+  AdminCourse,
+  AdminExam,
+  AdminExamVersion,
+  AdminQuestion,
+  AdminQuestionPattern,
+  AdminLesson,
+  EnrolledStudent,
+  CreateExamRequest,
+  CreateExamVersionRequest,
+  UpdateExamVersionRequest,
+  CreateCourseRequest,
+  CreateLessonRequest,
+  UpdateLessonRequest,
+  AdminSubject,
+  CreateSubjectRequest,
+  UpdateSubjectRequest,
+
+  ScheduleExam,
+  CreateScheduleExamRequest,
+  UpdateScheduleExamRequest,
+} from './redux/api/adminApi';
 
 // ─── Context Providers ──────────────────────────────────────
 export { SharedProviders } from './providers';

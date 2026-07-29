@@ -1,43 +1,19 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
-  FiArrowLeft,
-  FiMoon,
-  FiChevronDown,
-  FiBarChart2,
-  FiHeart,
-  FiCheckCircle,
-  FiBookOpen,
-  FiClock,
-  FiRefreshCw,
-  FiFlag,
-  FiShare2,
-  FiAlertCircle,
-  FiSun,
-} from "react-icons/fi";
+  ArrowLeft,
+  ChevronDown,
+  BarChart3,
+  Heart,
+  CheckCircle,
+  BookOpen,
+  Clock,
+  RefreshCw,
+  Flag,
+  Share2,
+  AlertCircle,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CustomModal from "../../../../reusable/CustomModal";
-
-// Theme and color utilities
-const colors = {
-  light: {
-    bg: "bg-white",
-    bgHover: "bg-gray-50",
-    border: "border-gray-200",
-    text: "text-gray-700",
-    textSecondary: "text-gray-500",
-    accent: "bg-blue-600",
-    accentBorder: "border-blue-300",
-  },
-  dark: {
-    bg: "bg-slate-800",
-    bgHover: "bg-slate-700",
-    border: "border-slate-700",
-    text: "text-slate-100",
-    textSecondary: "text-slate-400",
-    accent: "bg-blue-600",
-    accentBorder: "border-blue-500",
-  },
-};
 
 interface Question {
   id: number;
@@ -129,10 +105,8 @@ export default function ExamDin() {
     type: "answer",
     questionIndex: 0,
   });
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isTopicOpen, setIsTopicOpen] = useState(false);
-  
-  // Available topics
+
   const topics = [
     "বাংলাদেশ বিষয়াবলী",
     "বাংলা সাহিত্য",
@@ -141,11 +115,7 @@ export default function ExamDin() {
     "বিজ্ঞান",
     "সামাজিক বিজ্ঞান",
   ];
-  
   const [selectedTopic, setSelectedTopic] = useState(topics[0]);
-
-  // Memoize theme colors
-  const theme = useMemo(() => (isDarkMode ? colors.dark : colors.light), [isDarkMode]);
 
   const openModal = (type: ModalState["type"], questionIndex: number) => {
     setModalState({ isOpen: true, type, questionIndex });
@@ -166,73 +136,48 @@ export default function ExamDin() {
 
   const getQuestionState = (qId: number) => {
     const isAnswered = selected[qId] !== undefined;
-    const isCorrect = isAnswered && selected[qId] === questions.find(q => q.id === qId)?.correctAnswer;
+    const isCorrect =
+      isAnswered &&
+      selected[qId] === questions.find((q) => q.id === qId)?.correctAnswer;
     const isWrong = isAnswered && !isCorrect;
     return { isAnswered, isCorrect, isWrong };
   };
 
   return (
-    <div
-      className={`min-h-screen transition-colors duration-300 ${
-        isDarkMode ? "bg-slate-900" : "bg-gray-50"
-      }`}
-    >
-      {/* Header */}
-      <div
-        className={`sticky top-0 z-30 transition-colors duration-300 ${
-          isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"
-        } border-b`}
-      >
+    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
+      {/* ── HEADER ── */}
+      <div className="sticky top-0 z-30 bg-[#111318] border-b border-[#23262D]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           {/* Top Row */}
           <div className="flex items-center justify-between py-4">
             <button
               onClick={() => navigate(-1)}
-              className={`p-2 rounded-lg transition-colors ${
-                isDarkMode ? "hover:bg-slate-700 text-slate-300" : "hover:bg-gray-100 text-gray-600"
-              }`}
+              className="p-2 rounded-lg hover:bg-[#161920] text-[#A1A8B3] hover:text-[#F5F7FA] transition"
             >
-              <FiArrowLeft size={20} />
+              <ArrowLeft size={20} />
             </button>
 
-            <div className={`text-sm font-semibold ${isDarkMode ? "text-slate-300" : "text-gray-600"}`}>
-              Quiz Mode
-            </div>
+            <div className="text-sm font-semibold text-[#A1A8B3]">Quiz Mode</div>
 
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`p-2 rounded-lg transition-colors ${
-                isDarkMode ? "hover:bg-slate-700 text-slate-300" : "hover:bg-gray-100 text-gray-600"
-              }`}
-            >
-              {isDarkMode ? <FiSun size={18} /> : <FiMoon size={18} />}
-            </button>
+            <div className="w-8" /> {/* spacer for symmetry */}
           </div>
 
-          {/* Progress & Topic Row */}
+          {/* Topic dropdown & progress */}
           <div className="flex items-center justify-between pb-4 gap-4">
             <div className="relative">
               <button
                 onClick={() => setIsTopicOpen(!isTopicOpen)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border ${
-                  isDarkMode
-                    ? "border-slate-600 hover:bg-slate-700 text-slate-300"
-                    : "border-gray-300 hover:bg-gray-100 text-gray-600"
-                }`}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#23262D] bg-[#111318] hover:bg-[#161920] text-[#A1A8B3] hover:text-[#F5F7FA] transition"
               >
                 <span className="text-sm font-medium">{selectedTopic}</span>
-                <FiChevronDown size={16} className={`transition-transform ${isTopicOpen ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform ${isTopicOpen ? "rotate-180" : ""}`}
+                />
               </button>
 
-              {/* Dropdown Menu */}
               {isTopicOpen && (
-                <div
-                  className={`absolute top-full left-0 mt-2 w-48 rounded-lg border shadow-lg z-50 ${
-                    isDarkMode
-                      ? "bg-slate-800 border-slate-700"
-                      : "bg-white border-gray-200"
-                  }`}
-                >
+                <div className="absolute top-full left-0 mt-2 w-48 rounded-lg border border-[#23262D] bg-[#111318] shadow-lg z-50">
                   {topics.map((topic) => (
                     <button
                       key={topic}
@@ -240,14 +185,10 @@ export default function ExamDin() {
                         setSelectedTopic(topic);
                         setIsTopicOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-2.5 transition-colors text-sm ${
+                      className={`w-full text-left px-4 py-2.5 text-sm transition ${
                         selectedTopic === topic
-                          ? isDarkMode
-                            ? "bg-blue-600/30 text-blue-400 font-semibold"
-                            : "bg-blue-100 text-blue-700 font-semibold"
-                          : isDarkMode
-                          ? "hover:bg-slate-700 text-slate-300"
-                          : "hover:bg-gray-100 text-gray-700"
+                          ? "bg-[#9B51E0]/10 text-[#9B51E0] font-semibold border-l-2 border-[#9B51E0]"
+                          : "text-[#A1A8B3] hover:bg-[#161920] hover:text-[#F5F7FA]"
                       }`}
                     >
                       {topic}
@@ -257,15 +198,12 @@ export default function ExamDin() {
               )}
             </div>
 
-            <div className="flex items-center gap-4 text-sm">
-              <div className={`${isDarkMode ? "text-slate-400" : "text-gray-500"}`}>
-                {getAnsweredCount()}/{totalQuestions} answered
-              </div>
-             
+            <div className="text-sm text-[#A1A8B3]">
+              {getAnsweredCount()}/{totalQuestions} answered
             </div>
           </div>
 
-          {/* Progress Bar */}
+          {/* Progress bar */}
           <div className="pb-4">
             <div className="flex gap-1">
               {questions.map((q) => {
@@ -276,11 +214,9 @@ export default function ExamDin() {
                     className={`h-1 flex-1 rounded-full transition-colors ${
                       isAnswered
                         ? isCorrect
-                          ? "bg-green-600"
-                          : "bg-red-600"
-                        : isDarkMode
-                        ? "bg-slate-700"
-                        : "bg-gray-300"
+                          ? "bg-[#00E5B3]"
+                          : "bg-[#EB5757]"
+                        : "bg-[#23262D]"
                     }`}
                   />
                 );
@@ -290,7 +226,7 @@ export default function ExamDin() {
         </div>
       </div>
 
-      {/* Questions */}
+      {/* ── QUESTIONS ── */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {questions.map((q, qIdx) => {
           const { isAnswered, isCorrect, isWrong } = getQuestionState(q.id);
@@ -300,22 +236,14 @@ export default function ExamDin() {
           return (
             <div
               key={q.id}
-              className={`relative border rounded-lg transition-colors ${
-                isDarkMode ? `${theme.bg} border-slate-700` : `${theme.bg} border-gray-200`
-              } shadow-sm`}
+              className="relative bg-[#111318] border border-[#23262D] rounded-2xl shadow-sm"
             >
-              {/* Question Badge */}
-              <div className={`px-4 py-1 text-xs font-semibold ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}>
+              <div className="px-4 py-1 text-xs font-semibold text-[#9B51E0]">
                 Question {q.id}
               </div>
 
               <div className="p-6 sm:p-8 pt-4">
-                {/* Question Title */}
-                <h2
-                  className={`font-semibold text-lg leading-7 mb-6 ${
-                    isDarkMode ? "text-slate-100" : "text-gray-800"
-                  }`}
-                >
+                <h2 className="font-semibold text-lg leading-7 mb-6 text-[#F5F7FA]">
                   {q.question}
                 </h2>
 
@@ -328,16 +256,14 @@ export default function ExamDin() {
                     return (
                       <label
                         key={i}
-                        className={`relative flex items-center gap-4 p-4 rounded-lg cursor-pointer transition-all border-2 ${
+                        className={`relative flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all border-2 ${
                           isCorrectOption
-                            ? "bg-green-50 border-green-400"
+                            ? "bg-[#00E5B3]/10 border-[#00E5B3]"
                             : isOptionSelected && isWrong
-                            ? "bg-red-50 border-red-400"
+                            ? "bg-[#EB5757]/10 border-[#EB5757]"
                             : isOptionSelected
-                            ? `${isDarkMode ? "bg-slate-700 border-blue-500" : "bg-blue-50 border-blue-300"}`
-                            : isDarkMode
-                            ? "border-slate-700 bg-slate-700/40 hover:bg-slate-700/60"
-                            : "border-gray-200 bg-gray-100/50 hover:bg-gray-50"
+                            ? "bg-[#9B51E0]/10 border-[#9B51E0]"
+                            : "bg-[#161920] border-[#23262D] hover:border-[#323742]"
                         } ${isSelected ? "pointer-events-none" : ""}`}
                       >
                         <input
@@ -346,93 +272,80 @@ export default function ExamDin() {
                           name={`q-${q.id}`}
                           checked={isOptionSelected}
                           onChange={() =>
-                            setSelected({
-                              ...selected,
-                              [q.id]: i,
-                            })
+                            setSelected({ ...selected, [q.id]: i })
                           }
                         />
 
-                        {/* Letter Circle */}
+                        {/* Letter circle */}
                         <div
                           className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold shrink-0 transition-colors ${
                             isCorrectOption
-                              ? "bg-green-500 border-green-500 text-white"
+                              ? "bg-[#00E5B3] border-[#00E5B3] text-black"
                               : isOptionSelected && isWrong
-                              ? "bg-red-500 border-red-500 text-white"
+                              ? "bg-[#EB5757] border-[#EB5757] text-white"
                               : isOptionSelected
-                              ? "bg-blue-500 border-blue-500 text-white"
-                              : isDarkMode
-                              ? "border-slate-600 text-slate-400 bg-slate-600/30"
-                              : "border-gray-300 text-gray-600 bg-white"
+                              ? "bg-[#9B51E0] border-[#9B51E0] text-white"
+                              : "bg-[#161920] border-[#23262D] text-[#A1A8B3]"
                           }`}
                         >
                           {letters[i]}
                         </div>
 
-                        {/* Option Text */}
                         <span
                           className={`text-base font-medium flex-1 ${
                             isCorrectOption
-                              ? "text-green-700"
+                              ? "text-[#00E5B3]"
                               : isOptionSelected && isWrong
-                              ? "text-red-700"
+                              ? "text-[#EB5757]"
                               : isOptionSelected
-                              ? isDarkMode ? "text-slate-100" : "text-blue-700"
-                              : isDarkMode
-                              ? "text-slate-300"
-                              : "text-gray-700"
+                              ? "text-[#F5F7FA]"
+                              : "text-[#A1A8B3]"
                           }`}
                         >
                           {option}
                         </span>
 
-                        {/* Icons */}
                         {isCorrectOption && (
-                          <FiCheckCircle className="text-green-600" size={20} />
+                          <CheckCircle className="text-[#00E5B3]" size={20} />
                         )}
                         {isOptionSelected && isWrong && (
-                          <FiAlertCircle className="text-red-600" size={20} />
+                          <AlertCircle className="text-[#EB5757]" size={20} />
                         )}
                       </label>
                     );
                   })}
                 </div>
 
-                {/* Action Buttons */}
-                <div className={`pt-5 border-t ${isDarkMode ? "border-slate-700" : "border-gray-200"}`}>
+                {/* Action buttons */}
+                <div className="pt-5 border-t border-[#23262D]">
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { label: "উত্তর", icon: FiCheckCircle, type: "answer" },
-                      { label: "পরিসংখ্যান", icon: FiBarChart2, type: "statistics" },
-                      { label: "ব্যাখ্যা", icon: FiBookOpen, type: "explanation" },
+                      { label: "উত্তর", icon: CheckCircle, type: "answer" as const },
+                      { label: "পরিসংখ্যান", icon: BarChart3, type: "statistics" as const },
+                      { label: "ব্যাখ্যা", icon: BookOpen, type: "explanation" as const },
                     ].map(({ label, icon: Icon, type }) => (
                       <button
                         key={type}
-                        onClick={() => openModal(type as any, qIdx)}
-                        className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg transition-colors border-2 border-transparent ${
-                          isDarkMode
-                            ? "hover:bg-slate-700 text-slate-400 hover:text-slate-300"
-                            : "hover:bg-blue-50 text-gray-500 hover:text-gray-700"
-                        }`}
+                        onClick={() => openModal(type, qIdx)}
+                        className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg hover:bg-[#161920] text-[#A1A8B3] hover:text-[#F5F7FA] transition border border-transparent hover:border-[#23262D]"
                       >
                         <Icon size={16} />
                         <span className="text-[11px] font-semibold">{label}</span>
                       </button>
                     ))}
 
-                    {/* Bookmark Button */}
                     <button
                       onClick={() => toggleBookmark(q.id)}
-                      className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg transition-colors border-2 ${
+                      className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg transition border ${
                         isBookmarked
-                          ? `${isDarkMode ? "bg-slate-700 border-blue-500" : "bg-blue-50 border-blue-300"} text-blue-600`
-                          : isDarkMode
-                          ? "hover:bg-slate-700 text-slate-400 hover:text-slate-300 border-transparent"
-                          : "hover:bg-blue-50 text-gray-500 hover:text-gray-700 border-transparent"
+                          ? "bg-[#9B51E0]/10 border-[#9B51E0] text-[#9B51E0]"
+                          : "border-transparent hover:bg-[#161920] hover:border-[#23262D] text-[#A1A8B3] hover:text-[#F5F7FA]"
                       }`}
                     >
-                      <FiHeart size={16} fill={isBookmarked ? "currentColor" : "none"} />
+                      <Heart
+                        size={16}
+                        fill={isBookmarked ? "currentColor" : "none"}
+                      />
                       <span className="text-[11px] font-semibold">
                         {isBookmarked ? "সংরক্ষিত" : "বুকমার্ক"}
                       </span>
@@ -445,40 +358,30 @@ export default function ExamDin() {
         })}
       </div>
 
-      {/* Bottom Action Bar */}
-      <div
-        className={`sticky bottom-0 z-30 border-t transition-colors ${
-          isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"
-        }`}
-      >
+      {/* ── BOTTOM ACTION BAR ── */}
+      <div className="sticky bottom-0 z-30 bg-[#111318] border-t border-[#23262D]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className={`flex items-center gap-3 text-sm ${isDarkMode ? "text-slate-400" : "text-gray-500"}`}>
-            <FiFlag size={14} />
+          <div className="flex items-center gap-3 text-sm text-[#A1A8B3]">
+            <Flag size={14} />
             <span>
               {getAnsweredCount()} of {totalQuestions} answered
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isDarkMode
-                  ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-              }`}
-            >
-              <FiRefreshCw size={14} />
+            <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:bg-[#1C1F26] hover:text-[#F5F7FA] transition">
+              <RefreshCw size={14} />
               Reset
             </button>
-            <button className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${theme.accent} hover:bg-blue-700 active:scale-95`}>
-              <FiShare2 size={14} />
+            <button className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white bg-[#9B51E0] hover:bg-[#7E3CC4] transition active:scale-95 shadow-[0_0_15px_-3px_rgba(155,81,224,0.4)]">
+              <Share2 size={14} />
               Submit
             </button>
           </div>
         </div>
       </div>
 
-      {/* Modal */}
+      {/* ── MODAL ── */}
       <CustomModal
         setIsModalOpen={closeModal}
         isModalOpen={modalState.isOpen}
