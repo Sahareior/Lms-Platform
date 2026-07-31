@@ -27,7 +27,11 @@ const courseSchema = new mongoose.Schema({
     exam: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Exam'
-    }
+    },
+    subjects: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Subject'
+    }]
 });
 
 const CourseModel = mongoose.model('Course', courseSchema);

@@ -1,12 +1,30 @@
 import express from "express"
-// import { createLesson, getLessonsByCourseId } from "../controller/LessonController.js"
-import { getAllQuestions, getQuestionPattern, postQuestionPattern, saveQuestionsInDb } from "../controller/QuestionController.js"
+import { authenticate } from '../middleware/auth.js';
+import {
+    getAllQuestions,
+    getQuestionPattern,
+    getQuestionsByExam,
+    postQuestionPattern,
+    saveQuestionsInDb,
+    updateQuestionDocument,
+    deleteQuestionDocument,
+    updateSingleQuestion,
+    deleteSingleQuestion,
+} from "../controller/QuestionController.js";
 
-const questions = express.Router()
+const questions = express.Router();
 
-questions.post('/save', saveQuestionsInDb)
-questions.get('/',getAllQuestions)
-questions.post('/question-pattern-save',postQuestionPattern)
-questions.get('/question-pattern',getQuestionPattern)
+// Public: view questions and patterns
+questions.get('/', getAllQuestions);
+questions.get('/exam/:examId', getQuestionsByExam);
+questions.get('/question-pattern', getQuestionPattern);
 
-export default questions
+// Protected: create, update, delete questions
+questions.post('/save', authenticate, saveQuestionsInDb);
+questions.post('/question-pattern-save', authenticate, postQuestionPattern);
+questions.put('/:questionId', authenticate, updateQuestionDocument);
+questions.delete('/:questionId', authenticate, deleteQuestionDocument);
+questions.put('/:questionId/question/:questionNumber', authenticate, updateSingleQuestion);
+questions.delete('/:questionId/question/:questionNumber', authenticate, deleteSingleQuestion);
+
+export default questions;

@@ -2,10 +2,19 @@ import mongoose from "mongoose";
 
 const questionPatternSchema = new mongoose.Schema({
     exam: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true
+        type: mongoose.Schema.Types.ObjectId,
+       ref: 'Exam',
+       required:true
+    },
+    examVersion: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ExamVersion',
+        required: false
+    },
+    subject: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Subject',
+        required: false
     },
     topics: {
         type: Map,

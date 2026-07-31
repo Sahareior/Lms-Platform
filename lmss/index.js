@@ -6,6 +6,13 @@ import examRoutes from './routes/exam.js';
 import course from './routes/course.js';
 import lesson from './routes/lesson.js';
 import questions from './routes/questions.js';
+import examVer from './routes/examVersion.js';
+import subjectRoutes from './routes/subject.js';
+import scheduleExamRoutes from './routes/scheduleExam.js';
+import noteRoutes from './routes/note.js';
+import quizAttemptRoutes from './routes/quizAttempt.js';
+import userDataRoutes from './routes/userData.js';
+import quizPerform from './routes/QuizPerformance.js';
 const app = express();
 
 
@@ -23,6 +30,13 @@ app.use('/exams', examRoutes)
 app.use('/course', course);
 app.use('/lesson', lesson);
 app.use('/questions', questions)
+app.use('/exam-version',examVer)
+app.use('/subjects', subjectRoutes)
+app.use('/schedule-exams', scheduleExamRoutes)
+app.use('/notes', noteRoutes)
+app.use('/quiz-attempts', quizAttemptRoutes)
+app.use('/user-data', userDataRoutes)
+app.use('/quiz-performance', quizPerform)
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

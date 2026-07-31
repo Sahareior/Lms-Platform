@@ -35,3 +35,40 @@ export const getLessonsByCourseId = async (req, res) => {
         res.status(500).json({ message: 'Something went wrong' });
     }
 }
+
+export const updateLesson = async (req, res) => {
+    const { lessonId } = req.params;
+    const lessonData = req.body;
+    try {
+        const updatedLesson = await Lesson.findByIdAndUpdate(lessonId, lessonData, { new: true });
+        if (!updatedLesson) {
+            return res.status(404).json({ message: 'Lesson not found' });
+        }
+        res.status(200).json({ message: 'Lesson updated successfully', lesson: updatedLesson });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Something went wrong' });
+    }
+}
+
+export const deleteLesson = async (req, res) => {
+    const { lessonId } = req.params;
+    try {
+        const lesson = await Lesson.findById(lessonId);
+        if (!lesson) {
+            return res.status(404).json({ message: 'Lesson not found' });
+        }
+
+        // Remove lesson reference from the course
+        await CourseModel.findByIdAndUpdate(lesson.course, {
+            $pull: { lessons: lessonId }
+        });
+
+        await Lesson.findByIdAndDelete(lessonId);
+
+        res.status(200).json({ message: 'Lesson deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Something went wrong' });
+    }
+}

@@ -124,6 +124,35 @@ export const selectExamForUser = async (req, res) => {
   }
 };
 
+export const updateExam = async (req, res) => {
+  const { examId } = req.params;
+  const updateData = req.body;
+  try {
+    const updatedExam = await Exam.findByIdAndUpdate(examId, updateData, { new: true });
+    if (!updatedExam) {
+      return res.status(404).json({ message: 'Exam not found' });
+    }
+    res.status(200).json(updatedExam);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Unable to update exam' });
+  }
+};
+
+export const deleteExam = async (req, res) => {
+  const { examId } = req.params;
+  try {
+    const deletedExam = await Exam.findByIdAndDelete(examId);
+    if (!deletedExam) {
+      return res.status(404).json({ message: 'Exam not found' });
+    }
+    res.status(200).json({ message: 'Exam deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Unable to delete exam' });
+  }
+};
+
 export const getUserExams = async (req, res) => {
   try {
     const { userId } = req.params;

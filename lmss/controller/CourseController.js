@@ -14,7 +14,11 @@ const createCourse = async (req, res) => {
 
 const listCourses = async (req, res) => {
     try {
-        const courses = await CourseModel.find().populate('lessons').populate('exam').populate('enrolledStudents');
+        const courses = await CourseModel.find()
+            .populate('lessons')
+            .populate('exam')
+            .populate('subjects')
+            .populate('enrolledStudents', '-password -__v');
         res.status(200).json(courses);
     } catch (err) {
         console.error(err);
@@ -44,7 +48,11 @@ const getCourseById = async (req, res) => {
     console.log('Fetching course with ID:', courseId); // Log the courseId for debugging
 
     try {
-        const course = await CourseModel.findById(courseId).populate('lessons').populate('exam').populate('enrolledStudents');
+        const course = await CourseModel.findById(courseId)
+            .populate('lessons')
+            .populate('exam')
+            .populate('subjects')
+            .populate('enrolledStudents', '-password -__v');
         if (!course) {
             return res.status(404).json({ message: 'Course not found' });
         }
@@ -60,7 +68,11 @@ const getCoursesByExamId = async (req, res) => {
     console.log('Fetching courses for exam ID:', examId); // Log the examId for debugging
 
     try {
-        const courses = await CourseModel.find({ exam: examId }).populate('lessons').populate('exam').populate('enrolledStudents');
+        const courses = await CourseModel.find({ exam: examId })
+            .populate('lessons')
+            .populate('exam')
+            .populate('subjects')
+            .populate('enrolledStudents', '-password -__v');
         if (courses.length === 0) {
             return res.status(404).json({ message: 'No courses found for this exam' });
         }
@@ -98,7 +110,7 @@ const getEnrolledCourses = async (req, res) => {
     const { userId } = req.params;
     console.log('Fetching enrolled courses for user ID:', userId); 
     try{
-        const courses = await CourseModel.find({ enrolledStudents: userId }).populate('lessons').populate('exam');
+        const courses = await CourseModel.find({ enrolledStudents: userId }).populate('lessons').populate('exam').populate('subjects');
         if(courses.length === 0){
             return res.status(404).json({ message: 'No enrolled courses found for this user' });
         }
@@ -110,4 +122,20 @@ const getEnrolledCourses = async (req, res) => {
     }
 }
 
-export { createCourse, listCourses, updateCourse, getCourseById, getCoursesByExamId, enrollCourse, getEnrolledCourses    };
+const deleteCourse = async (req, res) => {
+    const { courseId } = req.params;
+    try {
+        const course = await CourseModel.findById(courseId);
+        if (!course) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+        // Remove lesson references from the course and clean up
+        await CourseModel.findByIdAndDelete(courseId);
+        res.status(200).json({ message: 'Course deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Something went wrong' });
+    }
+}
+
+export { createCourse, listCourses, updateCourse, getCourseById, getCoursesByExamId, enrollCourse, getEnrolledCourses, deleteCourse };

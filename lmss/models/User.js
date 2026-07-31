@@ -10,13 +10,20 @@ const userSchema = new mongoose.Schema({
         required: true,
         type: String
     },
+    name: {
+        type: String
+    },
     username: {
         type: String
+    },
+    role: {
+        type: String,
+        enum: ['student', 'admin'],
+        default: 'student'
     },
     profilePic: {
         type: String
     },
-    // New fields
     dateOfBirth: {
         type: Date
     },
