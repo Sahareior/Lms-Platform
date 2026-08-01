@@ -1,16 +1,16 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAppSelector } from '@my-monorepo/store';
 import { useGetEnrolledCourseQuery } from '@my-monorepo/store/src/redux/api/courseApi';
 import { CourseSelectionScreen, LessonPlayerScreen } from './_components';
-
-// Hardcoded user ID for now (will be replaced with auth context)
-const DEMO_USER_ID = '507f1f77bcf86cd799439015';
 
 const LessonPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
 
+  const userId = useAppSelector((state) => state.user.user?._id) || '';
+
   const { data: enrolledCourses, isLoading: isLoadingEnrolledCourses } =
-    useGetEnrolledCourseQuery('6a5ee4291fda2cffc2eafca3');
+    useGetEnrolledCourseQuery(userId, { skip: !userId });
 
   if (!courseId) {
     return (
@@ -30,7 +30,7 @@ const LessonPage = () => {
     <LessonPlayerScreen
       courseId={courseId}
       course={selectedCourse}
-      userId={DEMO_USER_ID}
+      userId={userId}
       onBack={() => navigate('/courses')}
     />
   );

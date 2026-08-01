@@ -54,6 +54,76 @@ export interface QuestionAnalyzerRequest {
   questions: QuestionAnalyzerQuestion[];
 }
 
+// ─── AI User Performance Report Types ────────────────────────
+export interface AiPerformanceStats {
+  total_questions: number;
+  correct_answers: number;
+  incorrect_answers: number;
+  score_percentage: number;
+  exam: string;
+}
+
+export interface AiScoreAnalysis {
+  percentage: number;
+  verdict: string;
+  message: string;
+}
+
+export interface AiSubjectBreakdown {
+  subject: string;
+  attempted: number;
+  correct: number;
+  accuracy: number;
+  isWeak: boolean;
+  isCritical: boolean;
+  /** Optional – only present in demo/fallback data, not from the AI API */
+  trend?: string;
+}
+
+export interface AiStrength {
+  topic: string;
+  accuracy: number;
+  detail: string;
+}
+
+export interface AiWeakArea {
+  topic: string;
+  accuracy: number;
+  reason: string;
+  recommendation: string;
+}
+
+export interface AiMistakeBreakdown {
+  question_text: string;
+  identified_subject: string;
+  user_answer: string;
+  correct_answer: string;
+  explanation: string;
+}
+
+export interface AiStudyPlanItem {
+  day: string;
+  focus_subject: string;
+  title: string;
+  description: string;
+  duration_minutes: number;
+}
+
+export interface AiPerformanceReport {
+  score_analysis: AiScoreAnalysis;
+  subject_breakdown: AiSubjectBreakdown[];
+  strengths: AiStrength[];
+  weak_areas: AiWeakArea[];
+  mistake_breakdown: AiMistakeBreakdown[];
+  study_plan: AiStudyPlanItem[];
+}
+
+export interface AiPerformanceResponse {
+  success: boolean;
+  stats: AiPerformanceStats;
+  ai_report: AiPerformanceReport;
+}
+
 // ─── Custom Base Query (dynamic URL + shared auth token) ──
 const dynamicAiBaseQuery: BaseQueryFn<
   FetchArgs,
@@ -122,6 +192,14 @@ export const aiApi = createApi({
       })
     }),
 
+    aiUserPerFormance: build.mutation<AiPerformanceResponse, unknown>({
+      query:(data) => ({
+        url:'/user-performance',
+        method:'POST',
+        body:data
+      })
+    })
+
 
 
   }),
@@ -133,5 +211,5 @@ export const {
   useUploadDocumentsMutation,
   useQuestionAnalyzerMutation,
   useQuestionPaperScraperMutation,
-
+  useAiUserPerFormanceMutation
 } = aiApi;

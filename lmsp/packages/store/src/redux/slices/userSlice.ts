@@ -4,7 +4,7 @@ import type { AuthState, User } from '../../types';
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true, // true so AuthGuard shows loading spinner until AuthInitializer restores session or fails
 };
 
 const userSlice = createSlice({

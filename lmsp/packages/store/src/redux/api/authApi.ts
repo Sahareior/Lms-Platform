@@ -76,6 +76,12 @@ const authApi = api.injectEndpoints({
       providesTags: ['User'],
     }),
 
+    // ── Get Me (uses JWT token to identify the user) ─────────
+    getMe: build.query<User, void>({
+      query: () => ({ url: '/auth/me' }),
+      providesTags: ['User'],
+    }),
+
     // ── Update Profile ───────────────────────────────────────
     updateProfile: build.mutation<User, Partial<User>>({
       query: (data) => ({
@@ -94,6 +100,7 @@ export const {
   useLoginMutation,
   useRegisterMutation,
   useGetProfileQuery,
+  useGetMeQuery,
   useUpdateProfileMutation,
   useAddUserInfoMutation
 } = authApi;

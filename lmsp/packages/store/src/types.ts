@@ -35,7 +35,9 @@ export interface AuthState {
 export interface Exam {
    _id: string;
    name: string;
-   image: string;
+   image?: string;
+   description?: string;
+   applicants?: string;
 }
 
 

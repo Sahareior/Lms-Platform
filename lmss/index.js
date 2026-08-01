@@ -13,6 +13,7 @@ import noteRoutes from './routes/note.js';
 import quizAttemptRoutes from './routes/quizAttempt.js';
 import userDataRoutes from './routes/userData.js';
 import quizPerform from './routes/QuizPerformance.js';
+import aiPerformance from './routes/aiPerformance.js';
 const app = express();
 
 
@@ -37,6 +38,7 @@ app.use('/notes', noteRoutes)
 app.use('/quiz-attempts', quizAttemptRoutes)
 app.use('/user-data', userDataRoutes)
 app.use('/quiz-performance', quizPerform)
+app.use('/ai-performance', aiPerformance)
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

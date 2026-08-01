@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import userReducer from './slices/userSlice';
 import courseReducer from './slices/courseSlice';
 import uiReducer from './slices/uiSlice';
+import aiPerformanceReducer from './slices/aiPerformanceSlice';
 import { api } from './api/baseApi';
 import { aiApi } from './api/aiApi';
 
@@ -15,6 +16,7 @@ export function createStore() {
       user: userReducer,
       course: courseReducer,
       ui: uiReducer,
+      aiPerformance: aiPerformanceReducer,
       [api.reducerPath]: api.reducer,
       [aiApi.reducerPath]: aiApi.reducer,
     },

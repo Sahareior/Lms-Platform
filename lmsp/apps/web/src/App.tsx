@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query/react';
 import { ConfigProvider, Layout, theme as antdTheme } from 'antd';
 import {
   LayoutDashboard,
@@ -8,9 +9,25 @@ import {
   Library,
   BarChart3,
   Settings,
-  Sparkles,
+  LogOut,
 } from 'lucide-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import {
+  useAppDispatch,
+  useAppSelector,
+  logout,
+  setAuthToken,
+  setAiReport,
+  setAiReportLoading,
+  setAiReportError,
+  setAiReportHistory,
+  clearAiReport,
+} from '@my-monorepo/store';
+import { clearPersistedAuth } from './auth/AuthInitializer';
+import {
+  useGetOrGenerateAiPerformanceMutation,
+  useGetAiPerformanceHistoryQuery,
+} from '@my-monorepo/store/src/redux/api/userPerformanceApi';
 
 const { Content, Sider } = Layout;
 
@@ -36,11 +53,71 @@ const navItems: NavItem[] = [
 const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.user);
+  const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
+  const { data: historyData } = useGetAiPerformanceHistoryQuery(
+    user?._id ?? skipToken
+  );
+  const lastSentKey = useRef<string | null>(null);
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
   };
+
+
+useEffect(() => {
+  // No logged-in user → drop any stale report (e.g. after logout)
+  if (!user?._id) {
+    lastSentKey.current = null;
+    dispatch(clearAiReport());
+    return;
+  }
+
+  // Avoid re-sending the same request on StrictMode double-invoke / refetches.
+  // The backend caches the result for the whole day, so this only triggers the
+  // expensive AI call at most once per day per user.
+  if (lastSentKey.current === user._id) return;
+  lastSentKey.current = user._id;
+
+  const sendData = async () => {
+    try {
+      dispatch(setAiReportLoading(true));
+      const res = await getOrGenerateAiPerformance({ userId: user._id }).unwrap();
+      // No performance data yet → clear any stale report
+      if (res.empty || !res.stats || !res.ai_report) {
+        dispatch(clearAiReport());
+        return;
+      }
+      dispatch(
+        setAiReport({
+          report: {
+            success: res.success,
+            stats: res.stats,
+            ai_report: res.ai_report,
+          },
+          previous: res.previous,
+          isCached: res.cached,
+          generatedAt: res.generatedAt,
+        })
+      );
+    } catch (err) {
+      console.error(err);
+      // Allow a retry on the next mount / user change if loading failed
+      lastSentKey.current = null;
+      dispatch(setAiReportError('Failed to load AI performance report'));
+    }
+  };
+  sendData();
+}, [user?._id, getOrGenerateAiPerformance, dispatch]);
+
+useEffect(() => {
+  // Load the full report history for the progress-over-time comparison
+  if (historyData?.history) {
+    dispatch(setAiReportHistory(historyData.history));
+  }
+}, [historyData, dispatch]);
 
   return (
     <ConfigProvider
@@ -99,14 +176,32 @@ const App: React.FC = () => {
               </nav>
             </div>
 
-            <div className="bg-[#161920] border border-[#23262D] rounded-2xl p-4 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-[#2F80ED]/20 text-[#2F80ED] font-semibold flex items-center justify-center border border-[#2F80ED]/40">
-                SR
+            {/* ── User Profile Card ───────────────────────── */}
+            <div className="bg-[#161920] border border-[#23262D] rounded-2xl p-4 flex items-center gap-3 group">
+              <div className="h-9 w-9 rounded-full bg-[#2F80ED]/20 text-[#2F80ED] font-semibold flex items-center justify-center border border-[#2F80ED]/40 shrink-0">
+                {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
               </div>
-              <div className="overflow-hidden">
-                <p className="font-semibold text-sm text-[#F5F7FA] truncate">Sahareior</p>
-                <p className="text-xs text-[#A1A8B3] truncate">BCS Candidate</p>
+              <div className="overflow-hidden flex-1 min-w-0">
+                <p className="font-semibold text-sm text-[#F5F7FA] truncate">
+                  {user?.name || user?.email || 'User'}
+                </p>
+                <p className="text-xs text-[#A1A8B3] truncate capitalize">
+                  {user?.role || 'Student'}
+                </p>
               </div>
+              {/* ── Logout Button ──────────────────────────────── */}
+              <button
+                onClick={() => {
+                  dispatch(logout());
+                  setAuthToken(null);
+                  clearPersistedAuth();
+                  navigate('/login', { replace: true });
+                }}
+                className="p-2 rounded-lg text-[#A1A8B3] hover:text-[#EB5757] hover:bg-[#EB5757]/10 transition-all opacity-0 group-hover:opacity-100"
+                title="Log out"
+              >
+                <LogOut size={16} />
+              </button>
             </div>
           </aside>
         </Sider>

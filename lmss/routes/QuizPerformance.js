@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
-import { postQuizPerformance, getQuizPerformance } from '../controller/quizPerformController.js';
+import { postQuizPerformance, getQuizPerformance, getQuizPerformanceByUser } from '../controller/quizPerformController.js';
 
 const router = express.Router();
 
@@ -8,6 +8,7 @@ const router = express.Router();
 router.get('/', getQuizPerformance);
 
 // Protected: create quiz performance
-router.post('/', authenticate, postQuizPerformance);
+router.post('/', postQuizPerformance);
+router.get('/:userId',getQuizPerformanceByUser)
 
 export default router;

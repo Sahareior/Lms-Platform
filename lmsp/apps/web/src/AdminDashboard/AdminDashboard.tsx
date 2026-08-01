@@ -23,6 +23,7 @@ import {
   SafetyOutlined,
   TagsOutlined,
   CalendarOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -48,6 +49,7 @@ const AdminDashboard: React.FC = () => {
     if (path.includes('/admin/question-bank')) return 'question-bank';
     if (path.includes('/admin/subjects')) return 'subjects';
     if (path.includes('/admin/exam-control')) return 'exam-control';
+    if (path.includes('/admin/user-performance')) return 'user-performance';
     return 'dashboard';
   };
 
@@ -99,6 +101,12 @@ const AdminDashboard: React.FC = () => {
       icon: <CalendarOutlined />,
       label: 'Exam Control',
       onClick: () => navigate('/admin/exam-control'),
+    },
+    {
+      key: 'user-performance',
+      icon: <BarChartOutlined />,
+      label: 'User Performance',
+      onClick: () => navigate('/admin/user-performance'),
     },
   ];
 
@@ -237,6 +245,7 @@ const AdminDashboard: React.FC = () => {
               {selectedKey === 'question-bank' && 'Question Bank'}
               {selectedKey === 'subjects' && 'Subject Management'}
               {selectedKey === 'exam-control' && 'Exam Control'}
+              {selectedKey === 'user-performance' && 'User Performance'}
             </Text>
           </Space>
 

@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Calendar,
   Download,
@@ -7,11 +6,23 @@ import {
   Target,
   BookOpen,
   Clock,
-  Users,
   Plus,
-  Star,
-  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  RefreshCw,
+  Database,
 } from 'lucide-react';
+import {
+  useAppSelector,
+  useAppDispatch,
+  setAiReport,
+  setAiReportLoading,
+  setAiReportError,
+  clearAiReport,
+  useGetOrGenerateAiPerformanceMutation,
+  useGetMeQuery,
+} from '@my-monorepo/store';
 import {
   AreaChart,
   Area,
@@ -27,19 +38,104 @@ import {
   PolarRadiusAxis,
 } from 'recharts';
 
-const Performance = () => {
-  // Radar data – subject strengths
-  const radarData = [
-    { subject: 'Bangla', value: 82, fullMark: 100 },
-    { subject: 'English', value: 65, fullMark: 100 },
-    { subject: 'Math', value: 55, fullMark: 100 },
-    { subject: 'GK', value: 75, fullMark: 100 },
-    { subject: 'Comp. & IT', value: 78, fullMark: 100 },
-    { subject: 'Intl. Affairs', value: 61, fullMark: 100 },
-  ];
+// ─── Progress Delta Badge ──────────────────────────────────
+function DeltaBadge({
+  delta,
+  suffix = '%',
+  invert = false,
+}: {
+  delta: number | null;
+  suffix?: string;
+  invert?: boolean;
+}) {
+  if (delta === null || delta === 0) return null;
+  const positive = invert ? delta < 0 : delta > 0;
+  const up = delta > 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+        positive
+          ? 'text-[#00E5B3] bg-[#00E5B3]/10 border-[#00E5B3]/30'
+          : 'text-[#EB5757] bg-[#EB5757]/10 border-[#EB5757]/30'
+      }`}
+    >
+      {up ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}
+      {suffix}
+    </span>
+  );
+}
 
-  // Daily accuracy trend
-  const trendData = [
+const Performance = () => {
+  // ─── AI Performance Report from store ──────────────────────
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.user);
+  const aiReport = useAppSelector((state) => state.aiPerformance.report);
+  const aiReportLoading = useAppSelector((state) => state.aiPerformance.isLoading);
+  const previous = useAppSelector((state) => state.aiPerformance.previous);
+  const isCached = useAppSelector((state) => state.aiPerformance.isCached);
+  const generatedAt = useAppSelector((state) => state.aiPerformance.generatedAt);
+  const history = useAppSelector((state) => state.aiPerformance.history);
+  const aiStats = aiReport?.stats;
+  const aiInsights = aiReport?.ai_report;
+  const [getOrGenerateAiPerformance, { isLoading: isRegenerating }] =
+    useGetOrGenerateAiPerformanceMutation();
+  
+    const { data: userData } = useGetMeQuery();
+
+  // ─── Progress deltas vs the previous report ────────────────
+  const prevStats = previous?.stats;
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  const scoreDelta =
+    aiStats && prevStats ? round1(aiStats.score_percentage - prevStats.score_percentage) : null;
+  const questionsDelta =
+    aiStats && prevStats ? aiStats.total_questions - prevStats.total_questions : null;
+  const correctDelta =
+    aiStats && prevStats ? aiStats.correct_answers - prevStats.correct_answers : null;
+  const incorrectDelta =
+    aiStats && prevStats ? aiStats.incorrect_answers - prevStats.incorrect_answers : null;
+
+  // ─── Manual refresh (forces a fresh AI report today) ───────
+  const handleRegenerate = async () => {
+    if (!user?._id) return;
+    try {
+      dispatch(setAiReportLoading(true));
+      const res = await getOrGenerateAiPerformance({ userId: user._id, force: true }).unwrap();
+      if (res.empty || !res.stats || !res.ai_report) {
+        dispatch(clearAiReport());
+        return;
+      }
+      dispatch(
+        setAiReport({
+          report: {
+            success: res.success,
+            stats: res.stats,
+            ai_report: res.ai_report,
+          },
+          previous: res.previous,
+          isCached: res.cached,
+          generatedAt: res.generatedAt,
+        })
+      );
+    } catch (err) {
+      console.error(err);
+      dispatch(setAiReportError('Failed to regenerate AI performance report'));
+    }
+  };
+
+  // Radar data – subject strengths (from AI report, fallback to demo)
+  const radarData = aiInsights?.subject_breakdown?.length
+    ? aiInsights.subject_breakdown.map((s) => ({ subject: s.subject, value: s.accuracy, fullMark: 100 }))
+    : [
+        { subject: 'Bangla', value: 82, fullMark: 100 },
+        { subject: 'English', value: 65, fullMark: 100 },
+        { subject: 'Math', value: 55, fullMark: 100 },
+        { subject: 'GK', value: 75, fullMark: 100 },
+        { subject: 'Comp. & IT', value: 78, fullMark: 100 },
+        { subject: 'Intl. Affairs', value: 61, fullMark: 100 },
+      ];
+
+  // Daily accuracy trend – built from saved daily AI reports when available
+  const fallbackTrendData = [
     { day: 'Oct 25', accuracy: 62 },
     { day: 'Oct 27', accuracy: 68 },
     { day: 'Oct 29', accuracy: 58 },
@@ -51,17 +147,31 @@ const Performance = () => {
     { day: 'Nov 10', accuracy: 82 },
     { day: 'Nov 12', accuracy: 85 },
   ];
+  const historyTrend =
+    history && history.length > 0
+      ? history.map((h) => ({
+          day: new Date(h.generatedAt).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          }),
+          accuracy: h.score_percentage,
+        }))
+      : null;
+  const trendData = historyTrend || fallbackTrendData;
+  const usingHistoryTrend = !!historyTrend;
 
-  // Subject breakdown
-  const subjectData = [
-    { subject: 'BD Affairs', attempted: 684, correct: 602, accuracy: 88, trend: '+6%', isWeak: false, isCritical: false },
-    { subject: 'Bangla', attempted: 812, correct: 666, accuracy: 82, trend: '+3%', isWeak: false, isCritical: false },
-    { subject: 'Computer', attempted: 428, correct: 338, accuracy: 79, trend: '+2%', isWeak: false, isCritical: false },
-    { subject: 'General Knowledge', attempted: 552, correct: 408, accuracy: 74, trend: '0%', isWeak: false, isCritical: false },
-    { subject: 'English', attempted: 496, correct: 317, accuracy: 64, trend: '-3%', isWeak: true, isCritical: false },
-    { subject: 'International Affairs', attempted: 342, correct: 209, accuracy: 61, trend: '-5%', isWeak: true, isCritical: false },
-    { subject: 'Math', attempted: 528, correct: 290, accuracy: 55, trend: '-8%', isWeak: true, isCritical: true },
-  ];
+  // Subject breakdown (from AI report, fallback to demo)
+  const subjectData = aiInsights?.subject_breakdown?.length
+    ? aiInsights.subject_breakdown
+    : [
+        { subject: 'BD Affairs', attempted: 684, correct: 602, accuracy: 88, trend: '+6%', isWeak: false, isCritical: false },
+        { subject: 'Bangla', attempted: 812, correct: 666, accuracy: 82, trend: '+3%', isWeak: false, isCritical: false },
+        { subject: 'Computer', attempted: 428, correct: 338, accuracy: 79, trend: '+2%', isWeak: false, isCritical: false },
+        { subject: 'General Knowledge', attempted: 552, correct: 408, accuracy: 74, trend: '0%', isWeak: false, isCritical: false },
+        { subject: 'English', attempted: 496, correct: 317, accuracy: 64, trend: '-3%', isWeak: true, isCritical: false },
+        { subject: 'International Affairs', attempted: 342, correct: 209, accuracy: 61, trend: '-5%', isWeak: true, isCritical: false },
+        { subject: 'Math', attempted: 528, correct: 290, accuracy: 55, trend: '-8%', isWeak: true, isCritical: true },
+      ];
 
   // Chart color scheme (BrainForge)
   const successColor = '#00E5B3'; // teal
@@ -69,31 +179,79 @@ const Performance = () => {
   const dangerColor = '#EB5757'; // red
   const primaryColor = '#2F80ED'; // blue
 
+  const verdictColor = !aiInsights?.score_analysis?.verdict
+    ? primaryColor
+    : aiInsights.score_analysis.verdict === 'Excellent' ? successColor
+    : aiInsights.score_analysis.verdict === 'Good' ? primaryColor
+    : aiInsights.score_analysis.verdict === 'Needs Improvement' ? warningColor
+    : dangerColor;
+
+  const overallAccuracy = aiStats?.score_percentage ?? 78.4;
+  // AI subject_breakdown has no real trend data — hide the synthetic Trend column when AI data drives the table
+  const usingAiSubjectData = !!aiInsights?.subject_breakdown?.length;
+  const strongest = radarData.length >= 2 ? radarData.reduce((a, b) => (a.value > b.value ? a : b)) : null;
+  const weakest = radarData.length >= 2 ? radarData.reduce((a, b) => (a.value < b.value ? a : b)) : null;
+
+  // Fallback demo study plan when no AI report is available yet
+  const fallbackPlan = [
+    { day: 'MON', focus_subject: 'MATH', title: 'Math — Percentages & Profit', description: 'Focus on CP/SP problems. 25 MCQs from past BCS papers.', duration_minutes: 90 },
+    { day: 'TUE', focus_subject: 'ENGLISH', title: 'English — Tense & Voice', description: 'Do 10 grammar rules + 30 transformation MCQs.', duration_minutes: 60 },
+    { day: 'WED', focus_subject: 'GK', title: 'Intl Affairs — UN & SAARC', description: 'Review UN charter & SAARC summits, recent events.', duration_minutes: 45 },
+    { day: 'THU', focus_subject: 'MOCK', title: 'Full Mock Exam #5', description: '200 Qs • 2hrs • review weak topics afterward.', duration_minutes: 120 },
+    { day: 'FRI+', focus_subject: 'REVIEW', title: 'Daily Review & Practice', description: 'Revise 2 weak subjects daily + 50 MCQs.', duration_minutes: 60 },
+  ];
+
+  console.log(userData?.selectedExams,'this is s')
+
+  const useSelectedExam = userData?.selectedExams
+
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
-      <div className="w-full mx-auto space-y-6 p-4 md:p-6">
+      <div className="w-full mx-auto space-y-6 p-2">
 
         {/* ─── HEADER ─── */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#111318] p-4 rounded-2xl border border-[#23262D]">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-[#2F80ED]/10 border border-[#2F80ED]/30 text-[#2F80ED] flex items-center justify-center font-bold text-lg">
-              RA
+              AI
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-[#F5F7FA]">Rahim Ahmed</h1>
-                <span className="text-[10px] bg-[#2F80ED]/10 text-[#2F80ED] px-2 py-0.5 rounded-full font-bold border border-[#2F80ED]/30">
-                  <Target size={10} className="inline mr-0.5" /> Target: BCS 47th
-                </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg font-bold text-[#F5F7FA]">
+                  {aiStats?.exam || 'Performance Analytics'}
+                </h1>
+                {aiInsights?.score_analysis && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold border" style={{ color: verdictColor, background: `${verdictColor}14`, borderColor: `${verdictColor}40` }}>
+                    <Target size={10} className="inline mr-0.5" /> {aiInsights.score_analysis.verdict}
+                  </span>
+                )}
+                {scoreDelta !== null && scoreDelta !== 0 && (
+                  <DeltaBadge delta={scoreDelta} suffix="%" />
+                )}
               </div>
               <p className="text-xs text-[#A1A8B3]">
-                Performance Analytics • Last 30 days • Updated 12 min ago
+                {aiReportLoading ? 'AI is analyzing your performance…' : aiStats ? `AI-powered analysis • ${aiStats.total_questions} questions • ${aiStats.correct_answers} correct${isCached ? ' • from today\u2019s saved report' : ''}` : 'Performance Analytics • No AI report yet'}
               </p>
+              {generatedAt && !aiReportLoading && (
+                <p className="text-[10px] text-[#6B7280] flex items-center gap-1 mt-0.5">
+                  <Database size={10} /> Updated {new Date(generatedAt).toLocaleString()}
+                  {isCached && ' • cached for today'}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 w-full md:w-auto">
+            <button
+              onClick={handleRegenerate}
+              disabled={isRegenerating || aiReportLoading}
+              title="Generate a fresh AI report for today (overrides the saved one)"
+              className="flex items-center justify-center gap-1 text-xs bg-[#00E5B3] text-black font-semibold px-3 py-1.5 rounded-lg hover:bg-[#00C298] transition w-full md:w-auto active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw size={14} className={isRegenerating || aiReportLoading ? 'animate-spin' : ''} />
+              {isRegenerating || aiReportLoading ? 'Generating…' : 'Regenerate'}
+            </button>
             <button className="flex items-center justify-center gap-1 text-xs border border-[#23262D] px-3 py-1.5 rounded-lg hover:bg-[#161920] text-[#A1A8B3] bg-[#111318] w-full md:w-auto">
-              <Calendar size={14} /> Last 30 days <ChevronDown size={12} />
+              <Calendar size={14} /> Saved reports <ChevronDown size={12} />
             </button>
             <button className="flex items-center justify-center gap-1 text-xs bg-[#2F80ED] text-white px-3 py-1.5 rounded-lg hover:bg-[#256BCE] transition w-full md:w-auto active:scale-95">
               <Download size={14} /> Export
@@ -104,10 +262,10 @@ const Performance = () => {
         {/* ─── STATS CARDS ─── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Overall Accuracy', value: '78.4 %', sub: '+4.2% vs last month', icon: <Target size={18} className="text-[#00E5B3]" />, color: '#00E5B3', trend: 'up' },
-            { label: 'Questions Attempted', value: '3,842', sub: '+288 this week', icon: <BookOpen size={18} className="text-[#2F80ED]" />, color: '#2F80ED', trend: 'up' },
-            { label: 'Avg Time / Question', value: '42 sec', sub: '-6 sec faster', icon: <Clock size={18} className="text-[#F2C94C]" />, color: '#F2C94C', trend: 'down' },
-            { label: 'National Rank', value: '# 2,148', sub: '↑ 412 ranks', icon: <Users size={18} className="text-[#9B51E0]" />, color: '#9B51E0', trend: 'up' },
+            { label: 'Overall Accuracy', value: `${overallAccuracy.toFixed(1)} %`, sub: aiStats ? `${aiStats.correct_answers}/${aiStats.total_questions} correct` : 'No AI report yet', delta: scoreDelta, deltaSuffix: '%', deltaInvert: false, icon: <Target size={18} className="text-[#00E5B3]" />, color: '#00E5B3' },
+            { label: 'Questions Attempted', value: aiStats?.total_questions?.toLocaleString() ?? '—', sub: aiStats ? 'from AI analysis' : 'No AI report yet', delta: questionsDelta, deltaSuffix: '', deltaInvert: false, icon: <BookOpen size={18} className="text-[#2F80ED]" />, color: '#2F80ED' },
+            { label: 'Correct Answers', value: aiStats?.correct_answers?.toLocaleString() ?? '—', sub: aiStats ? `${((aiStats.correct_answers / Math.max(aiStats.total_questions, 1)) * 100).toFixed(0)}% success rate` : 'No AI report yet', delta: correctDelta, deltaSuffix: '', deltaInvert: false, icon: <CheckCircle2 size={18} className="text-[#9B51E0]" />, color: '#9B51E0' },
+            { label: 'Incorrect Answers', value: aiStats?.incorrect_answers?.toLocaleString() ?? '—', sub: aiStats ? `${((aiStats.incorrect_answers / Math.max(aiStats.total_questions, 1)) * 100).toFixed(0)}% to improve` : 'No AI report yet', delta: incorrectDelta, deltaSuffix: '', deltaInvert: true, icon: <XCircle size={18} className="text-[#F2C94C]" />, color: '#F2C94C' },
           ].map((stat, idx) => (
             <div key={idx} className="bg-[#111318] p-4 rounded-2xl border border-[#23262D] flex flex-col">
               <div className="flex justify-between items-start mb-1">
@@ -117,10 +275,15 @@ const Performance = () => {
                 </div>
               </div>
               <div className="text-2xl font-bold text-[#F5F7FA] mb-0.5">{stat.value}</div>
-              <div className="flex items-center gap-1 text-[10px] font-medium">
-                <span className={stat.trend === 'up' ? 'text-[#00E5B3]' : 'text-[#F2C94C]'}>
-                  {stat.trend === 'up' ? '▲' : '▼'} {stat.sub}
-                </span>
+              <div className="flex items-center gap-1.5 text-[10px] font-medium flex-wrap">
+                {stat.delta !== null && stat.delta !== 0 ? (
+                  <>
+                    <DeltaBadge delta={stat.delta} suffix={stat.deltaSuffix} invert={stat.deltaInvert} />
+                    <span className="text-[#6B7280]">vs previous</span>
+                  </>
+                ) : (
+                  <span className="text-[#A1A8B3]">{stat.sub}</span>
+                )}
               </div>
             </div>
           ))}
@@ -128,9 +291,12 @@ const Performance = () => {
 
         {/* ─── EXAM FILTERS ─── */}
         <div className="bg-[#111318] p-3 rounded-2xl border border-[#23262D] flex flex-wrap items-center gap-3">
-          <button className="bg-[#2F80ED] text-white text-xs font-bold px-4 py-1.5 rounded-lg">BCS Preliminary</button>
-          <button className="text-xs font-medium text-[#A1A8B3] px-3 py-1.5 hover:bg-[#161920] hover:text-[#F5F7FA] rounded-lg transition">Bank Job</button>
-          <button className="text-xs font-medium text-[#A1A8B3] px-3 py-1.5 hover:bg-[#161920] hover:text-[#F5F7FA] rounded-lg transition">Primary Teacher</button>
+        {
+          useSelectedExam?.map(exams => (
+            <button className="bg-[#2F80ED] text-white text-xs font-bold px-4 py-1.5 rounded-lg">{exams.name}</button>
+          ))
+
+        }
           <div className="ml-auto flex items-center gap-1 text-[10px] text-[#00E5B3]">
             <div className="w-1.5 h-1.5 rounded-full bg-[#00E5B3] animate-pulse"></div>
             Live data • Synced
@@ -144,7 +310,7 @@ const Performance = () => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-bold text-[#F5F7FA]">Subject Strength Map</h3>
-                <p className="text-[10px] text-[#A1A8B3]">Accuracy % across 7 subjects</p>
+                <p className="text-[10px] text-[#A1A8B3]">Accuracy % across {radarData.length} subject{radarData.length !== 1 ? 's' : ''}</p>
               </div>
             </div>
             <div className="flex flex-col md:flex-row items-center justify-center gap-4 h-[280px]">
@@ -159,14 +325,20 @@ const Performance = () => {
                 </ResponsiveContainer>
               </div>
               <div className="flex flex-col gap-1 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-[#00E5B3]"></div>
-                  <span className="font-semibold text-[#F5F7FA]">Strongest:</span> BD Affairs 88%
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-[#EB5757]"></div>
-                  <span className="font-semibold text-[#F5F7FA]">Weakest:</span> Math 55%
-                </div>
+                {strongest && weakest ? (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-[#00E5B3]"></div>
+                      <span className="font-semibold text-[#F5F7FA]">Strongest:</span> {strongest.subject} {strongest.value}%
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-[#EB5757]"></div>
+                      <span className="font-semibold text-[#F5F7FA]">Weakest:</span> {weakest.subject} {weakest.value}%
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[10px] text-[#A1A8B3]">More subject data needed for comparison.</div>
+                )}
               </div>
             </div>
           </div>
@@ -176,11 +348,15 @@ const Performance = () => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-bold text-[#F5F7FA]">Accuracy Trend</h3>
-                <p className="text-[10px] text-[#A1A8B3]">Daily accuracy • last 30 days</p>
+                <p className="text-[10px] text-[#A1A8B3]">
+                  {usingHistoryTrend
+                    ? `Progress over time • ${trendData.length} saved daily report${trendData.length !== 1 ? 's' : ''}`
+                    : 'Daily accuracy • last 30 days'}
+                </p>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-[#00E5B3]">78.4%</div>
-                <div className="text-[10px] text-[#00E5B3] font-medium">+ 4.2</div>
+                <div className="text-2xl font-bold text-[#00E5B3]">{overallAccuracy.toFixed(1)}%</div>
+                <div className="text-[10px] text-[#00E5B3] font-medium">{aiInsights?.score_analysis.verdict || '+ 4.2'}</div>
               </div>
             </div>
             <div className="h-[200px] w-full">
@@ -225,7 +401,7 @@ const Performance = () => {
                   <th className="px-5 py-3 text-center">Attempted</th>
                   <th className="px-5 py-3 text-center">Correct</th>
                   <th className="px-5 py-3 text-left w-[200px]">Accuracy</th>
-                  <th className="px-5 py-3 text-center">Trend</th>
+                  {!usingAiSubjectData && <th className="px-5 py-3 text-center">Trend</th>}
                   <th className="px-5 py-3 text-center">Action</th>
                 </tr>
               </thead>
@@ -265,13 +441,15 @@ const Performance = () => {
                         <span className="text-xs font-bold text-[#F5F7FA] min-w-[35px]">{row.accuracy}%</span>
                       </div>
                     </td>
-                    <td
-                      className={`px-5 py-3 text-center text-xs font-semibold ${
-                        row.trend.includes('-') ? 'text-[#EB5757]' : 'text-[#00E5B3]'
-                      }`}
-                    >
-                      {row.trend}
-                    </td>
+                    {!usingAiSubjectData && (
+                      <td
+                        className={`px-5 py-3 text-center text-xs font-semibold ${
+                          row.trend?.includes('-') ? 'text-[#EB5757]' : 'text-[#00E5B3]'
+                        }`}
+                      >
+                        {row.trend}
+                      </td>
+                    )}
                     <td className="px-5 py-3 text-center">
                       <button
                         className={`text-xs px-3 py-1 rounded border font-medium transition ${
@@ -280,7 +458,7 @@ const Performance = () => {
                             : 'border-[#23262D] text-[#A1A8B3] hover:bg-[#161920] hover:text-[#F5F7FA]'
                         }`}
                       >
-                        {row.action}
+                        {row.isWeak || row.isCritical ? 'Review' : 'Practice'}
                       </button>
                     </td>
                   </tr>
@@ -308,72 +486,107 @@ const Performance = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-            {/* Monday */}
-            <div className="bg-[#161920] border border-[#23262D] rounded-lg p-3 hover:border-[#323742] transition">
-              <div className="flex justify-between items-start mb-1">
-                <span className="text-xs font-bold text-[#A1A8B3]">MON</span>
-                <span className="text-[10px] bg-[#EB5757] text-white px-1.5 py-0.5 rounded font-bold">TUE</span>
+            {(aiInsights?.study_plan?.length ? aiInsights.study_plan : fallbackPlan).map((plan, idx) => (
+              <div key={idx} className="bg-[#161920] border border-[#23262D] rounded-lg p-3 hover:border-[#323742] transition">
+                <div className="flex justify-between items-start mb-1">
+                  <span className="text-xs font-bold text-[#A1A8B3]">{plan.day || `DAY ${idx + 1}`}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold truncate max-w-full" style={{ color: verdictColor, background: `${verdictColor}14` }}>
+                    {plan.focus_subject || 'FOCUS'}
+                  </span>
+                </div>
+                <div className="text-xs font-bold text-[#F5F7FA] mb-1">{plan.title}</div>
+                <div className="text-[10px] text-[#A1A8B3] leading-tight mb-2">{plan.description}</div>
+                <div className="flex justify-between items-center text-[10px] text-[#6B7280] border-t border-[#23262D] pt-1">
+                  <div className="flex items-center gap-1"><Clock size={10} /> {plan.duration_minutes || 60} min</div>
+                  <ChevronRight size={12} />
+                </div>
               </div>
-              <div className="text-xs font-bold text-[#F5F7FA] mb-1">Math — Percentages & Profit</div>
-              <div className="text-[10px] text-[#A1A8B3] leading-tight mb-2">Focus on CP/SP problems. 25 MCQs from past BCS papers.</div>
-              <div className="flex justify-between items-center text-[10px] text-[#6B7280] border-t border-[#23262D] pt-1">
-                <div className="flex items-center gap-1"><Clock size={10} /> 90 min/day</div>
-                <ChevronRight size={12} />
-              </div>
-            </div>
-
-            {/* Tuesday */}
-            <div className="bg-[#161920] border border-[#23262D] rounded-lg p-3 hover:border-[#323742] transition">
-              <div className="flex justify-between items-start mb-1">
-                <span className="text-xs font-bold text-[#A1A8B3]">TUE</span>
-                <span className="text-[10px] bg-[#EB5757] text-white px-1.5 py-0.5 rounded font-bold">WED</span>
-              </div>
-              <div className="text-xs font-bold text-[#F5F7FA] mb-1">English — Tense & Voice</div>
-              <div className="text-[10px] text-[#A1A8B3] leading-tight mb-2">Do 10 grammar rules + 30 transformation MCQs.</div>
-              <div className="flex justify-between items-center text-[10px] text-[#6B7280] border-t border-[#23262D] pt-1">
-                <div className="flex items-center gap-1"><Clock size={10} /> 60 min/day</div>
-                <ChevronRight size={12} />
-              </div>
-            </div>
-
-            {/* Wednesday */}
-            <div className="bg-[#161920] border border-[#23262D] rounded-lg p-3 hover:border-[#323742] transition">
-              <div className="flex justify-between items-start mb-1">
-                <span className="text-xs font-bold text-[#A1A8B3]">WED</span>
-                <span className="text-[10px] bg-[#F2C94C] text-white px-1.5 py-0.5 rounded font-bold">FRI</span>
-              </div>
-              <div className="text-xs font-bold text-[#F5F7FA] mb-1">Intl Affairs — UN & SAARC</div>
-              <div className="text-[10px] text-[#A1A8B3] leading-tight mb-2">Review UN charter & SAARC summits, recent events.</div>
-              <div className="flex justify-between items-center text-[10px] text-[#6B7280] border-t border-[#23262D] pt-1">
-                <div className="flex items-center gap-1"><Clock size={10} /> 45 min/day</div>
-                <ChevronRight size={12} />
-              </div>
-            </div>
-
-            {/* Thursday */}
-            <div className="bg-[#161920] border border-[#23262D] rounded-lg p-3 hover:border-[#323742] transition">
-              <div className="flex justify-between items-start mb-1">
-                <span className="text-xs font-bold text-[#A1A8B3]">THU</span>
-                <span className="text-[10px] bg-[#00E5B3] text-black px-1.5 py-0.5 rounded font-bold">SAT</span>
-              </div>
-              <div className="text-xs font-bold text-[#F5F7FA] mb-1">Full Mock Exam #5</div>
-              <div className="text-[10px] text-[#A1A8B3] leading-tight mb-2">200 Qs • 2hrs • review weak topics afterward.</div>
-              <div className="flex justify-between items-center text-[10px] text-[#6B7280] border-t border-[#23262D] pt-1">
-                <div className="flex items-center gap-1"><Clock size={10} /> 2 hrs</div>
-                <ChevronRight size={12} />
-              </div>
-            </div>
-
-            {/* Friday + Weekend (simplified) */}
-            <div className="border border-dashed border-[#323742] rounded-lg p-3 bg-[#161920] flex flex-col justify-center items-center col-span-2">
-              <span className="text-[10px] text-[#00E5B3] font-bold px-2 py-0.5 bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded mb-1">
-                RECOMMENDED
-              </span>
-              <div className="text-xs font-bold text-[#F5F7FA]">Daily Review & Practice</div>
-              <div className="text-[10px] text-[#A1A8B3]">Revise 2 weak subjects daily + 50 MCQs</div>
-            </div>
+            ))}
           </div>
         </div>
+
+        {/* ─── STRENGTHS & WEAK AREAS ─── */}
+        {aiInsights && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Strengths */}
+            <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded-full bg-[#00E5B3]/10 border border-[#00E5B3]/30 flex items-center justify-center">
+                  <CheckCircle2 size={13} className="text-[#00E5B3]" />
+                </div>
+                <h3 className="font-bold text-[#F5F7FA]">Strengths</h3>
+              </div>
+              <div className="space-y-2.5">
+                {aiInsights.strengths.map((s, idx) => (
+                  <div key={idx} className="bg-[#161920] border border-[#23262D] border-l-4 border-l-[#00E5B3] rounded-xl p-3">
+                    <div className="flex justify-between items-center gap-2">
+                      <h4 className="text-xs font-bold text-[#F5F7FA]">{s.topic}</h4>
+                      <span className="text-[10px] font-bold text-[#00E5B3]">{s.accuracy}%</span>
+                    </div>
+                    <p className="text-[10px] text-[#A1A8B3] mt-1">{s.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Weak Areas */}
+            <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded-full bg-[#EB5757]/10 border border-[#EB5757]/30 flex items-center justify-center">
+                  <AlertTriangle size={13} className="text-[#EB5757]" />
+                </div>
+                <h3 className="font-bold text-[#F5F7FA]">Weak Areas</h3>
+              </div>
+              <div className="space-y-2.5">
+                {aiInsights.weak_areas.map((w, idx) => (
+                  <div key={idx} className="bg-[#161920] border border-[#23262D] border-l-4 border-l-[#EB5757] rounded-xl p-3">
+                    <div className="flex justify-between items-center gap-2">
+                      <h4 className="text-xs font-bold text-[#F5F7FA]">{w.topic}</h4>
+                      <span className="text-[10px] font-bold text-[#EB5757]">{w.accuracy}%</span>
+                    </div>
+                    <p className="text-[10px] text-[#A1A8B3] mt-1">{w.reason}</p>
+                    <p className="text-[10px] text-[#00E5B3] mt-1">{w.recommendation}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── MISTAKE BREAKDOWN ─── */}
+        {aiInsights && aiInsights.mistake_breakdown.length > 0 && (
+          <div className="bg-[#111318] rounded-2xl border border-[#23262D] overflow-hidden">
+            <div className="p-5 border-b border-[#23262D]">
+              <h3 className="font-bold text-[#F5F7FA]">Mistake Breakdown</h3>
+              <p className="text-xs text-[#A1A8B3]">Questions you got wrong, with explanations to learn from.</p>
+            </div>
+            <div className="divide-y divide-[#23262D]">
+              {aiInsights.mistake_breakdown.map((m, idx) => (
+                <div key={idx} className="p-5 grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-4 items-start">
+                  <div>
+                    <p className="text-sm font-semibold text-[#F5F7FA] mb-1">{m.question_text}</p>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-[#2F80ED]/10 text-[#2F80ED] border border-[#2F80ED]/30 font-medium">
+                      {m.identified_subject}
+                    </span>
+                    <p className="text-[11px] text-[#A1A8B3] mt-2 leading-relaxed">{m.explanation}</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-[#EB5757] font-bold flex items-center gap-1">
+                      <XCircle size={11} /> Your answer
+                    </span>
+                    <span className="text-xs text-[#A1A8B3]">{m.user_answer}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-[#00E5B3] font-bold flex items-center gap-1">
+                      <CheckCircle2 size={11} /> Correct
+                    </span>
+                    <span className="text-xs text-[#F5F7FA] font-semibold">{m.correct_answer}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ─── BOTTOM BANNER ─── */}
         <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-5 flex flex-col md:flex-row justify-between items-center gap-3">
@@ -383,16 +596,19 @@ const Performance = () => {
             </div>
             <div>
               <h4 className="font-bold text-sm text-[#F5F7FA]">
-                Stick to this plan and your projected accuracy will reach{' '}
-                <span className="text-[#00E5B3]">82%</span> by exam day.
+                {aiInsights?.score_analysis
+                  ? `${aiInsights.score_analysis.message}`
+                  : <>Stick to this plan and your projected accuracy will reach <span className="text-[#00E5B3]">82%</span> by exam day.</>}
               </h4>
               <p className="text-xs text-[#A1A8B3]">
-                Consistent study leads to mastery. You're on the right track.
+                {aiInsights?.score_analysis
+                  ? 'Follow the study plan above to turn weak areas into strengths.'
+                  : "Consistent study leads to mastery. You're on the right track."}
               </p>
             </div>
           </div>
-          <button className="bg-[#00E5B3] hover:bg-[#00C298] text-black text-sm font-bold px-6 py-2 rounded-lg transition active:scale-95 flex items-center gap-2 w-full md:w-auto justify-center">
-            Continue Study <ChevronRight size={16} />
+          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="bg-[#00E5B3] hover:bg-[#00C298] text-black text-sm font-bold px-6 py-2 rounded-lg transition active:scale-95 flex items-center gap-2 w-full md:w-auto justify-center">
+            Back to Top <ChevronRight size={16} />
           </button>
         </div>
       </div>

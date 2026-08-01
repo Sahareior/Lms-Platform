@@ -51,3 +51,20 @@
 .glow-gold {
   box-shadow: 0 0 20px -3px rgba(242, 201, 76, 0.35);
 }
+
+/* Custom Thin Dark Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #111318;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #23262D;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #323742;
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Clock,
   CheckCircle,
@@ -6,18 +6,34 @@ import {
   BookOpen,
   ArrowLeft,
   Loader2,
+  AlertTriangle,
+  BarChart3,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   useGetExamsQuery,
   useGetQuestionsByExamQuery,
   useGetExamVersionsByExamQuery,
+  useAppSelector,
+  useStartAttemptMutation,
+  useSaveAnswerMutation,
+  useCompleteAttemptMutation,
+  useGetUserPerformanceQuery,
 } from "@my-monorepo/store";
+
+interface QuestionStats {
+  attempts: number;
+  failures: number;
+  successes: number;
+  successRate: number;
+}
 
 interface QuestionItem {
   question: string;
   options: string[];
   correctAnswer?: number;
+  questionNumber?: number;
+  stats?: QuestionStats;
 }
 
 interface QuizPreatiseProps {
@@ -39,6 +55,14 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   const examId = propExamId || searchParams.get("examId") || "";
   const versionId = propVersionId || searchParams.get("versionId") || "";
 
+  const userId = useAppSelector((state) => state.user.user?._id) || "";
+
+  // ─── Fetch user's mock exam performance data ───
+  const { data: userPerformance } = useGetUserPerformanceQuery(
+    { userId, type: "mockExam" },
+    { skip: !userId }
+  );
+
   const { data: exams } = useGetExamsQuery();
   const { data: examVersions } = useGetExamVersionsByExamQuery(examId, {
     skip: !examId,
@@ -49,8 +73,31 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
       { skip: !examId }
     );
 
+  const [startAttempt, { isLoading: isStarting }] = useStartAttemptMutation();
+  const [saveAnswer] = useSaveAnswerMutation();
+  const [completeAttempt, { isLoading: isCompleting }] =
+    useCompleteAttemptMutation();
+
+  const attemptIdRef = useRef<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef<number>(Date.now());
+  const questionStartTimes = useRef<Record<number, number>>({});
+
   const currentExam = exams?.find((e: any) => e._id === examId);
   const currentVersion = examVersions?.find((v: any) => v._id === versionId);
+
+  // Map correct_answer string value from backend to option index
+  const getCorrectAnswerIndex = useCallback(
+    (q: any): number | undefined => {
+      if (!q.correct_answer) return undefined;
+      const opts = q.options
+        ? (Object.values(q.options).filter((v: any) => v) as string[])
+        : [];
+      const idx = opts.findIndex((o: string) => o === q.correct_answer);
+      return idx >= 0 ? idx : undefined;
+    },
+    []
+  );
 
   const allQuestions = useMemo(() => {
     if (!questionsData || questionsData.length === 0) return [];
@@ -58,51 +105,117 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
     questionsData.forEach((doc: any) => {
       if (doc.data && Array.isArray(doc.data)) {
         const sorted = [...doc.data].sort(
-          (a: any, b: any) => (a.question_number || 0) - (b.question_number || 0)
+          (a: any, b: any) =>
+            (a.question_number || 0) - (b.question_number || 0)
         );
         sorted.forEach((q: any) => {
           const opts = q.options
             ? (Object.values(q.options).filter((v: any) => v) as string[])
             : [];
-          const correctIdx = q.correct_answer
-            ? opts.findIndex((o: string) => o === q.correct_answer)
-            : -1;
+          // Find user's historical performance for this question
+          const performance = userPerformance?.mockExam?.find(
+            (p: any) => p.questionNumber === q.question_number
+          );
           flattened.push({
             question: q.question_text,
             options: opts,
-            correctAnswer: correctIdx >= 0 ? correctIdx : undefined,
+            correctAnswer: getCorrectAnswerIndex(q),
+            questionNumber: q.question_number,
+            stats: performance ? {
+              attempts: performance.attempts || 0,
+              failures: performance.failures || 0,
+              successes: performance.successes || 0,
+              successRate: performance.attempts > 0
+                ? Math.round((performance.successes / performance.attempts) * 100)
+                : 0,
+            } : undefined,
           });
         });
       }
     });
     return flattened;
-  }, [questionsData]);
+  }, [questionsData, getCorrectAnswerIndex, userPerformance]);
 
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>(
-    {}
-  );
+  const [selectedAnswers, setSelectedAnswers] = useState<
+    Record<number, number>
+  >({});
   const [timeLeft, setTimeLeft] = useState(7200);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState(0);
+  const [serverResult, setServerResult] = useState<{
+    percentage: number;
+    correctCount: number;
+    incorrectCount: number;
+    unansweredCount: number;
+    totalQuestions: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const totalQuestions = allQuestions.length;
   const answeredCount = Object.keys(selectedAnswers).length;
   const progressPercentage =
     totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
 
+  // ─── Timer ───
   useEffect(() => {
     if (isSubmitted) return;
-    const timer = setInterval(() => {
+    timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          clearInterval(timer);
+          if (timerRef.current) clearInterval(timerRef.current);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(timer);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [isSubmitted]);
+
+  // ─── Start attempt when exam loads ───
+  useEffect(() => {
+    if (!examId || !userId || allQuestions.length === 0) return;
+
+    const initAttempt = async () => {
+      try {
+        const result = await startAttempt({
+          userId,
+          examId,
+          examVersionId: versionId || undefined,
+          type: "practice",
+          source: "mock_exam",
+          totalQuestions: allQuestions.length,
+        }).unwrap();
+        attemptIdRef.current = result._id;
+        startTimeRef.current = Date.now();
+        setError(null);
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Failed to start attempt";
+        console.error("Failed to start attempt:", msg);
+        setError("Could not save progress to server — scores shown locally only.");
+      }
+    };
+
+    initAttempt();
+  }, [examId, versionId, userId, allQuestions.length, startAttempt]);
+
+  // ─── Reset state on exam change ───
+  useEffect(() => {
+    setSelectedAnswers({});
+    setIsSubmitted(false);
+    setScore(0);
+    setServerResult(null);
+    setError(null);
+    setTimeLeft(7200);
+    attemptIdRef.current = null;
+    startTimeRef.current = Date.now();
+    questionStartTimes.current = {};
+  }, [examId, versionId]);
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -111,19 +224,50 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  // ─── Track time per question ───
   const handleAnswerSelect = useCallback(
     (qIndex: number, oIndex: number) => {
       if (isSubmitted) return;
-      setSelectedAnswers((prev) => ({
-        ...prev,
-        [qIndex]: oIndex,
-      }));
+
+      // Record time spent on this question
+      if (!questionStartTimes.current[qIndex]) {
+        questionStartTimes.current[qIndex] = Date.now();
+      }
+
+      const qItem = allQuestions[qIndex];
+      if (!qItem) return;
+
+      setSelectedAnswers((prev) => {
+        const updated = { ...prev, [qIndex]: oIndex };
+
+        // Auto-save answer to backend if attempt is active
+        const attemptId = attemptIdRef.current;
+        if (attemptId && userId) {
+          const qNumber = qItem.questionNumber || qIndex + 1;
+          const timeTaken = Math.round(
+            (Date.now() - questionStartTimes.current[qIndex]) / 1000
+          );
+          // Send the actual option text, not the index (backend compares against correct_answer text)
+          const selectedText = qItem.options[oIndex] ?? "";
+          saveAnswer({
+            attemptId,
+            questionNumber: qNumber,
+            selectedOption: selectedText,
+            timeTaken: Math.max(1, timeTaken),
+          }).catch((err) => {
+            console.warn("Auto-save failed:", err);
+          });
+        }
+
+        return updated;
+      });
     },
-    [isSubmitted]
+    [isSubmitted, userId, allQuestions, saveAnswer]
   );
 
-  const handleSubmit = useCallback(() => {
-    if (isSubmitted) return;
+  const handleSubmit = useCallback(async () => {
+    if (isSubmitted || isCompleting) return;
+
     const unanswered = totalQuestions - answeredCount;
     if (unanswered > 0) {
       if (
@@ -134,6 +278,8 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
         return;
       }
     }
+
+    // Local score calculation (immediate feedback)
     let correct = 0;
     allQuestions.forEach((q, idx) => {
       const selected = selectedAnswers[idx];
@@ -145,23 +291,47 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
         correct++;
       }
     });
+
     setScore(correct);
     setIsSubmitted(true);
-  }, [isSubmitted, totalQuestions, answeredCount, allQuestions, selectedAnswers]);
 
-  useEffect(() => {
-    setSelectedAnswers({});
-    setIsSubmitted(false);
-    setScore(0);
-    setTimeLeft(7200);
-  }, [examId, versionId]);
+    // Submit to server
+    const attemptId = attemptIdRef.current;
+    if (attemptId) {
+      try {
+        const result = await completeAttempt({ attemptId }).unwrap();
+        setServerResult({
+          percentage: result.attempt.percentage,
+          correctCount: result.attempt.correctCount,
+          incorrectCount: result.attempt.incorrectCount,
+          unansweredCount: result.attempt.unansweredCount,
+          totalQuestions: result.attempt.totalQuestions,
+        });
+        // Use server score as authoritative
+        setScore(result.attempt.correctCount);
+      } catch (err: any) {
+        console.error("Failed to complete attempt:", err);
+        setError("Server submission failed, but your local score is shown.");
+      }
+    }
+  }, [
+    isSubmitted,
+    isCompleting,
+    totalQuestions,
+    answeredCount,
+    allQuestions,
+    selectedAnswers,
+    completeAttempt,
+  ]);
 
-  if (questionsLoading) {
+  if (questionsLoading || isStarting) {
     return (
       <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="animate-spin text-3xl text-[#9B51E0] mx-auto mb-4" />
-          <p className="text-[#A1A8B3] font-medium">Loading questions...</p>
+          <p className="text-[#A1A8B3] font-medium">
+            {questionsLoading ? "Loading questions..." : "Starting quiz..."}
+          </p>
         </div>
       </div>
     );
@@ -282,7 +452,7 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
       {/* ────── SUBMITTED SCORE BANNER ────── */}
       {isSubmitted && (
         <div className="sticky top-[108px] z-30 bg-[#00E5B3]/10 border-b border-[#00E5B3]/30 px-4 md:px-8 py-3">
-          <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="max-w-3xl mx-auto flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
               <CheckCircle className="text-[#00E5B3] text-xl" />
               <span className="font-bold text-[#00E5B3] text-sm">
@@ -293,13 +463,42 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
                 %)
               </span>
             </div>
-            <button
-              onClick={() => navigate("/mock-exam")}
-              className="text-xs font-semibold text-[#00E5B3] bg-[#00E5B3]/10 border border-[#00E5B3]/30 px-4 py-1.5 rounded-full hover:bg-[#00E5B3]/20 transition"
-            >
-              Back to Exams
-            </button>
+            <div className="flex items-center gap-2">
+              {isCompleting && (
+                <Loader2 className="animate-spin text-[#00E5B3]" size={16} />
+              )}
+              <button
+                onClick={() => navigate("/mock-exam")}
+                className="text-xs font-semibold text-[#00E5B3] bg-[#00E5B3]/10 border border-[#00E5B3]/30 px-4 py-1.5 rounded-full hover:bg-[#00E5B3]/20 transition"
+              >
+                Back to Exams
+              </button>
+            </div>
           </div>
+          {/* Server result summary */}
+          {serverResult && (
+            <div className="max-w-3xl mx-auto mt-2 flex items-center gap-4 text-xs">
+              <span className="text-[#00E5B3]">
+                ✓ Correct: {serverResult.correctCount}
+              </span>
+              <span className="text-[#EB5757]">
+                ✗ Incorrect: {serverResult.incorrectCount}
+              </span>
+              <span className="text-[#A1A8B3]">
+                − Unanswered: {serverResult.unansweredCount}
+              </span>
+              <span className="text-[#F2C94C] font-bold">
+                Score: {serverResult.percentage}%
+              </span>
+            </div>
+          )}
+          {/* Error banner */}
+          {error && (
+            <div className="max-w-3xl mx-auto mt-2 flex items-center gap-2 text-xs text-[#EB5757]">
+              <AlertTriangle size={14} />
+              <span>{error}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -347,6 +546,13 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
                 <span className="text-[10px] font-medium text-[#6B7280] uppercase tracking-wider bg-[#161920] px-2 py-0.5 rounded border border-[#23262D]">
                   MCQ
                 </span>
+                {/* Historical Performance Badge */}
+                {q.stats && q.stats.attempts > 0 && !isSubmitted && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border border-[#9B51E0]/30 bg-[#9B51E0]/10 text-[#9B51E0]">
+                    <BarChart3 size={10} />
+                    {q.stats.attempts}x &middot; {q.stats.successRate}%
+                  </span>
+                )}
                 {showCorrect && (
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded border ${

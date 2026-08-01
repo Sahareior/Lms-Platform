@@ -1,24 +1,44 @@
 import mongoose from "mongoose";
 
-const quizPerformance = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  submittedQuestions: [   // fixed typo
-    {
-      questionSet: {     // reference to a question document
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Question',
-        required: true
+const quizPerformance = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    exam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Exam",
+      required: true,
+    },
+    examVersion: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ExamVersion",
+      required: true,
+    },
+    subject: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subject",
+      default: null,
+    },
+    submittedQuestions: [
+      {
+        question: {
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+        },
+        providedAnswer: { type: String, required: true },
+        totalAttempted: { type: Number },
       },
-      providedAnswer: { type: String, required: true },
-      totalAttempted: { type: Number }
-    }
-  ]
-}, { timestamps: true });
+    ],
+    attemptCount: {
+      type: Number,
+      default: 1,          // <-- NEW FIELD
+    },
+  },
+  { timestamps: true },
+);
 
-
-const quizPerform = mongoose.model('quizPerformance', quizPerformance);
+const quizPerform = mongoose.model("quizPerformance", quizPerformance);
 export default quizPerform;

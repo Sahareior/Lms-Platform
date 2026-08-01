@@ -192,6 +192,50 @@ export interface UpdateScheduleExamRequest {
   status?: 'upcoming' | 'active' | 'completed' | 'cancelled';
 }
 
+// ─── Quiz Attempt Types (for admin performance) ─────────────
+export interface QuizAttemptSummary {
+  totalAttempts: number;
+  avgPercentage: number;
+  completedAttempts: number;
+}
+
+export interface AdminQuizAttempt {
+  _id: string;
+  user: {
+    _id: string;
+    username?: string;
+    email?: string;
+    phone?: string;
+    division?: string;
+    district?: string;
+  };
+  exam?: { _id: string; name: string; image?: string } | null;
+  examVersion?: { _id: string; examVersion: string } | null;
+  subject?: string;
+  type: 'mock_exam' | 'practice';
+  source: 'question_center' | 'mock_exam' | 'quiz_practice';
+  score: number;
+  totalQuestions: number;
+  correctCount: number;
+  incorrectCount: number;
+  unansweredCount: number;
+  percentage: number;
+  startedAt: string;
+  completedAt?: string;
+  isActive: boolean;
+  isCompleted: boolean;
+  timeTaken: number;
+  createdAt: string;
+}
+
+export interface AdminQuizAttemptResponse {
+  attempts: AdminQuizAttempt[];
+  total: number;
+  page: number;
+  totalPages: number;
+  summary: QuizAttemptSummary;
+}
+
 // ─── Lesson Types ────────────────────────────────────────────
 export interface AdminLesson {
   _id: string;
@@ -525,6 +569,23 @@ const adminApi = api.injectEndpoints({
       query: () => ({ url: '/questions/question-pattern' }),
       providesTags: ['Question'],
     }),
+
+    // ── Quiz Attempt Performance ────────────────────────────
+    getAllQuizAttempts: build.query<
+      AdminQuizAttemptResponse,
+      { type?: string; examId?: string; userId?: string; page?: number; limit?: number }
+    >({
+      query: (params) => {
+        const queryParams = new URLSearchParams();
+        if (params.type) queryParams.set('type', params.type);
+        if (params.examId) queryParams.set('examId', params.examId);
+        if (params.userId) queryParams.set('userId', params.userId);
+        if (params.page) queryParams.set('page', String(params.page));
+        if (params.limit) queryParams.set('limit', String(params.limit));
+        return { url: `/quiz-attempts?${queryParams.toString()}` };
+      },
+      providesTags: [{ type: 'QuizAttempt', id: 'LIST' }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -570,4 +631,6 @@ export const {
   useCreateScheduleExamMutation,
   useUpdateScheduleExamMutation,
   useDeleteScheduleExamMutation,
+
+  useGetAllQuizAttemptsQuery,
 } = adminApi;

@@ -31,6 +31,19 @@ export {
   setIsMobile,
 } from './redux/slices/uiSlice';
 
+export { default as aiPerformanceReducer } from './redux/slices/aiPerformanceSlice';
+export {
+  setAiReport,
+  setAiReportLoading,
+  setAiReportError,
+  setAiReportHistory,
+  clearAiReport,
+} from './redux/slices/aiPerformanceSlice';
+export type {
+  AiPerformanceState,
+  SetAiReportPayload,
+} from './redux/slices/aiPerformanceSlice';
+
 // ─── RTK Query Base (config + auth token) ───────────────────
 export { configureApi, setAuthToken, getAuthToken } from './redux/api/baseApi';
 
@@ -41,6 +54,7 @@ export {
   useUploadDocumentsMutation,
   useQuestionAnalyzerMutation,
   useQuestionPaperScraperMutation,
+  useAiUserPerFormanceMutation,
 } from './redux/api/aiApi';
 export type {
   AiChatRequest,
@@ -49,6 +63,15 @@ export type {
   QuestionPaperScraperResponse,
   QuestionAnalyzerQuestion,
   QuestionAnalyzerRequest,
+  AiPerformanceStats,
+  AiScoreAnalysis,
+  AiSubjectBreakdown,
+  AiStrength,
+  AiWeakArea,
+  AiMistakeBreakdown,
+  AiStudyPlanItem,
+  AiPerformanceReport,
+  AiPerformanceResponse,
 } from './redux/api/aiApi';
 
 // ─── RTK Query Auth API ─────────────────────────────────────
@@ -57,6 +80,7 @@ export {
   useRegisterMutation,
   useAddUserInfoMutation,
   useGetProfileQuery,
+  useGetMeQuery,
   useUpdateProfileMutation,
 } from './redux/api/authApi';
 export type {
@@ -106,6 +130,26 @@ export type {
   QuizResult,
 } from './redux/api/quizApi';
 
+// ─── RTK Query Quiz Attempt API ────────────────────────────
+export {
+  useStartAttemptMutation,
+  useSaveAnswerMutation,
+  useBatchSaveAnswersMutation,
+  useCompleteAttemptMutation,
+  useGetActiveAttemptQuery,
+  useGetUserAttemptsQuery,
+  useGetAttemptByIdQuery,
+} from './redux/api/quizAttemptApi';
+export type {
+  StartAttemptRequest,
+  SaveAnswerRequest,
+  BatchSaveAnswersRequest,
+  CompleteAttemptRequest,
+  QuestionResponse,
+  AttemptSummary,
+  Attempt,
+} from './redux/api/quizAttemptApi';
+
 export {
   useGetExamsQuery,
   useGetAnalyzedQuestionsQuery,
@@ -117,6 +161,24 @@ export type {
   courseResponse,
   SubjectByExam
 } from "./redux/api/examApi"
+
+// ─── RTK Query User Performance API ────────────────────────
+export {
+  useGetUserPerformanceQuery,
+  useSaveQuizPerformanceMutation,
+  useGetExamPerformanceQuery,
+  useGetPerformanceSummaryQuery,
+  useGetOrGenerateAiPerformanceMutation,
+  useGetAiPerformanceHistoryQuery,
+} from './redux/api/userPerformanceApi';
+export type {
+  QuestionPerformance,
+  SavePerformanceRequest,
+  PerformanceSummary,
+  GetOrGenerateAiResponse,
+  AiReportSnapshot,
+  AiHistoryItem,
+} from './redux/api/userPerformanceApi';
 
 // ─── RTK Query Admin API ─────────────────────────────────────
 export {
@@ -158,6 +220,8 @@ export {
   useCreateScheduleExamMutation,
   useUpdateScheduleExamMutation,
   useDeleteScheduleExamMutation,
+
+  useGetAllQuizAttemptsQuery,
 } from './redux/api/adminApi';
 export type {
   AdminUser,
@@ -181,6 +245,9 @@ export type {
   ScheduleExam,
   CreateScheduleExamRequest,
   UpdateScheduleExamRequest,
+  AdminQuizAttemptResponse,
+  AdminQuizAttempt,
+  QuizAttemptSummary,
 } from './redux/api/adminApi';
 
 // ─── Context Providers ──────────────────────────────────────

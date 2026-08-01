@@ -9,37 +9,12 @@ interface CourseSelectionScreenProps {
   onSelectCourse: (id: string) => void;
 }
 
-const mockCourses = [
-  {
-    id: '1', title: 'Bangladesh Affairs', chapter: 'Liberation War', progress: 68,
-    gradient: 'from-[#1e293b] to-[#475569]', lessonsCompleted: 24, totalLessons: 36,
-    instructor: 'Prof. Karim', category: 'BCS', rating: 4.8, students: '12.4k',
-    duration: '8 weeks', level: 'Intermediate',
-  },
-  {
-    id: '2', title: 'General Mathematics', chapter: 'Algebra Basics', progress: 45,
-    gradient: 'from-[#0f172a] to-[#334155]', lessonsCompleted: 18, totalLessons: 40,
-    instructor: 'Dr. Hossain', category: 'BCS', rating: 4.7, students: '9.8k',
-    duration: '6 weeks', level: 'Beginner',
-  },
-  {
-    id: '3', title: 'English Grammar', chapter: 'Tense & Voice', progress: 82,
-    gradient: 'from-[#1e1b4b] to-[#312e81]', lessonsCompleted: 33, totalLessons: 40,
-    instructor: 'Ms. Rahman', category: 'BCS', rating: 4.9, students: '15.1k',
-    duration: '5 weeks', level: 'Intermediate',
-  },
-  {
-    id: '4', title: 'General Knowledge', chapter: 'International Org.', progress: 31,
-    gradient: 'from-[#022c22] to-[#064e3b]', lessonsCompleted: 10, totalLessons: 32,
-    instructor: 'Mr. Hasan', category: 'Bank', rating: 4.6, students: '8.2k',
-    duration: '4 weeks', level: 'Beginner',
-  },
-];
+
 
 export default function CourseSelectionScreen({ enrolledCourses, onSelectCourse }: CourseSelectionScreenProps) {
   const coursesList = Array.isArray(enrolledCourses) && enrolledCourses.length > 0
     ? enrolledCourses
-    : mockCourses;
+    : [];
 
   return (
     <div className="w-full text-[#F5F7FA] space-y-8 max-w-8xl p-4 mx-auto">

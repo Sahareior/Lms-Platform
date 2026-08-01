@@ -21,7 +21,7 @@ const questionItemSchema = new mongoose.Schema(
             default: "",
         },
     },
-    { _id: false }
+    { _id: true }
 );
 
 const questionSchema = new mongoose.Schema(
@@ -63,6 +63,10 @@ questionSchema.index({
     examVersion: 1,
     subject: 1,
     "data.question_number": 1,
+});
+
+questionSchema.index({
+    "data._id": 1,
 });
 
 questionSchema.index({

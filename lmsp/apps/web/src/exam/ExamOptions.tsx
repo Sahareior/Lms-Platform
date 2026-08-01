@@ -12,7 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useGetProfileQuery } from "@my-monorepo/store";
+import { useGetMeQuery } from "@my-monorepo/store";
 
 // ─── Icon mapping based on exam name patterns ──────────────
 const getExamIcon = (name: string) => {
@@ -35,7 +35,7 @@ const studyItems = [
 const ExamOptions = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: userData, isLoading } = useGetProfileQuery("6a5ee4291fda2cffc2eafca3");
+  const { data: userData, isLoading } = useGetMeQuery();
   const selectedExams = userData?.selectedExams || [];
 
   return (
