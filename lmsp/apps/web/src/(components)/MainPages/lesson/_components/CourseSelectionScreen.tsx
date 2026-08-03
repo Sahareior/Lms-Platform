@@ -51,7 +51,7 @@ export default function CourseSelectionScreen({ enrolledCourses, onSelectCourse 
               <div
                 key={_id}
                 className="group bg-[#111318] rounded-2xl overflow-hidden border border-[#23262D] hover:border-[#2F80ED]/50 transition-all duration-300 flex flex-col cursor-pointer hover:shadow-[0_0_20px_-5px_rgba(47,128,237,0.3)]"
-                onClick={() => onSelectCourse(_id)}
+                onClick={() => _id && onSelectCourse(_id)}
               >
                 {/* Card Header with Category & Rating */}
                 <div className="relative h-24 bg-[#161920] p-5 flex flex-col justify-end border-b border-[#23262D] overflow-hidden">

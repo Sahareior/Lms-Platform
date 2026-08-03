@@ -105,8 +105,8 @@ const SubjectManagement: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       render: (name: string) => (
-        <span className="font-medium" style={{ color: '#142347' }}>
-          <BookOutlined style={{ marginRight: 6, color: '#667eea' }} />
+        <span className="font-medium" style={{ color: '#E8F5EC' }}>
+          <BookOutlined style={{ marginRight: 6, color: '#22C55E' }} />
           {name}
         </span>
       ),
@@ -117,7 +117,7 @@ const SubjectManagement: React.FC = () => {
       dataIndex: 'code',
       key: 'code',
       width: 120,
-      render: (code: string) => code ? <Tag>{code}</Tag> : <span className="text-gray-400">—</span>,
+      render: (code: string) => code ? <Tag>{code}</Tag> : <span className="text-[#5F6B64]">—</span>,
     },
     {
       title: 'Exam',
@@ -126,7 +126,7 @@ const SubjectManagement: React.FC = () => {
       width: 200,
       render: (exam: { _id: string; name: string } | string) => {
         const name = typeof exam === 'object' ? exam?.name : examMap.get(exam)?.name;
-        return name ? <Tag color="blue">{name}</Tag> : <span className="text-gray-400">—</span>;
+        return name ? <Tag color="blue">{name}</Tag> : <span className="text-[#5F6B64]">—</span>;
       },
       filters: exams?.map((e) => ({ text: e.name, value: e._id })),
       onFilter: (value, record) => {
@@ -139,9 +139,9 @@ const SubjectManagement: React.FC = () => {
       dataIndex: 'description',
       key: 'description',
       render: (desc: string) => desc ? (
-        <span className="text-sm text-gray-600">{desc.length > 70 ? desc.slice(0, 70) + '...' : desc}</span>
+        <span className="text-sm text-[#9BA8A0]">{desc.length > 70 ? desc.slice(0, 70) + '...' : desc}</span>
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-[#5F6B64]">—</span>
       ),
     },
     {
@@ -199,10 +199,10 @@ const SubjectManagement: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold m-0" style={{ color: '#142347' }}>Subject Management</h2>
+        <h2 className="text-2xl font-bold m-0" style={{ color: '#E8F5EC' }}>Subject Management</h2>
         <Space>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
             Create Subject

@@ -17,7 +17,6 @@ import {
   Typography,
 } from 'antd';
 import {
-  PlusOutlined,
   ReloadOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -164,7 +163,7 @@ const QuestionBank: React.FC = () => {
         key: 'question_number',
         width: 60,
         render: (num: number) => (
-          <Text strong style={{ color: '#142347' }}>
+          <Text strong style={{ color: '#E8F5EC' }}>
             {num}
           </Text>
         ),
@@ -287,7 +286,7 @@ const QuestionBank: React.FC = () => {
       dataIndex: 'subject',
       key: 'subject',
       render: (subjectId?: string) => (
-        <span className="text-sm text-slate-600">{getSubjectName(subjectId)}</span>
+        <span className="text-sm text-[#9BA8A0]">{getSubjectName(subjectId)}</span>
       ),
     },
     {
@@ -351,15 +350,15 @@ const QuestionBank: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="">
       {/* ── Header ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold m-0" style={{ color: '#142347' }}>
+          <h2 className="text-2xl font-bold m-0" style={{ color: '#E8F5EC' }}>
             <QuestionCircleOutlined style={{ marginRight: 10 }} />
             Question Bank
           </h2>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-[#5F6B64] mt-1">
             View, edit, and manage all question documents stored in the database
           </p>
         </div>
@@ -372,24 +371,24 @@ const QuestionBank: React.FC = () => {
 
       {/* ── Stats ────────────────────────────────────────────── */}
       <div className="flex gap-4 mb-4">
-        <div className="bg-white rounded-xl border border-slate-100 px-4 py-3 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-            <BookOutlined className="text-blue-600" />
+        <div className="bg-[#0B0B0B] rounded-xl border border-[#232323] px-4 py-3 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+            <BookOutlined className="text-emerald-400" />
           </div>
           <div>
-            <Text className="text-xs text-slate-400">Documents</Text>
-            <Text className="block text-lg font-bold" style={{ color: '#142347' }}>
+            <Text className="text-xs text-[#5F6B64]">Documents</Text>
+            <Text className="block text-lg font-bold" style={{ color: '#E8F5EC' }}>
               {questions?.length || 0}
             </Text>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 px-4 py-3 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-            <QuestionCircleOutlined className="text-emerald-600" />
+        <div className="bg-[#0B0B0B] rounded-xl border border-[#232323] px-4 py-3 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+            <QuestionCircleOutlined className="text-emerald-400" />
           </div>
           <div>
-            <Text className="text-xs text-slate-400">Total Questions</Text>
-            <Text className="block text-lg font-bold" style={{ color: '#142347' }}>
+            <Text className="text-xs text-[#5F6B64]">Total Questions</Text>
+            <Text className="block text-lg font-bold" style={{ color: '#E8F5EC' }}>
               {questions?.reduce((sum, q) => sum + (q.data?.length || 0), 0) || 0}
             </Text>
           </div>
@@ -422,7 +421,7 @@ const QuestionBank: React.FC = () => {
       <Modal
         title={
           <Space>
-            <EditOutlined style={{ color: '#667eea' }} />
+            <EditOutlined style={{ color: '#22C55E' }} />
             Edit Question #{editingQuestion?.questionNumber}
           </Space>
         }

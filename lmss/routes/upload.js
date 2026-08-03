@@ -1,8 +1,8 @@
 import express from 'express';
 import multer from 'multer';
 import { authenticate } from '../middleware/auth.js';
-import { uploadImage as uploadImageMulter, uploadVideo as uploadVideoMulter } from '../middleware/upload.js';
-import { uploadImage, uploadVideo } from '../controller/uploadController.js';
+import { uploadImage as uploadImageMulter, uploadVideo as uploadVideoMulter, uploadFile as uploadFileMulter } from '../middleware/upload.js';
+import { uploadImage, uploadVideo, uploadFile } from '../controller/uploadController.js';
 
 const router = express.Router();
 
@@ -10,6 +10,7 @@ const router = express.Router();
 // multipart body, then the controller streams the file to Cloudinary.
 router.post('/image', uploadImageMulter.single('file'), uploadImage);
 router.post('/video', uploadVideoMulter.single('file'), uploadVideo);
+router.post('/file', uploadFileMulter.single('file'), uploadFile);
 
 // Convert multer errors (wrong file type / size exceeded) into JSON
 // responses so the frontend can parse err.data.message.

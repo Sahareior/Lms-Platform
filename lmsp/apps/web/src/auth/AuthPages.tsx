@@ -78,7 +78,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, isLo
               <div className="bg-[#00E5B3]/10 border border-[#00E5B3]/30 p-2 rounded-xl">
                 <BookOpen className="text-[#00E5B3]" size={24} />
               </div>
-              <span className="font-bold text-lg text-[#F5F7FA]">BCS & Govt Job Prep</span>
+              {/* <span className="font-bold text-lg text-[#F5F7FA]">BCS & Govt Job Prep</span> */}
             </div>
             <h2 className="text-4xl font-bold leading-tight text-[#F5F7FA]">
               Master your dream <br /> exam today.

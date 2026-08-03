@@ -8,6 +8,8 @@ export interface UploadResponse {
   width?: number;
   height?: number;
   duration?: number;
+  name?: string;
+  mimeType?: string;
 }
 
 // ─── Injected Endpoints ─────────────────────────────────────
@@ -30,9 +32,17 @@ const uploadApi = api.injectEndpoints({
         return { url: '/upload/video', method: 'POST', body: formData };
       },
     }),
+
+    uploadFile: build.mutation<UploadResponse, File>({
+      query: (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return { url: '/upload/file', method: 'POST', body: formData };
+      },
+    }),
   }),
   overrideExisting: false,
 });
 
 // ─── Exported Hooks ─────────────────────────────────────────
-export const { useUploadImageMutation, useUploadVideoMutation } = uploadApi;
+export const { useUploadImageMutation, useUploadVideoMutation, useUploadFileMutation } = uploadApi;

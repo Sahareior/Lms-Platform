@@ -24,3 +24,10 @@ export const uploadVideo = multer({
     cb(new Error('Only video files are allowed'));
   },
 });
+
+// Accepts any file type (PDFs, docs, slides, audio, ...), max 100 MB.
+// Used for lesson resources uploaded to Cloudinary.
+export const uploadFile = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 },
+});

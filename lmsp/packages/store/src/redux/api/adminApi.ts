@@ -418,8 +418,8 @@ const adminApi = api.injectEndpoints({
     }),
 
     // ── Lesson Management ────────────────────────────────────
-    getCourseLessons: build.query<{ lessons: AdminLesson[] }, string>({
-      query: (courseId) =>  `/lesson/${courseId}`,
+    getCourseLessons: build.query<{ lessons: AdminLesson[] }, { courseId: string }>({
+      query: ({ courseId }) => `/lesson/${courseId}`,
       providesTags: ['Lesson'],
     }),
 

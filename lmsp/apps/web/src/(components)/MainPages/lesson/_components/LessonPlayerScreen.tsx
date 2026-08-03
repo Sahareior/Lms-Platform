@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   ArrowLeft, BookOpen, MessageSquare, Layout, PenTool, ChevronLeft, ChevronRight,
 } from 'lucide-react';
+import { skipToken } from '@reduxjs/toolkit/query/react';
 import { useGetCourseLessonsQuery } from '@my-monorepo/store';
 import VideoPlayer from './VideoPlayer';
 import OverviewTab from './OverviewTab';
@@ -31,7 +32,9 @@ interface LessonPlayerScreenProps {
 export default function LessonPlayerScreen({ courseId, course, userId, onBack }: LessonPlayerScreenProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
-  const { data: courseLessons, isLoading: isLoadingCourseLessons } = useGetCourseLessonsQuery(courseId);
+  const { data: courseLessons, isLoading: isLoadingCourseLessons } = useGetCourseLessonsQuery(
+    courseId && courseId !== 'undefined' ? courseId : skipToken
+  );
 
   // Merge API lessons with fallback
   const apiLessons: any[] = (courseLessons as any)?.lessons || [];

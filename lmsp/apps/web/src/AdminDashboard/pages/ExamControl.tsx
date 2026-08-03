@@ -123,7 +123,7 @@ const ExamControl: React.FC = () => {
       title: 'Title',
       dataIndex: 'title',
       key: 'title',
-      render: (title: string) => <span className="font-medium" style={{ color: '#142347' }}>{title}</span>,
+      render: (title: string) => <span className="font-medium" style={{ color: '#E8F5EC' }}>{title}</span>,
       sorter: (a, b) => a.title.localeCompare(b.title),
     },
     {
@@ -148,7 +148,7 @@ const ExamControl: React.FC = () => {
       key: 'startDate',
       render: (date: string) => (
         <Space>
-          <CalendarOutlined className="text-gray-400" />
+          <CalendarOutlined className="text-[#5F6B64]" />
           <span className="text-sm">{dayjs(date).format('DD MMM YYYY, hh:mm A')}</span>
         </Space>
       ),
@@ -160,7 +160,7 @@ const ExamControl: React.FC = () => {
       key: 'endDate',
       render: (date: string) => (
         <Space>
-          <CalendarOutlined className="text-gray-400" />
+          <CalendarOutlined className="text-[#5F6B64]" />
           <span className="text-sm">{dayjs(date).format('DD MMM YYYY, hh:mm A')}</span>
         </Space>
       ),
@@ -172,7 +172,7 @@ const ExamControl: React.FC = () => {
       key: 'duration',
       render: (mins: number) => (
         <Space>
-          <ClockCircleOutlined className="text-gray-400" />
+          <ClockCircleOutlined className="text-[#5F6B64]" />
           <span className="text-sm">{mins} min</span>
         </Space>
       ),
@@ -237,9 +237,9 @@ const ExamControl: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold m-0" style={{ color: '#142347' }}>Exam Control</h2>
+        <h2 className="text-2xl font-bold m-0" style={{ color: '#E8F5EC' }}>Exam Control</h2>
         <Space>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
             Schedule Exam
@@ -301,7 +301,7 @@ const ExamControl: React.FC = () => {
             <TextArea rows={2} placeholder="Brief description..." />
           </Form.Item>
 
-          <div className="text-xs text-gray-400 mb-2 flex items-center gap-1.5">
+          <div className="text-xs text-[#5F6B64] mb-2 flex items-center gap-1.5">
             <CalendarOutlined />
             Status will auto-calculate: <strong>Upcoming</strong> → <strong>Active</strong> → <strong>Completed</strong> based on dates
           </div>

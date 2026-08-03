@@ -11,7 +11,6 @@ import {
   Alert,
   Progress,
   Empty,
-  Tabs,
   Avatar,
   Typography,
 } from "antd";
@@ -19,22 +18,17 @@ import {
   UserOutlined,
   FileTextOutlined,
   CheckCircleOutlined,
-  CloseCircleOutlined,
-  ClockCircleOutlined,
   RiseOutlined,
 } from "@ant-design/icons";
 import {
   useGetAllQuizAttemptsQuery,
   useGetAdminExamsQuery,
-  useGetAdminUsersQuery,
 } from "@my-monorepo/store";
 import type { AdminQuizAttempt } from "@my-monorepo/store";
-import { useNavigate } from "react-router-dom";
 
 const { Text, Title } = Typography;
 
 const UserPerformance: React.FC = () => {
-  const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [examFilter, setExamFilter] = useState<string>("");
   const [page, setPage] = useState(1);
@@ -47,7 +41,6 @@ const UserPerformance: React.FC = () => {
   });
 
   const { data: exams } = useGetAdminExamsQuery();
-  const { data: users } = useGetAdminUsersQuery();
 
   const attempts = data?.attempts || [];
   const summary = data?.summary || {
@@ -88,7 +81,7 @@ const UserPerformance: React.FC = () => {
           <Avatar
             size={32}
             icon={<UserOutlined />}
-            style={{ backgroundColor: "#1890ff", flexShrink: 0 }}
+            style={{ backgroundColor: "#14532D", flexShrink: 0 }}
           />
           <div className="min-w-0">
             <Text
@@ -144,11 +137,11 @@ const UserPerformance: React.FC = () => {
             style={{ width: 100, margin: 0 }}
             strokeColor={
               record.percentage >= 80
-                ? "#52c41a"
+                ? "#4ADE80"
                 : record.percentage >= 60
-                ? "#1890ff"
+                ? "#22C55E"
                 : record.percentage >= 40
-                ? "#faad14"
+                ? "#A3E635"
                 : "#ff4d4f"
             }
           />
@@ -187,11 +180,11 @@ const UserPerformance: React.FC = () => {
   ];
 
   return (
-    <div>
+    <div className="">
       {/* ─── Header ─────────────────────────────── */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <Title level={4} style={{ margin: 0, color: "#142347" }}>
+          <Title level={4} style={{ margin: 0, color: "#E8F5EC" }}>
             User Performance
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
@@ -207,19 +200,19 @@ const UserPerformance: React.FC = () => {
           <Card
             style={{
               borderRadius: 12,
-              borderLeft: "4px solid #1890ff",
-              background: "#e6f7ff",
+              borderLeft: "4px solid #22C55E",
+              background: "#0B0B0B",
             }}
           >
             <Statistic
               title={
-                <span style={{ color: "#555", fontSize: 14 }}>
+                <span style={{ color: "#9BA8A0", fontSize: 14 }}>
                   Total Attempts
                 </span>
               }
               value={summary.totalAttempts}
               prefix={<FileTextOutlined />}
-              valueStyle={{ color: "#142347", fontWeight: 700 }}
+              valueStyle={{ color: "#E8F5EC", fontWeight: 700 }}
             />
           </Card>
         </Col>
@@ -227,13 +220,13 @@ const UserPerformance: React.FC = () => {
           <Card
             style={{
               borderRadius: 12,
-              borderLeft: "4px solid #52c41a",
-              background: "#f6ffed",
+              borderLeft: "4px solid #22C55E",
+              background: "#0B0B0B",
             }}
           >
             <Statistic
               title={
-                <span style={{ color: "#555", fontSize: 14 }}>
+                <span style={{ color: "#9BA8A0", fontSize: 14 }}>
                   Avg. Score
                 </span>
               }
@@ -241,7 +234,7 @@ const UserPerformance: React.FC = () => {
               suffix="%"
               precision={1}
               prefix={<RiseOutlined />}
-              valueStyle={{ color: "#142347", fontWeight: 700 }}
+              valueStyle={{ color: "#E8F5EC", fontWeight: 700 }}
             />
           </Card>
         </Col>
@@ -249,19 +242,19 @@ const UserPerformance: React.FC = () => {
           <Card
             style={{
               borderRadius: 12,
-              borderLeft: "4px solid #722ed1",
-              background: "#f9f0ff",
+              borderLeft: "4px solid #22C55E",
+              background: "#0B0B0B",
             }}
           >
             <Statistic
               title={
-                <span style={{ color: "#555", fontSize: 14 }}>
+                <span style={{ color: "#9BA8A0", fontSize: 14 }}>
                   Completed
                 </span>
               }
               value={summary.completedAttempts}
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: "#142347", fontWeight: 700 }}
+              valueStyle={{ color: "#E8F5EC", fontWeight: 700 }}
             />
           </Card>
         </Col>
@@ -272,7 +265,7 @@ const UserPerformance: React.FC = () => {
         style={{
           borderRadius: 12,
           marginBottom: 16,
-          boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+          boxShadow: "0 0 0 1px #1A1A1A",
         }}
       >
         <Row gutter={[16, 16]} align="middle">
@@ -282,7 +275,7 @@ const UserPerformance: React.FC = () => {
                 display: "block",
                 marginBottom: 4,
                 fontSize: 12,
-                color: "#888",
+                color: "#9BA8A0",
                 fontWeight: 600,
               }}
             >
@@ -309,7 +302,7 @@ const UserPerformance: React.FC = () => {
                 display: "block",
                 marginBottom: 4,
                 fontSize: 12,
-                color: "#888",
+                color: "#9BA8A0",
                 fontWeight: 600,
               }}
             >
@@ -345,7 +338,7 @@ const UserPerformance: React.FC = () => {
       <Card
         style={{
           borderRadius: 12,
-          boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+          boxShadow: "0 0 0 1px #1A1A1A",
         }}
       >
         {isLoading ? (

@@ -16,6 +16,14 @@ const questionItemSchema = new mongoose.Schema(
             of: String,
             required: true,
         },
+        subjectName: {
+            type: String,
+            default: null,
+        },
+        topic: {
+            type: String,
+            default: null,
+        },
         correct_answer: {
             type: String,
             default: "",

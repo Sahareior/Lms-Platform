@@ -60,3 +60,23 @@ export const uploadVideo = async (req, res) => {
     res.status(500).json({ message: 'Video upload failed' });
   }
 };
+
+/** POST /upload/file — generic upload for resources (PDF, DOC, PPT, audio, ...). */
+export const uploadFile = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    const result = await uploadToCloudinary(req.file.buffer, { resource_type: 'auto' });
+    res.status(201).json({
+      message: 'File uploaded successfully',
+      url: result.secure_url,
+      publicId: result.public_id,
+      name: req.file.originalname,
+      mimeType: req.file.mimetype,
+    });
+  } catch (err) {
+    console.error('Cloudinary file upload error:', err);
+    res.status(500).json({ message: 'File upload failed' });
+  }
+};

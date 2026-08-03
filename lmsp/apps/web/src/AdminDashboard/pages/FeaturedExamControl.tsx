@@ -61,12 +61,12 @@ const FeaturedExamControl: React.FC = () => {
       key: 'title',
       render: (title: string, record: ScheduleExam) => (
         <div>
-          <div className="font-medium flex items-center gap-2" style={{ color: '#142347' }}>
+          <div className="font-medium flex items-center gap-2" style={{ color: '#E8F5EC' }}>
             {title}
-            {record.isFeatured && <Tag color="gold" icon={<StarFilled />}>FEATURED</Tag>}
+            {record.isFeatured && <Tag color="green" icon={<StarFilled />}>FEATURED</Tag>}
           </div>
           {record.description && (
-            <div className="text-xs text-gray-400 truncate max-w-[280px]">{record.description}</div>
+            <div className="text-xs text-[#5F6B64] truncate max-w-[280px]">{record.description}</div>
           )}
         </div>
       ),
@@ -92,9 +92,9 @@ const FeaturedExamControl: React.FC = () => {
       title: 'Schedule',
       key: 'schedule',
       render: (_: unknown, record: ScheduleExam) => (
-        <div className="text-xs text-gray-600">
+        <div className="text-xs text-[#9BA8A0]">
           <div>{dayjs(record.startDate).format('DD MMM, hh:mm A')}</div>
-          <div className="text-gray-400">→ {dayjs(record.endDate).format('DD MMM, hh:mm A')}</div>
+          <div className="text-[#5F6B64]">→ {dayjs(record.endDate).format('DD MMM, hh:mm A')}</div>
         </div>
       ),
     },
@@ -171,10 +171,10 @@ const FeaturedExamControl: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <Title level={3} style={{ margin: 0, color: '#142347' }}>Featured Mock Exam</Title>
+          <Title level={3} style={{ margin: 0, color: '#E8F5EC' }}>Featured Mock Exam</Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
             Choose which mock exam appears prominently on the student dashboard.
           </Text>
@@ -187,8 +187,8 @@ const FeaturedExamControl: React.FC = () => {
         style={{
           borderRadius: 12,
           marginBottom: 24,
-          background: 'linear-gradient(135deg, #fff7e6 0%, #fffbe6 100%)',
-          border: '1px solid #f0d9a8',
+          background: 'linear-gradient(135deg, #0E1A12 0%, #0B0B0B 100%)',
+          border: '1px solid rgba(34, 197, 94, 0.3)',
         }}
       >
         <div className="flex flex-wrap items-center gap-5">
@@ -197,7 +197,7 @@ const FeaturedExamControl: React.FC = () => {
               width: 52,
               height: 52,
               borderRadius: 14,
-              background: 'linear-gradient(135deg, #faad14, #d48806)',
+              background: 'linear-gradient(135deg, #22C55E, #14532D)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -211,8 +211,8 @@ const FeaturedExamControl: React.FC = () => {
           {featuredExam ? (
             <div className="flex-1 min-w-[220px]">
               <div className="flex items-center gap-2">
-                <Text strong style={{ fontSize: 16, color: '#142347' }}>{featuredExam.title}</Text>
-                <Tag color="gold" icon={<StarFilled />}>LIVE ON DASHBOARD</Tag>
+                <Text strong style={{ fontSize: 16, color: '#E8F5EC' }}>{featuredExam.title}</Text>
+                <Tag color="green" icon={<StarFilled />}>LIVE ON DASHBOARD</Tag>
               </div>
               <Text type="secondary" style={{ fontSize: 13 }}>
                 {typeof featuredExam.exam === 'object' ? featuredExam.exam.name : ''}
@@ -224,7 +224,7 @@ const FeaturedExamControl: React.FC = () => {
             </div>
           ) : (
             <div className="flex-1">
-              <Text strong style={{ fontSize: 15, color: '#d48806' }}>
+              <Text strong style={{ fontSize: 15, color: '#4ADE80' }}>
                 <EyeOutlined style={{ marginRight: 8 }} />
                 No mock exam is currently featured
               </Text>
@@ -245,9 +245,9 @@ const FeaturedExamControl: React.FC = () => {
 
       {/* ── Guidance ──────────────────────────────────────── */}
       <Card style={{ borderRadius: 12, marginBottom: 24 }} size="small">
-        <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-gray-600">
-          <span><ArrowUpOutlined style={{ color: '#faad14', marginRight: 6 }} />Only one mock exam can be featured at a time.</span>
-          <span><StarFilled style={{ color: '#faad14', marginRight: 6 }} />Featuring an exam replaces the previously featured one.</span>
+        <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-[#9BA8A0]">
+          <span><ArrowUpOutlined style={{ color: '#22C55E', marginRight: 6 }} />Only one mock exam can be featured at a time.</span>
+          <span><StarFilled style={{ color: '#22C55E', marginRight: 6 }} />Featuring an exam replaces the previously featured one.</span>
         </div>
       </Card>
 
@@ -259,7 +259,7 @@ const FeaturedExamControl: React.FC = () => {
           onRow={(record) => ({
             style:
               currentFeaturedId === record._id
-                ? { background: '#fffbe6' }
+                ? { background: 'rgba(34, 197, 94, 0.08)' }
                 : undefined,
           })}
           pagination={{

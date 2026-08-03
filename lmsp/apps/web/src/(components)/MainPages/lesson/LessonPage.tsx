@@ -12,7 +12,7 @@ const LessonPage = () => {
   const { data: enrolledCourses, isLoading: isLoadingEnrolledCourses } =
     useGetEnrolledCourseQuery(userId, { skip: !userId });
 
-  if (!courseId) {
+  if (!courseId || courseId === 'undefined') {
     return (
       <CourseSelectionScreen
         enrolledCourses={enrolledCourses}

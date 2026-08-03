@@ -161,8 +161,8 @@ const ExamManagement: React.FC = () => {
       dataIndex: 'examVersion',
       key: 'examVersion',
       render: (val: string) => (
-        <span className="font-medium" style={{ color: '#142347' }}>
-          <BranchesOutlined style={{ marginRight: 6, color: '#667eea' }} />
+        <span className="font-medium" style={{ color: '#E8F5EC' }}>
+          <BranchesOutlined style={{ marginRight: 6, color: '#22C55E' }} />
           {val}
         </span>
       ),
@@ -217,7 +217,7 @@ const ExamManagement: React.FC = () => {
       title: 'Exam Name',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string) => <span className="font-medium" style={{ color: '#142347' }}>{name}</span>,
+      render: (name: string) => <span className="font-medium" style={{ color: '#E8F5EC' }}>{name}</span>,
       sorter: (a, b) => a.name.localeCompare(b.name),
     },
     {
@@ -225,9 +225,9 @@ const ExamManagement: React.FC = () => {
       dataIndex: 'description',
       key: 'description',
       render: (desc: string) => desc ? (
-        <span className="text-sm text-gray-600">{desc.length > 60 ? desc.slice(0, 60) + '...' : desc}</span>
+        <span className="text-sm text-[#9BA8A0]">{desc.length > 60 ? desc.slice(0, 60) + '...' : desc}</span>
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-[#5F6B64]">—</span>
       ),
     },
     {
@@ -243,7 +243,7 @@ const ExamManagement: React.FC = () => {
       render: (img: string) => img ? (
         <img src={img} alt="exam" style={{ width: 60, height: 40, objectFit: 'cover', borderRadius: 6 }} />
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-[#5F6B64]">—</span>
       ),
     },
     {
@@ -306,9 +306,9 @@ const ExamManagement: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold m-0" style={{ color: '#142347' }}>Exam Management</h2>
+        <h2 className="text-2xl font-bold m-0" style={{ color: '#E8F5EC' }}>Exam Management</h2>
         <Space>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
             Create Exam
@@ -434,7 +434,7 @@ const ExamManagement: React.FC = () => {
       <Modal
         title={
           <span>
-            <BranchesOutlined style={{ marginRight: 8, color: '#667eea' }} />
+            <BranchesOutlined style={{ marginRight: 8, color: '#22C55E' }} />
             Exam Versions — <strong>{selectedExamForVersion?.name}</strong>
           </span>
         }
@@ -448,7 +448,7 @@ const ExamManagement: React.FC = () => {
         destroyOnClose
       >
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-[#9BA8A0]">
             {filteredVersions.length} version{filteredVersions.length !== 1 ? 's' : ''} found
           </span>
           <Space>
@@ -473,7 +473,7 @@ const ExamManagement: React.FC = () => {
         ) : filteredVersions.length === 0 ? (
           <Empty
             description={
-              <span className="text-gray-400">
+              <span className="text-[#5F6B64]">
                 No versions yet for this exam.
                 <br />
                 Use the form below to add one.
@@ -493,12 +493,12 @@ const ExamManagement: React.FC = () => {
 
         <div
           style={{
-            borderTop: '1px solid #f0f0f0',
+            borderTop: '1px solid #1A1A1A',
             paddingTop: 20,
             marginTop: filteredVersions.length === 0 ? 0 : 8,
           }}
         >
-          <h4 className="font-medium mb-3" style={{ color: '#142347' }}>
+          <h4 className="font-medium mb-3" style={{ color: '#E8F5EC' }}>
             <PlusOutlined style={{ marginRight: 6, fontSize: 12 }} />
             Add New Version
           </h4>

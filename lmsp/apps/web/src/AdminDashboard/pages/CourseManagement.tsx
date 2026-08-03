@@ -116,7 +116,7 @@ const CourseManagement: React.FC = () => {
           <img
             src={record.thumbnail}
             alt={record.title}
-            className="w-12 h-12 rounded-lg object-cover border border-gray-100"
+            className="w-12 h-12 rounded-lg object-cover border border-[#232323]"
           />
         ) : (
           <div
@@ -130,26 +130,8 @@ const CourseManagement: React.FC = () => {
       title: 'Title',
       dataIndex: 'title',
       key: 'title',
-      render: (title: string) => <span className="font-medium" style={{ color: '#142347' }}>{title}</span>,
+      render: (title: string) => <span className="font-medium" style={{ color: '#E8F5EC' }}>{title}</span>,
       sorter: (a, b) => a.title.localeCompare(b.title),
-    },
-    {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
-      render: (desc: string) => desc ? (
-        <span className="text-sm text-gray-600">{desc.length > 50 ? desc.slice(0, 50) + '...' : desc}</span>
-      ) : (
-        <span className="text-gray-400">—</span>
-      ),
-    },
-    {
-      title: 'Instructor',
-      dataIndex: ['instructor', 'username'],
-      key: 'instructor',
-      render: (name: string, record: AdminCourse) => (
-        <span className="text-sm">{name || record.instructor?.email || 'N/A'}</span>
-      ),
     },
     {
       title: 'Lessons',
@@ -172,21 +154,7 @@ const CourseManagement: React.FC = () => {
         <span className="text-sm">{record.exam?.name || '—'}</span>
       ),
     },
-    {
-      title: 'Subjects',
-      key: 'subjects',
-      render: (_: unknown, record: AdminCourse) => (
-        record.subjects && record.subjects.length > 0 ? (
-          <Space wrap size={[2, 2]}>
-            {record.subjects.map((s) => (
-              <Tag key={s._id} color="blue" style={{ fontSize: 11 }}>{s.name}</Tag>
-            ))}
-          </Space>
-        ) : (
-          <span className="text-gray-400">—</span>
-        )
-      ),
-    },
+
     {
       title: 'Actions',
       key: 'actions',
@@ -242,7 +210,7 @@ const CourseManagement: React.FC = () => {
     return (
       <div className="p-4">
         <div className="mb-4">
-          <Typography.Text strong style={{ fontSize: 15, color: '#142347' }}>
+          <Typography.Text strong style={{ fontSize: 15, color: '#E8F5EC' }}>
             <UserOutlined className="mr-2" />
             Enrolled Students ({students.length})
           </Typography.Text>
@@ -251,20 +219,20 @@ const CourseManagement: React.FC = () => {
           {students.map((student) => (
             <div
               key={student._id}
-              className="rounded-lg border border-gray-100 bg-white p-4 hover:shadow-md transition-shadow duration-200"
-              style={{ borderLeft: '4px solid #667eea' }}
+              className="rounded-lg border border-[#232323] bg-[#0B0B0B] p-4 hover:border-emerald-500/40 hover:shadow-emerald-950/40 transition-all duration-200"
+              style={{ borderLeft: '4px solid #22C55E' }}
             >
               <div className="flex items-center gap-3 mb-3">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
                   style={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    background: 'linear-gradient(135deg, #22C55E 0%, #14532D 100%)',
                   }}
                 >
                   {(student.username || student.email || '?')[0].toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Typography.Text strong className="block truncate" style={{ color: '#142347' }}>
+                  <Typography.Text strong className="block truncate" style={{ color: '#E8F5EC' }}>
                     {student.username || 'Unnamed'}
                   </Typography.Text>
                   <Typography.Text type="secondary" className="text-xs block truncate">
@@ -274,19 +242,19 @@ const CourseManagement: React.FC = () => {
               </div>
               <div className="space-y-1.5 text-sm">
                 {student.phone && (
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-[#9BA8A0]">
                     <PhoneOutlined className="text-xs" />
                     <span>{student.phone}</span>
                   </div>
                 )}
                 {student.education && (
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-[#9BA8A0]">
                     <BookIcon className="text-xs" />
                     <span>{student.education}{student.institute ? ` - ${student.institute}` : ''}</span>
                   </div>
                 )}
                 {student.division && (
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-[#9BA8A0]">
                     <EnvironmentOutlined className="text-xs" />
                     <span>{student.division}{student.district ? `, ${student.district}` : ''}</span>
                   </div>
@@ -320,9 +288,9 @@ const CourseManagement: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold m-0" style={{ color: '#142347' }}>Course Management</h2>
+        <h2 className="text-2xl font-bold m-0" style={{ color: '#E8F5EC' }}>Course Management</h2>
         <Space>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
             Create Course

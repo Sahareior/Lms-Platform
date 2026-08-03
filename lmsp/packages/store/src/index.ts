@@ -94,6 +94,7 @@ export type {
 export {
   useUploadImageMutation,
   useUploadVideoMutation,
+  useUploadFileMutation,
 } from './redux/api/uploadApi';
 export type {
   UploadResponse,

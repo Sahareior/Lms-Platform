@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Lesson from "../models/Lesson.js";
 import CourseModel from "../models/Courses.js";
 
@@ -27,6 +28,9 @@ export const createLesson = async (req, res) => {
 
 export const getLessonsByCourseId = async (req, res) => {
     const { courseId } = req.params;
+    if (!courseId || !mongoose.Types.ObjectId.isValid(courseId)) {
+        return res.status(400).json({ message: 'Invalid course id' });
+    }
     try {
         const lessons = await Lesson.find({ course: courseId });
         res.status(200).json({ lessons });

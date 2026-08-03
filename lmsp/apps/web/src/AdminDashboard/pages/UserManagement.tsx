@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Table, Card, Avatar, Tag, Modal, Descriptions, Spin, Alert, Input, Button, Space, Popconfirm, message } from 'antd';
-import { SearchOutlined, ReloadOutlined, UserOutlined, MailOutlined, PhoneOutlined, DeleteOutlined } from '@ant-design/icons';
+import { SearchOutlined, ReloadOutlined, MailOutlined, PhoneOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useGetAdminUsersQuery, useGetAdminUserByIdQuery, useDeleteAdminUserMutation, type AdminUser } from '@my-monorepo/store';
 
@@ -42,12 +42,12 @@ const UserManagement: React.FC = () => {
       key: 'username',
       render: (name: string, record: AdminUser) => (
         <div className="flex items-center gap-3">
-          <Avatar style={{ backgroundColor: '#1890ff', verticalAlign: 'middle' }} size="large">
+          <Avatar style={{ backgroundColor: '#14532D', verticalAlign: 'middle' }} size="large">
             {(name || record.email || '?')[0].toUpperCase()}
           </Avatar>
           <div>
-            <span className="font-medium" style={{ color: '#142347' }}>{name || 'N/A'}</span>
-            <p className="text-xs text-gray-400 m-0">{record.email}</p>
+            <span className="font-medium" style={{ color: '#E8F5EC' }}>{name || 'N/A'}</span>
+            <p className="text-xs text-[#5F6B64] m-0">{record.email}</p>
           </div>
         </div>
       ),
@@ -59,12 +59,12 @@ const UserManagement: React.FC = () => {
       render: (_: unknown, record: AdminUser) => (
         <div className="space-y-1">
           {record.phone && (
-            <div className="flex items-center gap-1 text-sm text-gray-600">
+            <div className="flex items-center gap-1 text-sm text-[#9BA8A0]">
               <PhoneOutlined /> {record.phone}
             </div>
           )}
           {record.email && (
-            <div className="flex items-center gap-1 text-sm text-gray-600">
+            <div className="flex items-center gap-1 text-sm text-[#9BA8A0]">
               <MailOutlined /> {record.email}
             </div>
           )}
@@ -75,7 +75,7 @@ const UserManagement: React.FC = () => {
       title: 'Location',
       key: 'location',
       render: (_: unknown, record: AdminUser) => (
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-[#9BA8A0]">
           {[record.division, record.district, record.thana].filter(Boolean).join(', ') || '—'}
         </span>
       ),
@@ -151,9 +151,9 @@ const UserManagement: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold m-0" style={{ color: '#142347' }}>User Management</h2>
+        <h2 className="text-2xl font-bold m-0" style={{ color: '#E8F5EC' }}>User Management</h2>
         <Space>
           <Input
             placeholder="Search users..."
@@ -219,7 +219,7 @@ const UserDetail: React.FC<{ userId: string }> = ({ userId }) => {
       <Descriptions.Item label="Institute">{user.institute || 'N/A'}</Descriptions.Item>
       <Descriptions.Item label="Target Date">{user.targetDate ? new Date(user.targetDate).toLocaleDateString() : 'N/A'}</Descriptions.Item>
       <Descriptions.Item label="Preferred Center">{user.preferredCenter || 'N/A'}</Descriptions.Item>
-      <Descriptions.Item label="Hear About">{user.hearAbout || 'N/A'}</Descriptions.Item>
+      <Descriptions.Item label="Hear About">{(user as any).hearAbout || 'N/A'}</Descriptions.Item>
     </Descriptions>
   );
 };

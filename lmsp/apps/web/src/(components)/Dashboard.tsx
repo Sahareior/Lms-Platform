@@ -600,7 +600,7 @@ export default function Dashboard() {
               <EnrolledCard
                 key={course._id}
                 course={course}
-                onResume={() => navigate(`/courses/${course._id}`)}
+                onResume={() => course._id && navigate(`/courses/${course._id}`)}
               />
             ))}
           </div>

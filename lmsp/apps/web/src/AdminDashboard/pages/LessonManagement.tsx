@@ -8,7 +8,8 @@ import {
   PlusOutlined, ArrowLeftOutlined, EditOutlined, DeleteOutlined,
   ReloadOutlined, VideoCameraOutlined, EyeOutlined, LinkOutlined,
   FileTextOutlined, SearchOutlined, FilterOutlined, ClockCircleOutlined,
-  BookOutlined, CheckCircleOutlined, CloseCircleOutlined, PlayCircleOutlined
+  BookOutlined, CheckCircleOutlined, CloseCircleOutlined, PlayCircleOutlined,
+  LoadingOutlined
 } from '@ant-design/icons';
 import MediaUpload from '../../reusable/MediaUpload';
 import type { ColumnsType } from 'antd/es/table';
@@ -18,7 +19,7 @@ import {
   useGetCourseLessonsQuery, useGetAdminCourseByIdQuery,
   useCreateAdminLessonMutation, useUpdateAdminLessonMutation,
   useDeleteAdminLessonMutation,
-  type AdminLesson, type CreateLessonRequest, type UpdateLessonRequest
+  type AdminLesson
 } from '@my-monorepo/store';
 
 const { TextArea } = Input;
@@ -35,17 +36,32 @@ const parseMaterial = (val: string | string[] | undefined): string[] | undefined
   return val.split(',').map(s => s.trim()).filter(Boolean);
 };
 
+// Map an uploaded file's mime type / extension to a resource type.
+const detectResourceType = (mime?: string, fileName?: string): typeof RESOURCE_TYPES[number] => {
+  const m = (mime || '').toLowerCase();
+  const ext = (fileName || '').toLowerCase().split('.').pop() || '';
+  if (m.startsWith('video/') || ['mp4', 'webm', 'mov', 'mkv', 'avi'].includes(ext)) return 'VIDEO';
+  if (m.startsWith('audio/') || ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'].includes(ext)) return 'AUDIO';
+  if (m.includes('pdf') || ext === 'pdf') return 'PDF';
+  if (m.includes('word') || m.includes('document') || ['doc', 'docx'].includes(ext)) return 'DOC';
+  if (m.includes('presentation') || m.includes('powerpoint') || ['ppt', 'pptx'].includes(ext)) return 'PPT';
+  return 'OTHER';
+};
+
 const LessonManagement: React.FC = () => {
   const { courseId: rawCourseId } = useParams<{ courseId?: string }>();
   const courseId = rawCourseId && rawCourseId !== 'undefined' ? rawCourseId : undefined;
   const navigate = useNavigate();
-
   const { data: course, isLoading: courseLoading } = useGetAdminCourseByIdQuery(courseId ?? skipToken);
-  const { data: lessonsData, isLoading: lessonsLoading, error, refetch } = useGetCourseLessonsQuery({ courseId });
+  const { data: lessonsData, isLoading: lessonsLoading, error, refetch } = useGetCourseLessonsQuery(courseId ? { courseId } : skipToken);
 
   const [createLesson, { isLoading: isCreating }] = useCreateAdminLessonMutation();
   const [updateLesson, { isLoading: isUpdating }] = useUpdateAdminLessonMutation();
-  const [deleteLesson, { isLoading: isDeleting }] = useDeleteAdminLessonMutation();
+  const [deleteLesson] = useDeleteAdminLessonMutation();
+
+  // Upload loading states
+  const [isVideoUploading, setIsVideoUploading] = useState(false);
+  const [isFileUploading, setIsFileUploading] = useState(false);
 
   // Modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -66,6 +82,7 @@ const LessonManagement: React.FC = () => {
   const [resourceEditMode, setResourceEditMode] = useState<'create' | 'edit'>('create');
   const [editingResourceIndex, setEditingResourceIndex] = useState<number | null>(null);
   const [resourceForm] = Form.useForm();
+  const resourceUrl = Form.useWatch('url', resourceForm);
 
   // Search & filter
   const [searchText, setSearchText] = useState('');
@@ -86,13 +103,21 @@ const LessonManagement: React.FC = () => {
     setResourceEditMode(mode);
     if (mode === 'edit' && index !== undefined) {
       setEditingResourceIndex(index);
-      const resources = mode === 'create' ? createResources : editResources;
-      resourceForm.setFieldsValue(resources[index]);
+      resourceForm.setFieldsValue(editResources[index]);
     } else {
       setEditingResourceIndex(null);
       resourceForm.resetFields();
     }
     setResourceModalOpen(true);
+  };
+
+  // Auto-fill url/name/type from the uploaded file's metadata.
+  const handleResourceUpload = (url: string, meta?: { name?: string; mimeType?: string }) => {
+    resourceForm.setFieldValue('url', url);
+    if (meta?.name) {
+      resourceForm.setFieldValue('name', meta.name.replace(/\.[^/.]+$/, ''));
+    }
+    resourceForm.setFieldValue('type', detectResourceType(meta?.mimeType, meta?.name));
   };
 
   const handleSaveResource = () => {
@@ -223,19 +248,18 @@ const LessonManagement: React.FC = () => {
       key: 'title',
       render: (title: string, record: AdminLesson) => (
         <div className="flex items-center gap-3">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${
-            record.isPublished
-              ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100'
-              : 'bg-amber-50 text-amber-600 ring-1 ring-amber-100'
-          }`}>
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${record.isPublished
+              ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/25'
+              : 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25'
+            }`}>
             <VideoCameraOutlined className="text-base" />
           </div>
           <div>
-            <Text strong className="block leading-tight text-slate-800">{title}</Text>
-            <span className="text-xs text-slate-400">
+            <Text strong className="block leading-tight text-[#E8F5EC]">{title}</Text>
+            <span className="text-xs text-[#7A8A80]">
               {record.duration ? `${record.duration} min` : 'No duration'}
               {record.isPreview && (
-                <span className="text-emerald-500 font-medium"> · Free preview</span>
+                <span className="text-emerald-400 font-medium"> · Free preview</span>
               )}
             </span>
           </div>
@@ -249,12 +273,12 @@ const LessonManagement: React.FC = () => {
       key: 'duration',
       width: 110,
       render: (mins: number) => mins ? (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25">
           <ClockCircleOutlined className="text-[10px]" />
           {mins} min
         </span>
       ) : (
-        <span className="text-slate-300">—</span>
+        <span className="text-[#4A564E]">—</span>
       ),
     },
     {
@@ -264,11 +288,10 @@ const LessonManagement: React.FC = () => {
       render: (_: any, record: AdminLesson) => (
         <Tag
           icon={record.isPublished ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-          className={`!rounded-full !px-2.5 !py-0.5 !border-0 !font-medium ${
-            record.isPublished
-              ? '!bg-emerald-50 !text-emerald-700'
-              : '!bg-amber-50 !text-amber-700'
-          }`}
+          className={`!rounded-full !px-2.5 !py-0.5 !border-0 !font-medium ${record.isPublished
+              ? '!bg-emerald-500/15 !text-emerald-300'
+              : '!bg-amber-500/15 !text-amber-300'
+            }`}
         >
           {record.isPublished ? 'Published' : 'Draft'}
         </Tag>
@@ -285,11 +308,11 @@ const LessonManagement: React.FC = () => {
       key: 'isPreview',
       width: 90,
       render: (val: boolean) => val ? (
-        <Tag icon={<EyeOutlined />} className="!rounded-full !bg-teal-50 !text-teal-700 !border-0 !font-medium">
+        <Tag icon={<EyeOutlined />} className="!rounded-full !bg-teal-500/15 !text-teal-300 !border-0 !font-medium">
           Free
         </Tag>
       ) : (
-        <span className="text-slate-300">—</span>
+        <span className="text-[#4A564E]">—</span>
       ),
     },
     {
@@ -299,12 +322,12 @@ const LessonManagement: React.FC = () => {
       render: (_: any, record: AdminLesson) => {
         const count = (record.resources?.length || 0) + (record.material?.length || 0);
         return count > 0 ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25">
             <LinkOutlined className="text-[10px]" />
             {count}
           </span>
         ) : (
-          <span className="text-slate-300">—</span>
+          <span className="text-[#4A564E]">—</span>
         );
       },
     },
@@ -314,7 +337,7 @@ const LessonManagement: React.FC = () => {
       key: 'order',
       width: 70,
       render: (order: number) => (
-        <span className="font-mono text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg ring-1 ring-emerald-100">
+        <span className="font-mono text-xs bg-emerald-500/15 text-emerald-300 px-2.5 py-1 rounded-lg ring-1 ring-emerald-500/25">
           {order ?? 0}
         </span>
       ),
@@ -332,7 +355,7 @@ const LessonManagement: React.FC = () => {
               size="small"
               icon={<EditOutlined />}
               onClick={() => openEditModal(record)}
-              className="!text-emerald-600 hover:!bg-emerald-50 hover:!text-emerald-700"
+              className="!text-emerald-400 hover:!bg-emerald-500/10 hover:!text-emerald-300"
             />
           </Tooltip>
           <Popconfirm
@@ -349,7 +372,7 @@ const LessonManagement: React.FC = () => {
                 size="small"
                 danger
                 icon={<DeleteOutlined />}
-                className="hover:!bg-red-50"
+                className="hover:!bg-red-500/10"
               />
             </Tooltip>
           </Popconfirm>
@@ -363,7 +386,7 @@ const LessonManagement: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-72 gap-3">
         <Spin size="large" />
-        <Text className="text-emerald-600/80">Loading lessons…</Text>
+        <Text className="text-emerald-400/80">Loading lessons…</Text>
       </div>
     );
   }
@@ -376,7 +399,7 @@ const LessonManagement: React.FC = () => {
         type="error"
         showIcon
         action={
-          <Button onClick={refetch} className="!border-emerald-500 !text-emerald-600">
+          <Button onClick={refetch} className="!border-emerald-500 !text-emerald-400">
             Retry
           </Button>
         }
@@ -387,7 +410,9 @@ const LessonManagement: React.FC = () => {
 
   // ── Shared form content ──
   const lessonFormContent = (form: any, mode: 'create' | 'edit') => {
-    const videoUri = form === createForm ? createVideoUri : editVideoUri;
+    const rawVideoUri = form === createForm ? createVideoUri : editVideoUri;
+    const videoUri = typeof rawVideoUri === 'string' ? rawVideoUri : undefined;
+    const isRealVideoUrl = !!videoUri && (videoUri.startsWith('http://') || videoUri.startsWith('https://'));
     const duration = form === createForm ? createDuration : editDuration;
     const resources = mode === 'create' ? createResources : editResources;
 
@@ -395,24 +420,24 @@ const LessonManagement: React.FC = () => {
       <>
         <Form.Item
           name="title"
-          label={<span className="text-slate-700 font-medium">Title</span>}
+          label={<span className="text-[#C9DCCE] font-medium">Title</span>}
           rules={[{ required: true }]}
         >
           <Input
             placeholder="e.g. Introduction to Algorithms"
-            className="!rounded-lg hover:!border-emerald-400 focus:!border-emerald-500"
+            className="!rounded-lg hover:!border-emerald-500/60 focus:!border-emerald-500"
           />
         </Form.Item>
 
         <Form.Item
           name="description"
-          label={<span className="text-slate-700 font-medium">Description</span>}
+          label={<span className="text-[#C9DCCE] font-medium">Description</span>}
           rules={[{ required: true }]}
         >
           <TextArea
             rows={3}
             placeholder="Brief description of the lesson..."
-            className="!rounded-lg hover:!border-emerald-400 focus:!border-emerald-500"
+            className="!rounded-lg hover:!border-emerald-500/60 focus:!border-emerald-500"
           />
         </Form.Item>
 
@@ -420,14 +445,14 @@ const LessonManagement: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
           <Form.Item
             name="order"
-            label={<span className="text-slate-700 font-medium">Order</span>}
+            label={<span className="text-[#C9DCCE] font-medium">Order</span>}
             initialValue={mode === 'create' ? lessons.length + 1 : undefined}
           >
             <InputNumber min={0} className="w-full !rounded-lg" />
           </Form.Item>
           <Form.Item
             name="duration"
-            label={<span className="text-slate-700 font-medium">Duration (min)</span>}
+            label={<span className="text-[#C9DCCE] font-medium">Duration (min)</span>}
           >
             <InputNumber min={0} className="w-full !rounded-lg" />
           </Form.Item>
@@ -436,41 +461,48 @@ const LessonManagement: React.FC = () => {
         {/* Video Upload */}
         <Form.Item
           name="videoUri"
-          label={<span className="text-slate-700 font-medium">Lesson Video</span>}
+          label={<span className="text-[#C9DCCE] font-medium">Lesson Video</span>}
           rules={[{ required: true, message: 'Please upload or enter a video URL' }]}
         >
-          {!videoUri ? (
-            <div className="border-2 border-dashed border-emerald-200 rounded-xl p-5 bg-gradient-to-br from-emerald-50/60 to-white hover:border-emerald-400 transition-all duration-200">
+          {!isRealVideoUrl ? (
+            <div className="border-2 border-dashed border-emerald-500/30 rounded-xl p-5 bg-gradient-to-br from-emerald-500/10 to-[#0B0B0B] hover:border-emerald-500/50 transition-all duration-200">
               <div className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <div className="w-11 h-11 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-emerald-500/30">
                   <PlayCircleOutlined className="text-xl" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-slate-800 mb-1">Upload a video file</h4>
-                  <p className="text-xs text-slate-500 mb-3">
+                  <h4 className="text-sm font-semibold text-[#E8F5EC] mb-1">Upload a video file</h4>
+                  <p className="text-xs text-[#9BA8A0] mb-3">
                     MP4, WebM, or OGG. Duration will be auto-filled.
                   </p>
                   <MediaUpload
                     type="video"
                     value={videoUri}
                     onChange={handleVideoUpload(form)}
+                    onLoadingChange={setIsVideoUploading}
                     label="Choose File"
                     showPreview={false}
                   />
+                  {isVideoUploading && (
+                    <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-emerald-400 text-xs">
+                      <Spin indicator={<LoadingOutlined style={{ fontSize: 18, color: '#10B981' }} spin />} />
+                      <span className="font-semibold animate-pulse">Uploading video to Cloudinary... Please wait.</span>
+                    </div>
+                  )}
                   <Divider plain className="!my-3 text-xs text-emerald-400/80">or paste a URL</Divider>
                   <Input
                     placeholder="https://..."
                     prefix={<LinkOutlined className="text-emerald-400" />}
                     onChange={(e) => form.setFieldValue('videoUri', e.target.value)}
-                    className="!rounded-lg hover:!border-emerald-400 focus:!border-emerald-500"
+                    className="!rounded-lg hover:!border-emerald-500/60 focus:!border-emerald-500"
                   />
                 </div>
               </div>
             </div>
           ) : (
-            <div className="border border-emerald-100 rounded-xl p-4 bg-white shadow-sm ring-1 ring-emerald-50">
+            <div className="border border-emerald-500/20 rounded-xl p-4 bg-[#0B0B0B] shadow-sm ring-1 ring-emerald-500/10">
               <div className="flex gap-4">
-                <div className="w-36 h-22 bg-slate-900 rounded-lg overflow-hidden flex-shrink-0 relative shadow-inner">
+                <div className="w-36 h-22 bg-black rounded-lg overflow-hidden flex-shrink-0 relative shadow-inner">
                   <video
                     src={videoUri}
                     controls
@@ -482,7 +514,7 @@ const LessonManagement: React.FC = () => {
                   <div className="flex items-center justify-between mb-1.5">
                     <Badge
                       status="success"
-                      text={<span className="text-xs font-semibold text-emerald-700">Video ready</span>}
+                      text={<span className="text-xs font-semibold text-emerald-400">Video ready</span>}
                     />
                     <Button
                       type="text"
@@ -493,16 +525,16 @@ const LessonManagement: React.FC = () => {
                         form.setFieldValue('videoUri', undefined);
                         form.setFieldValue('duration', undefined);
                       }}
-                      className="!text-xs hover:!bg-red-50"
+                      className="!text-xs hover:!bg-red-500/10"
                     />
                   </div>
-                  <p className="text-xs text-slate-500 truncate mb-2 font-mono">{videoUri}</p>
+                  <p className="text-xs text-[#9BA8A0] truncate mb-2 font-mono">{videoUri}</p>
                   <div className="flex items-center gap-2 text-xs">
-                    <ClockCircleOutlined className="text-emerald-500" />
+                    <ClockCircleOutlined className="text-emerald-400" />
                     {duration ? (
-                      <span className="font-semibold text-emerald-700">{duration} min</span>
+                      <span className="font-semibold text-emerald-300">{duration} min</span>
                     ) : (
-                      <span className="text-slate-400 italic">No duration extracted</span>
+                      <span className="text-[#7A8A80] italic">No duration extracted</span>
                     )}
                   </div>
                 </div>
@@ -515,24 +547,24 @@ const LessonManagement: React.FC = () => {
         <div className="flex gap-10 py-1">
           <Form.Item
             name="isPreview"
-            label={<span className="text-slate-700 font-medium">Free Preview</span>}
+            label={<span className="text-[#C9DCCE] font-medium">Free Preview</span>}
             valuePropName="checked"
             className="!mb-0"
           >
-            <Switch className="!bg-slate-200" />
+            <Switch className="!bg-[#2A2A2A]" />
           </Form.Item>
           <Form.Item
             name="isPublished"
-            label={<span className="text-slate-700 font-medium">Published</span>}
+            label={<span className="text-[#C9DCCE] font-medium">Published</span>}
             valuePropName="checked"
             className="!mb-0"
           >
-            <Switch className="!bg-slate-200" />
+            <Switch className="!bg-[#2A2A2A]" />
           </Form.Item>
         </div>
 
         {/* Resources */}
-        <Divider orientation="left" plain className="!text-sm !font-semibold !text-emerald-700/80 !mb-3 !mt-5">
+        <Divider titlePlacement="start" plain className="!text-sm !font-semibold !text-emerald-400/90 !mb-3 !mt-5">
           <Space size={6}>
             <LinkOutlined />
             Resources
@@ -544,14 +576,14 @@ const LessonManagement: React.FC = () => {
             {resources.map((res, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100 hover:border-emerald-200 transition-colors"
+                className="flex items-center justify-between bg-emerald-500/5 p-2.5 rounded-xl border border-emerald-500/15 hover:border-emerald-500/30 transition-colors"
               >
                 <Space size={8}>
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
                     <FileTextOutlined className="text-xs" />
                   </div>
-                  <span className="text-sm font-medium text-slate-700">{res.name}</span>
-                  <Tag className="!rounded-md !bg-emerald-100 !text-emerald-700 !border-0 !text-xs !font-medium">
+                  <span className="text-sm font-medium text-[#C9DCCE]">{res.name}</span>
+                  <Tag className="!rounded-md !bg-emerald-500/15 !text-emerald-300 !border-0 !text-xs !font-medium">
                     {res.type}
                   </Tag>
                 </Space>
@@ -561,7 +593,7 @@ const LessonManagement: React.FC = () => {
                     size="small"
                     icon={<EditOutlined />}
                     onClick={() => openAddResource(mode, idx)}
-                    className="!text-emerald-600 hover:!bg-emerald-100"
+                    className="!text-emerald-400 hover:!bg-emerald-500/10"
                   />
                   <Button
                     type="text"
@@ -569,7 +601,7 @@ const LessonManagement: React.FC = () => {
                     danger
                     icon={<DeleteOutlined />}
                     onClick={() => handleRemoveResource(mode, idx)}
-                    className="hover:!bg-red-50"
+                    className="hover:!bg-red-500/10"
                   />
                 </Space>
               </div>
@@ -577,7 +609,7 @@ const LessonManagement: React.FC = () => {
           </div>
         ) : (
           <Empty
-            description={<span className="text-slate-400 text-sm">No resources yet</span>}
+            description={<span className="text-[#7A8A80] text-sm">No resources yet</span>}
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             className="!py-3 !mb-2"
           />
@@ -588,18 +620,18 @@ const LessonManagement: React.FC = () => {
           block
           icon={<PlusOutlined />}
           onClick={() => openAddResource(mode)}
-          className="!mb-4 !rounded-lg !border-emerald-300 !text-emerald-600 hover:!border-emerald-500 hover:!text-emerald-700 hover:!bg-emerald-50"
+          className="!mb-4 !rounded-lg !border-emerald-500/40 !text-emerald-400 hover:!border-emerald-500 hover:!text-emerald-300 hover:!bg-emerald-500/10"
         >
           Add Resource
         </Button>
 
         <Form.Item
           name="material"
-          label={<span className="text-slate-700 font-medium">Material URLs (comma-separated)</span>}
+          label={<span className="text-[#C9DCCE] font-medium">Material URLs (comma-separated)</span>}
         >
           <Input
             placeholder="https://... , https://..."
-            className="!rounded-lg hover:!border-emerald-400 focus:!border-emerald-500"
+            className="!rounded-lg hover:!border-emerald-500/60 focus:!border-emerald-500"
           />
         </Form.Item>
       </>
@@ -607,31 +639,31 @@ const LessonManagement: React.FC = () => {
   };
 
   return (
-    <div className="lesson-management min-h-screen">
+    <div className="lesson-management min-h-screen p-6">
       {/* Header */}
-      <div className="mb-6 bg-white rounded-2xl p-6 shadow-sm border border-emerald-100/80">
+      <div className="mb-6 bg-[#0B0B0B] rounded-2xl p-6 shadow-sm border border-emerald-500/15">
         <Button
           type="link"
           icon={<ArrowLeftOutlined />}
           onClick={() => navigate('/admin/courses')}
-          className="!mb-3 !p-0 !text-emerald-600 hover:!text-emerald-800 !font-medium"
+          className="!mb-3 !p-0 !text-emerald-400 hover:!text-emerald-300 !font-medium"
         >
           Back to Courses
         </Button>
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <Title level={3} className="!mb-1 !text-slate-800 !font-semibold">
-              <BookOutlined className="mr-2.5 text-emerald-500" />
+            <Title level={3} className="!mb-1 !text-[#E8F5EC] !font-semibold">
+              <BookOutlined className="mr-2.5 text-emerald-400" />
               {course?.title || 'Lessons'}
             </Title>
-            <Text className="text-slate-400 text-sm">Course ID: {courseId}</Text>
+            <Text className="text-[#7A8A80] text-sm">Course ID: {courseId}</Text>
           </div>
           <Space wrap size={10}>
             <Button
               icon={<ReloadOutlined />}
               onClick={refetch}
-              className="!rounded-lg !border-emerald-200 !text-emerald-700 hover:!border-emerald-400 hover:!text-emerald-800"
+              className="!rounded-lg !border-emerald-500/30 !text-emerald-400 hover:!border-emerald-500/60 hover:!text-emerald-300"
             >
               Refresh
             </Button>
@@ -639,7 +671,7 @@ const LessonManagement: React.FC = () => {
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => setCreateModalOpen(true)}
-              className="!rounded-lg !bg-emerald-600 hover:!bg-emerald-500 !border-emerald-600 !shadow-md !shadow-emerald-200"
+              className="!rounded-lg !bg-emerald-600 hover:!bg-emerald-500 !border-emerald-600 !shadow-md !shadow-emerald-900/50"
             >
               Add Lesson
             </Button>
@@ -647,42 +679,42 @@ const LessonManagement: React.FC = () => {
         </div>
 
         {/* Stats */}
-        <Divider dashed className="!my-5 !border-emerald-100" />
+        <Divider dashed className="!my-5 !border-emerald-500/20" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="stat-card">
-            <div className="stat-icon bg-emerald-100 text-emerald-600">
+            <div className="stat-icon bg-emerald-500/15 text-emerald-400">
               <PlayCircleOutlined />
             </div>
             <div>
-              <div className="text-2xl font-bold text-slate-800 tracking-tight">{stats.total}</div>
-              <div className="text-xs text-slate-500 font-medium">Total Lessons</div>
+              <div className="text-2xl font-bold text-[#E8F5EC] tracking-tight">{stats.total}</div>
+              <div className="text-xs text-[#7A8A80] font-medium">Total Lessons</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon bg-emerald-100 text-emerald-600">
+            <div className="stat-icon bg-emerald-500/15 text-emerald-400">
               <CheckCircleOutlined />
             </div>
             <div>
-              <div className="text-2xl font-bold text-slate-800 tracking-tight">{stats.published}</div>
-              <div className="text-xs text-slate-500 font-medium">Published</div>
+              <div className="text-2xl font-bold text-[#E8F5EC] tracking-tight">{stats.published}</div>
+              <div className="text-xs text-[#7A8A80] font-medium">Published</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon bg-amber-100 text-amber-600">
+            <div className="stat-icon bg-amber-500/15 text-amber-400">
               <ClockCircleOutlined />
             </div>
             <div>
-              <div className="text-2xl font-bold text-slate-800 tracking-tight">{stats.draft}</div>
-              <div className="text-xs text-slate-500 font-medium">Drafts</div>
+              <div className="text-2xl font-bold text-[#E8F5EC] tracking-tight">{stats.draft}</div>
+              <div className="text-xs text-[#7A8A80] font-medium">Drafts</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon bg-teal-100 text-teal-600">
+            <div className="stat-icon bg-teal-500/15 text-teal-400">
               <LinkOutlined />
             </div>
             <div>
-              <div className="text-2xl font-bold text-slate-800 tracking-tight">{stats.totalResources}</div>
-              <div className="text-xs text-slate-500 font-medium">Resources</div>
+              <div className="text-2xl font-bold text-[#E8F5EC] tracking-tight">{stats.totalResources}</div>
+              <div className="text-xs text-[#7A8A80] font-medium">Resources</div>
             </div>
           </div>
         </div>
@@ -690,7 +722,7 @@ const LessonManagement: React.FC = () => {
 
       {/* Toolbar */}
       <Card
-        className="!mb-4 !rounded-2xl !shadow-sm !border-emerald-100/80"
+        className="!mb-4 !rounded-2xl !shadow-sm !border-emerald-500/15"
         bodyStyle={{ padding: '16px 24px' }}
       >
         <div className="flex flex-col sm:flex-row gap-4 items-center">
@@ -700,7 +732,7 @@ const LessonManagement: React.FC = () => {
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
             allowClear
-            className="w-full sm:w-72 !rounded-lg hover:!border-emerald-400 focus:!border-emerald-500"
+            className="w-full sm:w-72 !rounded-lg hover:!border-emerald-500/60 focus:!border-emerald-500"
           />
           <Select
             value={statusFilter}
@@ -711,11 +743,11 @@ const LessonManagement: React.FC = () => {
               { value: 'published', label: 'Published' },
               { value: 'draft', label: 'Draft' },
             ]}
-            suffixIcon={<FilterOutlined className="text-emerald-500" />}
+            suffixIcon={<FilterOutlined className="text-emerald-400" />}
           />
           <div className="ml-auto">
-            <Text className="text-slate-400 text-sm">
-              <span className="font-semibold text-emerald-600">{filteredLessons.length}</span>
+            <Text className="text-[#7A8A80] text-sm">
+              <span className="font-semibold text-emerald-400">{filteredLessons.length}</span>
               {' '}of {lessons.length} lessons
             </Text>
           </div>
@@ -724,13 +756,13 @@ const LessonManagement: React.FC = () => {
 
       {/* Table */}
       <Card
-        className="!rounded-2xl !shadow-sm !border-emerald-100/80 overflow-hidden"
+        className="!rounded-2xl !shadow-sm !border-emerald-500/15 overflow-hidden"
         bodyStyle={{ padding: 0 }}
       >
         {filteredLessons.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={<span className="text-slate-400">No lessons match your criteria</span>}
+            description={<span className="text-[#7A8A80]">No lessons match your criteria</span>}
             className="!py-16"
           >
             <Button
@@ -754,7 +786,7 @@ const LessonManagement: React.FC = () => {
               className: '!px-4 !py-3',
             }}
             scroll={{ x: 800 }}
-            rowClassName="hover:!bg-emerald-50/40 transition-colors"
+            rowClassName="hover:!bg-emerald-500/5 transition-colors"
             className="emerald-table"
           />
         )}
@@ -763,7 +795,7 @@ const LessonManagement: React.FC = () => {
       {/* Create Lesson Modal */}
       <Modal
         title={
-          <Space className="text-emerald-700">
+          <Space className="text-emerald-400">
             <PlusOutlined />
             <span className="font-semibold">Create New Lesson</span>
           </Space>
@@ -781,7 +813,7 @@ const LessonManagement: React.FC = () => {
       >
         <Form form={createForm} layout="vertical" onFinish={handleCreateLesson} className="mt-5">
           {lessonFormContent(createForm, 'create')}
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-emerald-50">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-emerald-500/10">
             <Button
               onClick={() => {
                 setCreateModalOpen(false);
@@ -807,7 +839,7 @@ const LessonManagement: React.FC = () => {
       {/* Edit Lesson Modal */}
       <Modal
         title={
-          <Space className="text-emerald-700">
+          <Space className="text-emerald-400">
             <EditOutlined />
             <span className="font-semibold">Edit Lesson</span>
           </Space>
@@ -826,7 +858,7 @@ const LessonManagement: React.FC = () => {
       >
         <Form form={editForm} layout="vertical" onFinish={handleEditLesson} className="mt-5">
           {lessonFormContent(editForm, 'edit')}
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-emerald-50">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-emerald-500/10">
             <Button
               onClick={() => {
                 setEditModalOpen(false);
@@ -853,7 +885,7 @@ const LessonManagement: React.FC = () => {
       {/* Resource Modal */}
       <Modal
         title={
-          <span className="font-semibold text-emerald-700">
+          <span className="font-semibold text-emerald-400">
             {editingResourceIndex !== null ? 'Edit Resource' : 'Add Resource'}
           </span>
         }
@@ -875,8 +907,65 @@ const LessonManagement: React.FC = () => {
           <Form.Item name="name" label="Name" rules={[{ required: true }]}>
             <Input placeholder="e.g. Lecture slides" className="!rounded-lg" />
           </Form.Item>
-          <Form.Item name="url" label="URL" rules={[{ required: true, type: 'url' }]}>
-            <Input placeholder="https://..." className="!rounded-lg" />
+          <Form.Item
+            name="url"
+            label={<span className="text-[#C9DCCE] font-medium">File / URL</span>}
+            rules={[{ required: true, type: 'url', message: 'Please upload a file or enter a valid URL' }]}
+          >
+            {!(typeof resourceUrl === 'string' && (resourceUrl.startsWith('http://') || resourceUrl.startsWith('https://'))) ? (
+              <div className="border-2 border-dashed border-emerald-500/30 rounded-xl p-5 bg-gradient-to-br from-emerald-500/10 to-[#0B0B0B] hover:border-emerald-500/50 transition-all duration-200">
+                <div className="flex items-start gap-4">
+                  <div className="w-11 h-11 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-emerald-500/30">
+                    <FileTextOutlined className="text-xl" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-[#E8F5EC] mb-1">Upload a resource file</h4>
+                    <p className="text-xs text-[#9BA8A0] mb-3">
+                      PDF, DOC, PPT, audio or video. Name & type are auto-detected.
+                    </p>
+                    <MediaUpload
+                      type="file"
+                      value={resourceUrl}
+                      onChange={handleResourceUpload}
+                      onLoadingChange={setIsFileUploading}
+                      label="Choose File"
+                      showPreview={false}
+                    />
+                    {isFileUploading && (
+                      <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-emerald-400 text-xs">
+                        <Spin indicator={<LoadingOutlined style={{ fontSize: 18, color: '#10B981' }} spin />} />
+                        <span className="font-semibold animate-pulse">Uploading resource file... Please wait.</span>
+                      </div>
+                    )}
+                    <Divider plain className="!my-3 text-xs text-emerald-400/80">or paste a URL</Divider>
+                    <Input
+                      placeholder="https://..."
+                      prefix={<LinkOutlined className="text-emerald-400" />}
+                      onChange={(e) => resourceForm.setFieldValue('url', e.target.value)}
+                      className="!rounded-lg hover:!border-emerald-500/60 focus:!border-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="border border-emerald-500/20 rounded-xl p-4 bg-[#0B0B0B] shadow-sm ring-1 ring-emerald-500/10">
+                <div className="flex items-center justify-between mb-1.5">
+                  <Badge
+                    status="success"
+                    text={<span className="text-xs font-semibold text-emerald-400">File ready</span>}
+                  />
+                  <Button
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={() => resourceForm.setFieldValue('url', undefined)}
+                    className="!text-xs hover:!bg-red-500/10"
+                  />
+                </div>
+                <p className="text-xs text-[#9BA8A0] truncate font-mono">{resourceUrl}</p>
+              </div>
+            )}
           </Form.Item>
           <Form.Item name="type" label="Type" rules={[{ required: true }]}>
             <Select placeholder="Select type" className="!rounded-lg">
@@ -894,15 +983,15 @@ const LessonManagement: React.FC = () => {
           display: flex;
           align-items: center;
           gap: 14px;
-          background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+          background: linear-gradient(135deg, #0E1812 0%, #0B0B0B 100%);
           padding: 14px 18px;
           border-radius: 14px;
-          border: 1px solid #d1fae5;
+          border: 1px solid #1E2B21;
           transition: all 0.2s ease;
         }
         .stat-card:hover {
-          border-color: #a7f3d0;
-          box-shadow: 0 4px 12px -2px rgba(16, 185, 129, 0.12);
+          border-color: rgba(34, 197, 94, 0.4);
+          box-shadow: 0 4px 16px -4px rgba(34, 197, 94, 0.15);
         }
         .stat-icon {
           width: 42px;
@@ -915,13 +1004,13 @@ const LessonManagement: React.FC = () => {
           flex-shrink: 0;
         }
         .emerald-table .ant-table-thead > tr > th {
-          background: #f0fdf4 !important;
-          color: #065f46 !important;
+          background: #0F0F0F !important;
+          color: #4ADE80 !important;
           font-weight: 600;
-          border-bottom: 1px solid #d1fae5 !important;
+          border-bottom: 1px solid #171717 !important;
         }
         .emerald-table .ant-table-tbody > tr > td {
-          border-bottom: 1px solid #f0fdf4 !important;
+          border-bottom: 1px solid #171717 !important;
         }
         .ant-table-cell {
           vertical-align: middle;
@@ -929,16 +1018,17 @@ const LessonManagement: React.FC = () => {
         .emerald-modal .ant-modal-content {
           border-radius: 16px;
           overflow: hidden;
+          border: 1px solid #1F2B22;
         }
         .emerald-modal .ant-modal-header {
-          border-bottom: 1px solid #ecfdf5;
+          border-bottom: 1px solid #1E2B21;
           padding: 16px 24px;
         }
         .ant-switch-checked {
-          background-color: #10b981 !important;
+          background-color: #22C55E !important;
         }
         .ant-btn-primary {
-          box-shadow: 0 2px 6px -1px rgba(16, 185, 129, 0.35);
+          box-shadow: 0 2px 10px -2px rgba(34, 197, 94, 0.4);
         }
       `}</style>
     </div>

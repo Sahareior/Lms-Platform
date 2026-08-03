@@ -65,19 +65,19 @@ function StatusToast({
     <div
       className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border backdrop-blur-sm transition-all animate-in slide-in-from-right ${
         type === 'success'
-          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-          : 'bg-red-50 border-red-200 text-red-800'
+          ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-300'
+          : 'bg-red-950/90 border-red-500/30 text-red-300'
       }`}
     >
       {type === 'success' ? (
-        <CheckCircle size={20} className="text-emerald-500 flex-shrink-0" />
+        <CheckCircle size={20} className="text-emerald-400 flex-shrink-0" />
       ) : (
-        <AlertCircle size={20} className="text-red-500 flex-shrink-0" />
+        <AlertCircle size={20} className="text-red-400 flex-shrink-0" />
       )}
       <span className="text-sm font-semibold">{message}</span>
       <button
         onClick={onClose}
-        className="ml-2 p-1 rounded-lg hover:bg-black/5 transition-colors"
+        className="ml-2 p-1 rounded-lg hover:bg-white/10 transition-colors"
       >
         <X size={16} />
       </button>
@@ -118,10 +118,10 @@ function FileDropzone({
       onClick={() => inputRef.current?.click()}
       className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 ${
         dragging
-          ? 'border-emerald-400 bg-emerald-50/50 scale-[1.01]'
+          ? 'border-emerald-400 bg-emerald-500/10 scale-[1.01]'
           : selectedFile
-            ? 'border-emerald-300 bg-emerald-50/30'
-            : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50'
+            ? 'border-emerald-500/40 bg-emerald-500/10'
+            : 'border-[#2A2A2A] bg-[#0F0F0F]/50 hover:border-[#3A3A3A] hover:bg-[#121212]'
       }`}
     >
       <input
@@ -137,32 +137,32 @@ function FileDropzone({
 
       {selectedFile ? (
         <div className="flex flex-col items-center gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center">
-            <FileText size={28} className="text-emerald-600" />
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+            <FileText size={28} className="text-emerald-400" />
           </div>
           <div>
-            <p className="font-bold text-slate-800 text-sm">{selectedFile.name}</p>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="font-bold text-[#E8F5EC] text-sm">{selectedFile.name}</p>
+            <p className="text-xs text-[#9BA8A0] mt-0.5">
               {(selectedFile.size / 1024).toFixed(1)} KB
             </p>
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onClear(); }}
-            className="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors"
           >
             <Trash2 size={12} /> Remove
           </button>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-            <Upload size={26} className="text-slate-400" />
+          <div className="w-14 h-14 rounded-2xl bg-[#1A1A1A] flex items-center justify-center">
+            <Upload size={26} className="text-[#7A8A80]" />
           </div>
           <div>
-            <p className="font-bold text-slate-700 text-sm">
-              Drop your {label} here or <span className="text-emerald-600">browse</span>
+            <p className="font-bold text-[#C9DCCE] text-sm">
+              Drop your {label} here or <span className="text-emerald-400">browse</span>
             </p>
-            <p className="text-xs text-slate-400 mt-0.5">Accepted format: {accept}</p>
+            <p className="text-xs text-[#7A8A80] mt-0.5">Accepted format: {accept}</p>
           </div>
         </div>
       )}
@@ -185,13 +185,13 @@ function SectionCard({
   accentColor?: string;
 }) {
   const accentMap: Record<string, string> = {
-    emerald: 'from-emerald-400 to-emerald-600 shadow-emerald-200/40',
-    blue: 'from-blue-400 to-blue-600 shadow-blue-200/40',
-    violet: 'from-violet-400 to-violet-600 shadow-violet-200/40',
+    emerald: 'from-emerald-500 to-emerald-700 shadow-emerald-950/60',
+    blue: 'from-emerald-400 to-emerald-600 shadow-emerald-950/60',
+    violet: 'from-teal-400 to-emerald-600 shadow-emerald-950/60',
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-all duration-200">
+    <div className="bg-[#0B0B0B] rounded-2xl shadow-sm border border-[#1F2B22] overflow-hidden hover:shadow-emerald-950/40 hover:border-emerald-500/30 transition-all duration-200">
       <div className="p-6 md:p-7">
         <div className="flex items-center gap-3.5 mb-6">
           <div
@@ -200,8 +200,8 @@ function SectionCard({
             {icon}
           </div>
           <div>
-            <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">{title}</h3>
-            <p className="text-sm text-slate-400 mt-0.5">{subtitle}</p>
+            <h3 className="text-lg font-extrabold text-[#E8F5EC] tracking-tight">{title}</h3>
+            <p className="text-sm text-[#7A8A80] mt-0.5">{subtitle}</p>
           </div>
         </div>
         {children}
@@ -243,7 +243,7 @@ export default function QuestionManagement() {
   const [questionPaperScraper, { isLoading: isScraping }] = useQuestionPaperScraperMutation();
   const [postScrapQuestions] = usePostScrapQuestionsMutation()
   const [postQuestionPattern] = usePostQuestionPatternMutation()
-const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
+const { data: exams } = useGetAdminExamsQuery();
   const { data: examVersions } = useGetAdminExamVersionsQuery();
   const { data: subjects } = useGetAdminSubjectsQuery();
   const [questionAnalyzer, { isLoading: isAnalyzing }] = useQuestionAnalyzerMutation();
@@ -352,8 +352,6 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
     }
   };
 
-  console.log(selectOptions,'tjs')
-
   // ── Helper to clear toast ──────────────────────────────────
   const clearToast = () => setToast(null);
 
@@ -380,13 +378,13 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
                 onClear={() => setDocFile(null)}
               />
 
-              <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                <Sparkles size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-4 flex items-start gap-3">
+                <Sparkles size={16} className="text-amber-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-bold text-amber-800">
+                  <p className="text-xs font-bold text-amber-300">
                     RAG Knowledge Base
                   </p>
-                  <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                  <p className="text-xs text-amber-200/70 mt-1 leading-relaxed">
                     Uploaded documents will be processed, chunked, and indexed into the vector
                     database. The AI assistant can then reference this content when answering
                     student queries.
@@ -397,7 +395,7 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
               <button
                 onClick={handleUploadDocuments}
                 disabled={isUploading || !docFile}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 active:scale-[0.98] shadow-sm shadow-emerald-200/50 hover:shadow-md hover:shadow-emerald-200/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-[#04150B] py-3 rounded-xl font-bold text-sm hover:from-emerald-400 hover:to-emerald-500 transition-all duration-200 active:scale-[0.98] shadow-sm shadow-emerald-950/60 hover:shadow-md hover:shadow-emerald-950/70 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUploading ? (
                   <>
@@ -438,7 +436,7 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
              
              <div>
-  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+  <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
     Exam
   </label>
   <select 
@@ -448,7 +446,7 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
       setSelectVersion(''); // Reset version when exam changes
       setSelectSubject(''); // Reset subject when exam changes
     }}
-    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all placeholder-slate-400 font-medium"
+    className="w-full px-4 py-3 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64] font-medium"
   >
     <option value="">Select an exam</option>
     {exams?.map(item => (
@@ -460,14 +458,14 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
 </div>
 
 <div>
-  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+  <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
     Exam Version
   </label>
   <select
     value={selectVersion}
     onChange={(e) => setSelectVersion(e.target.value)}
     disabled={!selectOptions}
-    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all placeholder-slate-400 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+    className="w-full px-4 py-3 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
   >
     <option value="">
       {selectOptions ? 'Select a version' : 'Select an exam first'}
@@ -483,14 +481,14 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
 </div>
 
 <div>
-  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-    Subject <span className="text-slate-300 font-normal normal-case">(optional)</span>
+  <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
+    Subject <span className="text-[#5F6B64] font-normal normal-case">(optional)</span>
   </label>
   <select
     value={selectSubject}
     onChange={(e) => setSelectSubject(e.target.value)}
     disabled={!selectOptions}
-    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all placeholder-slate-400 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+    className="w-full px-4 py-3 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
   >
     <option value="">
       {selectOptions
@@ -516,13 +514,13 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
 </div>
               </div>
 
-              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-                <BookOpen size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-4 flex items-start gap-3">
+                <BookOpen size={16} className="text-emerald-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-bold text-blue-800">
+                  <p className="text-xs font-bold text-emerald-300">
                     PDF Question Extraction
                   </p>
-                  <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                  <p className="text-xs text-emerald-200/70 mt-1 leading-relaxed">
                     The system will parse the uploaded question paper PDF, extract individual
                     questions with their options, and store them in the question bank for
                     quiz and exam generation.
@@ -533,7 +531,7 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
               <button
                 onClick={handleScrapeQuestions}
                 // disabled={isScraping || isAnalyzing || !scraperFile || !scraperSubject.trim() || !selectOptions || !selectVersion}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:from-blue-600 hover:to-blue-700 transition-all duration-200 active:scale-[0.98] shadow-sm shadow-blue-200/50 hover:shadow-md hover:shadow-blue-200/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-[#04150B] py-3 rounded-xl font-bold text-sm hover:from-emerald-400 hover:to-emerald-500 transition-all duration-200 active:scale-[0.98] shadow-sm shadow-emerald-950/60 hover:shadow-md hover:shadow-emerald-950/70 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isScraping || isAnalyzing ? (
                   <>
@@ -550,24 +548,24 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
 
               {/* Scraper result preview */}
               {scrapedQuestions && scrapedQuestions.length > 0 && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 space-y-4">
+                <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                        <CheckCircle size={20} className="text-emerald-600" />
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                        <CheckCircle size={20} className="text-emerald-400" />
                       </div>
                       <div>
-                        <p className="text-sm font-extrabold text-emerald-800">
+                        <p className="text-sm font-extrabold text-emerald-300">
                           {scrapedQuestions.length} Questions Extracted
                         </p>
-                        <p className="text-xs text-emerald-600 mt-0.5">
+                        <p className="text-xs text-emerald-400/80 mt-0.5">
                           Analyzed and ready for review
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={() => setScrapedQuestions(null)}
-                      className="p-1.5 rounded-lg hover:bg-emerald-100/50 transition-colors text-emerald-500"
+                      className="p-1.5 rounded-lg hover:bg-emerald-500/20 transition-colors text-emerald-400"
                     >
                       <X size={16} />
                     </button>
@@ -582,7 +580,7 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
   };
 
   return (
-    <div className="w-full font-sans text-slate-800 p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="w-full font-sans text-[#E8F5EC] p-4 md:p-6 max-w-5xl mx-auto">
       {/* Toast */}
       {toast && (
         <StatusToast type={toast.type} message={toast.message} onClose={clearToast} />
@@ -591,20 +589,20 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
       <main className="space-y-6">
         {/* ────── HEADER ────── */}
         <div className="flex items-center gap-3 pb-2">
-          <div className="w-10 h-10 rounded-xl bg-[#0e1625] flex items-center justify-center">
-            <Zap size={20} className="text-white" />
+          <div className="w-10 h-10 rounded-xl bg-[#0F1A12] border border-emerald-500/25 flex items-center justify-center">
+            <Zap size={20} className="text-emerald-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Admin Dashboard</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <h1 className="text-2xl font-extrabold text-[#E8F5EC] tracking-tight">Admin Dashboard</h1>
+            <p className="text-sm text-[#9BA8A0] mt-0.5">
               Manage RAG documents, scrape question papers, and analyze questions
             </p>
           </div>
         </div>
 
         {/* ────── TYPE BADGE ────── */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-500">
-          <div className="w-2 h-2 rounded-full bg-amber-500" />
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#0F1A12] border border-emerald-500/25 rounded-xl text-xs font-bold text-emerald-400">
+          <div className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 8px #22C55E' }} />
           Admin Tools &bull; AI-Powered
         </div>
 
@@ -616,8 +614,8 @@ const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
                 activeTab === tab.key
-                  ? 'bg-[#0e1625] text-white shadow-md'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                  ? 'bg-emerald-600 text-[#04150B] shadow-md shadow-emerald-950/50'
+                  : 'bg-[#0F0F0F] border border-[#2A2A2A] text-[#9BA8A0] hover:bg-[#1A1A1A] hover:border-[#3A3A3A] hover:text-[#E8F5EC]'
               }`}
             >
               {tab.icon}
