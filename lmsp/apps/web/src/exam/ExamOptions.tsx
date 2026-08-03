@@ -59,13 +59,13 @@ const ExamOptions = () => {
                 <BookOpen size={40} className="mx-auto text-[#6B7280] mb-4" />
                 <p className="text-[#A1A8B3] font-semibold text-lg">No exams selected yet</p>
                 <p className="text-[#6B7280] text-sm mt-1 mb-4">
-                  Please enroll in an exam first from the onboarding process
+                  Select your exams from the Settings page
                 </p>
                 <button
-                  onClick={() => navigate("/on-boarding")}
+                  onClick={() => navigate("/settings")}
                   className="inline-flex items-center gap-2 bg-[#2F80ED] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#256BCE] transition-all active:scale-[0.98]"
                 >
-                  Enroll Now
+                  Select Exams
                 </button>
               </div>
             ) : (

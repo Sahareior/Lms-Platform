@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import {
   Calendar,
   Download,
@@ -19,10 +20,13 @@ import {
   setAiReport,
   setAiReportLoading,
   setAiReportError,
+  setAiReportHistory,
   clearAiReport,
   useGetOrGenerateAiPerformanceMutation,
+  useGetAiPerformanceHistoryQuery,
   useGetMeQuery,
 } from '@my-monorepo/store';
+import { skipToken } from '@reduxjs/toolkit/query/react';
 import {
   AreaChart,
   Area,
@@ -82,6 +86,66 @@ const Performance = () => {
   
     const { data: userData } = useGetMeQuery();
 
+  // ─── Exam selection (per-exam AI report) ──────────────────
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+  const initialLoadDone = useRef(false);
+
+  // Fetch the AI report whenever the exam selection changes (null = all exams).
+  // Relies on App.tsx loading the overall report on mount, so the initial
+  // all-exams fetch is skipped here to avoid a redundant request.
+  useEffect(() => {
+    if (!user?._id) return;
+    if (selectedExamId === null && !initialLoadDone.current) {
+      initialLoadDone.current = true;
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        dispatch(setAiReportLoading(true));
+        const res = await getOrGenerateAiPerformance({
+          userId: user._id,
+          examId: selectedExamId || undefined,
+        }).unwrap();
+        if (cancelled) return;
+        if (res.empty || !res.stats || !res.ai_report) {
+          dispatch(clearAiReport());
+          return;
+        }
+        dispatch(
+          setAiReport({
+            report: {
+              success: res.success,
+              stats: res.stats,
+              ai_report: res.ai_report,
+            },
+            previous: res.previous,
+            isCached: res.cached,
+            generatedAt: res.generatedAt,
+          })
+        );
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err);
+          dispatch(setAiReportError('Failed to load AI performance report'));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?._id, selectedExamId, getOrGenerateAiPerformance, dispatch]);
+
+  // Per-exam history for the progress-over-time trend chart
+  const { data: historyData } = useGetAiPerformanceHistoryQuery(
+    user?._id ? { userId: user._id, examId: selectedExamId || undefined } : skipToken
+  );
+  useEffect(() => {
+    if (historyData?.history) {
+      dispatch(setAiReportHistory(historyData.history));
+    }
+  }, [historyData, dispatch]);
+
   // ─── Progress deltas vs the previous report ────────────────
   const prevStats = previous?.stats;
   const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -99,7 +163,11 @@ const Performance = () => {
     if (!user?._id) return;
     try {
       dispatch(setAiReportLoading(true));
-      const res = await getOrGenerateAiPerformance({ userId: user._id, force: true }).unwrap();
+      const res = await getOrGenerateAiPerformance({
+        userId: user._id,
+        examId: selectedExamId || undefined,
+        force: true,
+      }).unwrap();
       if (res.empty || !res.stats || !res.ai_report) {
         dispatch(clearAiReport());
         return;
@@ -122,31 +190,12 @@ const Performance = () => {
     }
   };
 
-  // Radar data – subject strengths (from AI report, fallback to demo)
+  // Radar data – subject strengths (from AI report)
   const radarData = aiInsights?.subject_breakdown?.length
     ? aiInsights.subject_breakdown.map((s) => ({ subject: s.subject, value: s.accuracy, fullMark: 100 }))
-    : [
-        { subject: 'Bangla', value: 82, fullMark: 100 },
-        { subject: 'English', value: 65, fullMark: 100 },
-        { subject: 'Math', value: 55, fullMark: 100 },
-        { subject: 'GK', value: 75, fullMark: 100 },
-        { subject: 'Comp. & IT', value: 78, fullMark: 100 },
-        { subject: 'Intl. Affairs', value: 61, fullMark: 100 },
-      ];
+    : [];
 
-  // Daily accuracy trend – built from saved daily AI reports when available
-  const fallbackTrendData = [
-    { day: 'Oct 25', accuracy: 62 },
-    { day: 'Oct 27', accuracy: 68 },
-    { day: 'Oct 29', accuracy: 58 },
-    { day: 'Oct 31', accuracy: 72 },
-    { day: 'Nov 02', accuracy: 70 },
-    { day: 'Nov 04', accuracy: 75 },
-    { day: 'Nov 06', accuracy: 78 },
-    { day: 'Nov 08', accuracy: 80 },
-    { day: 'Nov 10', accuracy: 82 },
-    { day: 'Nov 12', accuracy: 85 },
-  ];
+  // Daily accuracy trend – built from saved daily AI reports
   const historyTrend =
     history && history.length > 0
       ? history.map((h) => ({
@@ -157,21 +206,11 @@ const Performance = () => {
           accuracy: h.score_percentage,
         }))
       : null;
-  const trendData = historyTrend || fallbackTrendData;
+  const trendData = historyTrend ?? [];
   const usingHistoryTrend = !!historyTrend;
 
-  // Subject breakdown (from AI report, fallback to demo)
-  const subjectData = aiInsights?.subject_breakdown?.length
-    ? aiInsights.subject_breakdown
-    : [
-        { subject: 'BD Affairs', attempted: 684, correct: 602, accuracy: 88, trend: '+6%', isWeak: false, isCritical: false },
-        { subject: 'Bangla', attempted: 812, correct: 666, accuracy: 82, trend: '+3%', isWeak: false, isCritical: false },
-        { subject: 'Computer', attempted: 428, correct: 338, accuracy: 79, trend: '+2%', isWeak: false, isCritical: false },
-        { subject: 'General Knowledge', attempted: 552, correct: 408, accuracy: 74, trend: '0%', isWeak: false, isCritical: false },
-        { subject: 'English', attempted: 496, correct: 317, accuracy: 64, trend: '-3%', isWeak: true, isCritical: false },
-        { subject: 'International Affairs', attempted: 342, correct: 209, accuracy: 61, trend: '-5%', isWeak: true, isCritical: false },
-        { subject: 'Math', attempted: 528, correct: 290, accuracy: 55, trend: '-8%', isWeak: true, isCritical: true },
-      ];
+  // Subject breakdown (from AI report)
+  const subjectData = aiInsights?.subject_breakdown ?? [];
 
   // Chart color scheme (BrainForge)
   const successColor = '#00E5B3'; // teal
@@ -186,24 +225,12 @@ const Performance = () => {
     : aiInsights.score_analysis.verdict === 'Needs Improvement' ? warningColor
     : dangerColor;
 
-  const overallAccuracy = aiStats?.score_percentage ?? 78.4;
-  // AI subject_breakdown has no real trend data — hide the synthetic Trend column when AI data drives the table
-  const usingAiSubjectData = !!aiInsights?.subject_breakdown?.length;
+  const overallAccuracy = aiStats?.score_percentage;
   const strongest = radarData.length >= 2 ? radarData.reduce((a, b) => (a.value > b.value ? a : b)) : null;
   const weakest = radarData.length >= 2 ? radarData.reduce((a, b) => (a.value < b.value ? a : b)) : null;
 
-  // Fallback demo study plan when no AI report is available yet
-  const fallbackPlan = [
-    { day: 'MON', focus_subject: 'MATH', title: 'Math — Percentages & Profit', description: 'Focus on CP/SP problems. 25 MCQs from past BCS papers.', duration_minutes: 90 },
-    { day: 'TUE', focus_subject: 'ENGLISH', title: 'English — Tense & Voice', description: 'Do 10 grammar rules + 30 transformation MCQs.', duration_minutes: 60 },
-    { day: 'WED', focus_subject: 'GK', title: 'Intl Affairs — UN & SAARC', description: 'Review UN charter & SAARC summits, recent events.', duration_minutes: 45 },
-    { day: 'THU', focus_subject: 'MOCK', title: 'Full Mock Exam #5', description: '200 Qs • 2hrs • review weak topics afterward.', duration_minutes: 120 },
-    { day: 'FRI+', focus_subject: 'REVIEW', title: 'Daily Review & Practice', description: 'Revise 2 weak subjects daily + 50 MCQs.', duration_minutes: 60 },
-  ];
-
-  console.log(userData?.selectedExams,'this is s')
-
-  const useSelectedExam = userData?.selectedExams
+  // userData.selectedExams is populated with exam objects by the backend
+  const selectedExams = (userData?.selectedExams as any[]) || [];
 
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
@@ -262,7 +289,7 @@ const Performance = () => {
         {/* ─── STATS CARDS ─── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Overall Accuracy', value: `${overallAccuracy.toFixed(1)} %`, sub: aiStats ? `${aiStats.correct_answers}/${aiStats.total_questions} correct` : 'No AI report yet', delta: scoreDelta, deltaSuffix: '%', deltaInvert: false, icon: <Target size={18} className="text-[#00E5B3]" />, color: '#00E5B3' },
+            { label: 'Overall Accuracy', value: overallAccuracy != null ? `${overallAccuracy.toFixed(1)} %` : '—', sub: aiStats ? `${aiStats.correct_answers}/${aiStats.total_questions} correct` : 'No AI report yet', delta: scoreDelta, deltaSuffix: '%', deltaInvert: false, icon: <Target size={18} className="text-[#00E5B3]" />, color: '#00E5B3' },
             { label: 'Questions Attempted', value: aiStats?.total_questions?.toLocaleString() ?? '—', sub: aiStats ? 'from AI analysis' : 'No AI report yet', delta: questionsDelta, deltaSuffix: '', deltaInvert: false, icon: <BookOpen size={18} className="text-[#2F80ED]" />, color: '#2F80ED' },
             { label: 'Correct Answers', value: aiStats?.correct_answers?.toLocaleString() ?? '—', sub: aiStats ? `${((aiStats.correct_answers / Math.max(aiStats.total_questions, 1)) * 100).toFixed(0)}% success rate` : 'No AI report yet', delta: correctDelta, deltaSuffix: '', deltaInvert: false, icon: <CheckCircle2 size={18} className="text-[#9B51E0]" />, color: '#9B51E0' },
             { label: 'Incorrect Answers', value: aiStats?.incorrect_answers?.toLocaleString() ?? '—', sub: aiStats ? `${((aiStats.incorrect_answers / Math.max(aiStats.total_questions, 1)) * 100).toFixed(0)}% to improve` : 'No AI report yet', delta: incorrectDelta, deltaSuffix: '', deltaInvert: true, icon: <XCircle size={18} className="text-[#F2C94C]" />, color: '#F2C94C' },
@@ -291,12 +318,20 @@ const Performance = () => {
 
         {/* ─── EXAM FILTERS ─── */}
         <div className="bg-[#111318] p-3 rounded-2xl border border-[#23262D] flex flex-wrap items-center gap-3">
-        {
-          useSelectedExam?.map(exams => (
-            <button className="bg-[#2F80ED] text-white text-xs font-bold px-4 py-1.5 rounded-lg">{exams.name}</button>
-          ))
-
-        }
+      
+        {selectedExams?.map((exam: any) => (
+          <button
+            key={exam._id}
+            onClick={() => setSelectedExamId(exam._id)}
+            className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-all ${
+              selectedExamId === exam._id
+                ? 'bg-[#2F80ED] text-white shadow-lg shadow-[#2F80ED]/20'
+                : 'bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:text-[#F5F7FA] hover:border-[#323742]'
+            }`}
+          >
+            {exam.name}
+          </button>
+        ))}
           <div className="ml-auto flex items-center gap-1 text-[10px] text-[#00E5B3]">
             <div className="w-1.5 h-1.5 rounded-full bg-[#00E5B3] animate-pulse"></div>
             Live data • Synced
@@ -310,9 +345,21 @@ const Performance = () => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-bold text-[#F5F7FA]">Subject Strength Map</h3>
-                <p className="text-[10px] text-[#A1A8B3]">Accuracy % across {radarData.length} subject{radarData.length !== 1 ? 's' : ''}</p>
+                <p className="text-[10px] text-[#A1A8B3]">
+                  {radarData.length > 0
+                    ? `Accuracy % across ${radarData.length} subject${radarData.length !== 1 ? 's' : ''}`
+                    : 'No subject data yet'}
+                </p>
               </div>
             </div>
+            {radarData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[280px] text-center gap-2">
+                <Target size={22} className="text-[#2F80ED]" />
+                <p className="text-xs text-[#A1A8B3]">
+                  No subject data yet — generate an AI report to see your strengths and weak areas.
+                </p>
+              </div>
+            ) : (
             <div className="flex flex-col md:flex-row items-center justify-center gap-4 h-[280px]">
               <div className="w-full h-full max-w-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -341,6 +388,7 @@ const Performance = () => {
                 )}
               </div>
             </div>
+            )}
           </div>
 
           {/* Area Chart (accuracy trend) */}
@@ -351,14 +399,22 @@ const Performance = () => {
                 <p className="text-[10px] text-[#A1A8B3]">
                   {usingHistoryTrend
                     ? `Progress over time • ${trendData.length} saved daily report${trendData.length !== 1 ? 's' : ''}`
-                    : 'Daily accuracy • last 30 days'}
+                    : 'No trend data yet'}
                 </p>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-[#00E5B3]">{overallAccuracy.toFixed(1)}%</div>
-                <div className="text-[10px] text-[#00E5B3] font-medium">{aiInsights?.score_analysis.verdict || '+ 4.2'}</div>
+                <div className="text-2xl font-bold text-[#00E5B3]">{overallAccuracy != null ? `${overallAccuracy.toFixed(1)}%` : '—'}</div>
+                <div className="text-[10px] text-[#00E5B3] font-medium">{aiInsights?.score_analysis.verdict || '—'}</div>
               </div>
             </div>
+            {trendData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[200px] text-center gap-2">
+                <BookOpen size={22} className="text-[#2F80ED]" />
+                <p className="text-xs text-[#A1A8B3]">
+                  No saved reports yet — your daily accuracy trend will appear after you generate AI reports.
+                </p>
+              </div>
+            ) : (
             <div className="h-[200px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData}>
@@ -384,6 +440,7 @@ const Performance = () => {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+            )}
           </div>
         </div>
 
@@ -401,12 +458,23 @@ const Performance = () => {
                   <th className="px-5 py-3 text-center">Attempted</th>
                   <th className="px-5 py-3 text-center">Correct</th>
                   <th className="px-5 py-3 text-left w-[200px]">Accuracy</th>
-                  {!usingAiSubjectData && <th className="px-5 py-3 text-center">Trend</th>}
                   <th className="px-5 py-3 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#23262D]">
-                {subjectData.map((row, idx) => (
+                {subjectData.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Database size={20} className="text-[#2F80ED]" />
+                        <p className="text-xs text-[#A1A8B3]">
+                          No subject data yet — generate an AI report to see your per-subject breakdown.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                subjectData.map((row, idx) => (
                   <tr
                     key={idx}
                     className={`hover:bg-[#161920] transition ${
@@ -441,15 +509,6 @@ const Performance = () => {
                         <span className="text-xs font-bold text-[#F5F7FA] min-w-[35px]">{row.accuracy}%</span>
                       </div>
                     </td>
-                    {!usingAiSubjectData && (
-                      <td
-                        className={`px-5 py-3 text-center text-xs font-semibold ${
-                          row.trend?.includes('-') ? 'text-[#EB5757]' : 'text-[#00E5B3]'
-                        }`}
-                      >
-                        {row.trend}
-                      </td>
-                    )}
                     <td className="px-5 py-3 text-center">
                       <button
                         className={`text-xs px-3 py-1 rounded border font-medium transition ${
@@ -462,7 +521,8 @@ const Performance = () => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
           </div>
@@ -485,8 +545,9 @@ const Performance = () => {
             </button>
           </div>
 
+          {(aiInsights?.study_plan?.length ?? 0) > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-            {(aiInsights?.study_plan?.length ? aiInsights.study_plan : fallbackPlan).map((plan, idx) => (
+            {aiInsights?.study_plan?.map((plan, idx) => (
               <div key={idx} className="bg-[#161920] border border-[#23262D] rounded-lg p-3 hover:border-[#323742] transition">
                 <div className="flex justify-between items-start mb-1">
                   <span className="text-xs font-bold text-[#A1A8B3]">{plan.day || `DAY ${idx + 1}`}</span>
@@ -503,6 +564,14 @@ const Performance = () => {
               </div>
             ))}
           </div>
+          ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
+            <BookOpen size={22} className="text-[#2F80ED]" />
+            <p className="text-xs text-[#A1A8B3]">
+              No study plan yet — generate an AI report to get a personalized weekly plan.
+            </p>
+          </div>
+          )}
         </div>
 
         {/* ─── STRENGTHS & WEAK AREAS ─── */}
@@ -598,12 +667,12 @@ const Performance = () => {
               <h4 className="font-bold text-sm text-[#F5F7FA]">
                 {aiInsights?.score_analysis
                   ? `${aiInsights.score_analysis.message}`
-                  : <>Stick to this plan and your projected accuracy will reach <span className="text-[#00E5B3]">82%</span> by exam day.</>}
+                  : 'No AI report yet — attempt a mock exam to unlock your personalized analysis.'}
               </h4>
               <p className="text-xs text-[#A1A8B3]">
                 {aiInsights?.score_analysis
                   ? 'Follow the study plan above to turn weak areas into strengths.'
-                  : "Consistent study leads to mastery. You're on the right track."}
+                  : 'Complete a mock exam to generate your AI performance report.'}
               </p>
             </div>
           </div>

@@ -39,6 +39,7 @@ export interface AdminCourse {
   _id: string;
   title: string;
   description: string;
+  thumbnail?: string;
   instructor?: { _id: string; username?: string; email?: string };
   lessons?: string[];
   enrolledStudents?: EnrolledStudent[];
@@ -100,6 +101,7 @@ export interface UpdateExamRequest {
 export interface CreateCourseRequest {
   title: string;
   description: string;
+  thumbnail?: string;
   instructor: string;
   exam?: string;
   subjects?: string[];
@@ -108,6 +110,7 @@ export interface CreateCourseRequest {
 export interface UpdateCourseRequest {
   title?: string;
   description?: string;
+  thumbnail?: string;
   instructor?: string;
   exam?: string;
   subjects?: string[];
@@ -165,6 +168,7 @@ export interface ScheduleExam {
   duration: number;
   totalQuestions: number;
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
+  isFeatured?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -519,6 +523,21 @@ const adminApi = api.injectEndpoints({
       invalidatesTags: ['ScheduleExam'],
     }),
 
+    // ── Featured Mock Exam Management ───────────────────────
+    getFeaturedScheduleExam: build.query<ScheduleExam | null, void>({
+      query: () => ({ url: '/schedule-exams/featured' }),
+      providesTags: ['ScheduleExam'],
+    }),
+
+    setFeaturedScheduleExam: build.mutation<ScheduleExam, { examId: string; isFeatured: boolean }>({
+      query: ({ examId, isFeatured }) => ({
+        url: `/schedule-exams/${examId}/featured`,
+        method: 'PUT',
+        body: { isFeatured },
+      }),
+      invalidatesTags: ['ScheduleExam'],
+    }),
+
     // ── Question Bank Management ────────────────────────────
     getAdminQuestions: build.query<AdminQuestion[], void>({
       query: () => ({ url: '/questions' }),
@@ -631,6 +650,8 @@ export const {
   useCreateScheduleExamMutation,
   useUpdateScheduleExamMutation,
   useDeleteScheduleExamMutation,
+  useGetFeaturedScheduleExamQuery,
+  useSetFeaturedScheduleExamMutation,
 
   useGetAllQuizAttemptsQuery,
 } = adminApi;

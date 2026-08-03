@@ -185,3 +185,67 @@ export const deleteScheduleExam = async (req, res) => {
     res.status(500).json({ message: 'Unable to delete scheduled exam' });
   }
 };
+
+// ─── GET featured scheduled exam ───────────────────────────
+export const getFeaturedScheduleExam = async (req, res) => {
+  try {
+    const featured = await ScheduleExam.findOne({ isFeatured: true })
+      .populate('exam', 'name image')
+      .populate('examVersion', 'examVersion')
+      .sort({ endDate: -1 });
+
+    if (!featured) {
+      return res.status(200).json(null);
+    }
+
+    // Refresh status dynamically
+    const oldStatus = featured.status;
+    refreshStatus(featured);
+    if (featured.status !== oldStatus) {
+      await ScheduleExam.findByIdAndUpdate(featured._id, { $set: { status: featured.status } });
+    }
+
+    res.status(200).json(featured);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Unable to fetch featured exam' });
+  }
+};
+
+// ─── SET featured scheduled exam (admin only) ─────────────
+export const setFeaturedScheduleExam = async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const { isFeatured } = req.body;
+
+    if (isFeatured) {
+      // Unset any currently featured exam first (only one featured at a time)
+      await ScheduleExam.updateMany(
+        { _id: { $ne: examId }, isFeatured: true },
+        { $set: { isFeatured: false } }
+      );
+      const featured = await ScheduleExam.findByIdAndUpdate(
+        examId,
+        { $set: { isFeatured: true } },
+        { new: true }
+      )
+        .populate('exam', 'name image')
+        .populate('examVersion', 'examVersion');
+      if (!featured) return res.status(404).json({ message: 'Scheduled exam not found' });
+      return res.status(200).json(featured);
+    }
+
+    const unfeatured = await ScheduleExam.findByIdAndUpdate(
+      examId,
+      { $set: { isFeatured: false } },
+      { new: true }
+    )
+      .populate('exam', 'name image')
+      .populate('examVersion', 'examVersion');
+    if (!unfeatured) return res.status(404).json({ message: 'Scheduled exam not found' });
+    res.status(200).json(unfeatured);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Unable to update featured exam' });
+  }
+};

@@ -13,6 +13,12 @@ const aiPerformanceReport = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    // Which exam this report was generated for (null = all exams / overall)
+    exam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Exam",
+      default: null,
+    },
     // Raw `stats` object returned by the AI service
     stats: {
       type: mongoose.Schema.Types.Mixed,
@@ -29,6 +35,7 @@ const aiPerformanceReport = new mongoose.Schema(
 
 // Fast lookup for "latest report per user" and "report for today"
 aiPerformanceReport.index({ user: 1, createdAt: -1 });
+aiPerformanceReport.index({ user: 1, exam: 1, createdAt: -1 });
 
 const AiPerformanceReport = mongoose.model(
   "AiPerformanceReport",

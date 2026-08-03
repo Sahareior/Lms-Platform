@@ -62,22 +62,27 @@ function toPreviousPayload(report) {
 }
 
 // ─── Helper: latest report before the given one ─────────────
-async function findPreviousReport(userId, excludeId) {
+// Scoped to the same exam scope (examId = null → overall reports only, so
+// per-exam reports never pollute the "All Exams" deltas).
+async function findPreviousReport(userId, excludeId, examId = null) {
   return AiPerformanceReport.findOne({
     user: userId,
+    ...(examId ? { exam: examId } : { exam: null }),
     _id: { $ne: excludeId },
   }).sort({ createdAt: -1 });
 }
 
 // ─── Helper: deduplicated generate-and-save ─────────────────
 // Concurrent callers share the same AI call + DB write.
-function generateAndSaveReport(userId, authHeader) {
-  if (inflightGeneration.has(userId)) {
-    return inflightGeneration.get(userId);
+// Cache key includes the exam so per-exam generations don't collide.
+function generateAndSaveReport(userId, examId = null, authHeader) {
+  const cacheKey = `${userId}|${examId || "all"}`;
+  if (inflightGeneration.has(cacheKey)) {
+    return inflightGeneration.get(cacheKey);
   }
   const promise = (async () => {
     const performances = await quizPerform
-      .find({ user: userId })
+      .find({ user: userId, ...(examId ? { exam: examId } : {}) })
       .populate("user", "name email")
       .populate("exam", "name")
       .populate("examVersion", "examVersion")
@@ -91,14 +96,15 @@ function generateAndSaveReport(userId, authHeader) {
     const data = await callAiService(resolved, authHeader);
     const report = await AiPerformanceReport.create({
       user: userId,
+      exam: examId || null,
       stats: data.stats,
       ai_report: data.ai_report,
     });
     return { report };
   })().finally(() => {
-    inflightGeneration.delete(userId);
+    inflightGeneration.delete(cacheKey);
   });
-  inflightGeneration.set(userId, promise);
+  inflightGeneration.set(cacheKey, promise);
   return promise;
 }
 
@@ -106,24 +112,35 @@ function generateAndSaveReport(userId, authHeader) {
 // POST /ai-performance/:userId  (or /ai-performance)
 // Body/query: { force?: boolean } – force = true bypasses the daily cache
 // (used by the manual "Regenerate" button on the frontend).
+// Body/query: { examId?: string } – when provided, only that exam's
+// performance is analyzed and the report is cached per exam.
 export const getOrGenerateAiPerformance = async (req, res) => {
   try {
     const userId = req.params.userId || req.body?.userId || req.user?.userId;
     const force = req.query.force === "true" || req.body?.force === true;
+    const examId = req.query.examId || req.body?.examId || null;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "A valid userId is required" });
     }
+    if (examId && !mongoose.Types.ObjectId.isValid(examId)) {
+      return res.status(400).json({ message: "A valid examId is required" });
+    }
+
+    // `{ exam: null }` matches both null and missing exam fields (MongoDB),
+    // so legacy reports created before exam scoping stay visible under "All".
+    const examFilter = examId ? { exam: examId } : { exam: null };
 
     // 1) Return today's cached report if it exists (unless force).
     if (!force) {
       const todayReport = await AiPerformanceReport.findOne({
         user: userId,
+        ...examFilter,
         createdAt: { $gte: startOfToday() },
       }).sort({ createdAt: -1 });
 
       if (todayReport) {
-        const previous = await findPreviousReport(userId, todayReport._id);
+        const previous = await findPreviousReport(userId, todayReport._id, examId);
         return res.status(200).json({
           success: true,
           cached: true,
@@ -139,13 +156,15 @@ export const getOrGenerateAiPerformance = async (req, res) => {
     //    concurrent requests so the AI is only called once.
     let result;
     try {
-      result = await generateAndSaveReport(userId, req.headers.authorization);
+      result = await generateAndSaveReport(userId, examId, req.headers.authorization);
     } catch (err) {
       console.error("AI performance generation failed:", err.message);
-      const lastReport = await AiPerformanceReport.findOne({ user: userId })
-        .sort({ createdAt: -1 });
+      const lastReport = await AiPerformanceReport.findOne({
+        user: userId,
+        ...examFilter,
+      }).sort({ createdAt: -1 });
       if (lastReport) {
-        const previous = await findPreviousReport(userId, lastReport._id);
+        const previous = await findPreviousReport(userId, lastReport._id, examId);
         return res.status(200).json({
           success: true,
           cached: true,
@@ -164,10 +183,12 @@ export const getOrGenerateAiPerformance = async (req, res) => {
     // 3) No performance data yet – keep showing the user's last report if they
     //    have one (continuity), otherwise report `empty` for brand-new users.
     if (result.empty) {
-      const lastReport = await AiPerformanceReport.findOne({ user: userId })
-        .sort({ createdAt: -1 });
+      const lastReport = await AiPerformanceReport.findOne({
+        user: userId,
+        ...examFilter,
+      }).sort({ createdAt: -1 });
       if (lastReport) {
-        const previous = await findPreviousReport(userId, lastReport._id);
+        const previous = await findPreviousReport(userId, lastReport._id, examId);
         return res.status(200).json({
           success: true,
           cached: true,
@@ -189,7 +210,7 @@ export const getOrGenerateAiPerformance = async (req, res) => {
       });
     }
 
-    const previous = await findPreviousReport(userId, result.report._id);
+    const previous = await findPreviousReport(userId, result.report._id, examId);
     return res.status(200).json({
       success: true,
       cached: false,
@@ -205,15 +226,23 @@ export const getOrGenerateAiPerformance = async (req, res) => {
 };
 
 // ─── History (all saved reports for progress-over-time) ────
-// GET /ai-performance/history/:userId
+// GET /ai-performance/history/:userId?examId=...
+// When examId is provided, only reports generated for that exam are returned.
 export const getAiPerformanceHistory = async (req, res) => {
   try {
     const userId = req.params.userId || req.user?.userId;
+    const examId = req.query.examId || null;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "A valid userId is required" });
     }
+    if (examId && !mongoose.Types.ObjectId.isValid(examId)) {
+      return res.status(400).json({ message: "A valid examId is required" });
+    }
 
-    const reports = await AiPerformanceReport.find({ user: userId }).sort({
+    const reports = await AiPerformanceReport.find({
+      user: userId,
+      ...(examId ? { exam: examId } : { exam: null }),
+    }).sort({
       createdAt: 1,
     });
 

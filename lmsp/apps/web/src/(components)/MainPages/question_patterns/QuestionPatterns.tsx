@@ -2,22 +2,17 @@ import {
   useGetAnalyzedQuestionsQuery,
   useGetSubjectsByExamQuery,
 } from "@my-monorepo/store/src/redux/api/examApi";
-import { useGetMeQuery } from "@my-monorepo/store";
-import { useState, useMemo } from "react";
+import { useGetMeQuery, useGetExamVersionsByExamQuery } from "@my-monorepo/store";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   BookOpen,
   BarChart3,
   Sparkles,
   ArrowRight,
-  Search,
-  Clock,
   ChevronRight,
   Target,
   GraduationCap,
-  PlayCircle,
-  Users,
-  Star,
   Loader2,
   FileText,
   Brain,
@@ -156,34 +151,59 @@ function ExamSelectionScreen({ onSelectExam }: { onSelectExam: (examId: string) 
    ================================================================== */
 const QuestionPatterns = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const examId = searchParams.get("examId");
+
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [cachedAnalysis, setCachedAnalysis] = useState<any[] | null>(null);
 
   const {
     data: analysisData,
     isLoading: isAnalysisLoading,
+    isFetching: isAnalysisFetching,
     isError: isAnalysisError,
-  } = useGetAnalyzedQuestionsQuery(examId || undefined);
+  } = useGetAnalyzedQuestionsQuery(
+    examId ? { examId, versionId: selectedVersionId || undefined } : undefined,
+    { skip: !examId }
+  );
+
+  // Remember the last successfully loaded analysis so switching version tabs
+  // keeps the current charts visible (this RTK Query version has no keepPreviousData flag).
+  useEffect(() => {
+    if (analysisData && analysisData.length > 0) {
+      setCachedAnalysis(analysisData);
+    }
+  }, [analysisData]);
+
+  // While a new version is being fetched, show the previously loaded data;
+  // once the fetch settles, use the fresh result (even if it's empty).
+  const visibleAnalysis = isAnalysisLoading && cachedAnalysis ? cachedAnalysis : analysisData;
 
   const {
-    data: subjects,
-    isLoading: isSubjectsLoading,
-  } = useGetSubjectsByExamQuery(examId || "", { skip: !examId });
+    data: examVersions = [],
+    isLoading: isVersionsLoading,
+  } = useGetExamVersionsByExamQuery(examId || "", { skip: !examId });
+
+  const { data: subjects } = useGetSubjectsByExamQuery(examId || "", { skip: !examId });
 
   const { data: userData } = useGetMeQuery();
 
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-
   // Find the current exam name from user's selected exams
-  const currentExam = useMemo(() => {
+  const currentExam = useMemo<any>(() => {
     if (!examId || !userData?.selectedExams) return null;
     return userData.selectedExams.find((ex: any) => ex._id === examId);
   }, [examId, userData]);
 
+  // Find the currently selected exam version object
+  const currentVersion = useMemo(() => {
+    if (!selectedVersionId || examVersions.length === 0) return null;
+    return examVersions.find((v: any) => v._id === selectedVersionId) || null;
+  }, [selectedVersionId, examVersions]);
+
   // Process API data
   const processedData = useMemo(() => {
-    if (!analysisData || analysisData.length === 0) return null;
-    const rawData = analysisData[0] as AnalysisData;
+    if (!visibleAnalysis || visibleAnalysis.length === 0) return null;
+    const rawData = visibleAnalysis[0] as AnalysisData;
 
     const totalQuestions = Object.values(rawData.subjects).reduce((a, b) => a + b, 0);
     const topSubjects = Object.entries(rawData.subjects)
@@ -198,31 +218,28 @@ const QuestionPatterns = () => {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
 
-    const topicsBySubject: Record<string, TopicData[]> = {};
-    rawData.categorized_questions.forEach((item) => {
-      if (!topicsBySubject[item.subject]) topicsBySubject[item.subject] = [];
-      topicsBySubject[item.subject].push(item);
-    });
-
     return {
       raw: rawData,
       totalQuestions,
       topSubjects,
       topTopics,
-      topicsBySubject,
       subjectCount: Object.keys(rawData.subjects).length,
       topicCount: rawData.categorized_questions.length,
     };
-  }, [analysisData]);
+  }, [visibleAnalysis]);
 
   const handleSelectExam = (id: string) => {
     setSearchParams({ examId: id });
     setSelectedSubject(null);
+    setSelectedVersionId(null);
+    setCachedAnalysis(null);
   };
 
   const handleClearExam = () => {
     setSearchParams({});
     setSelectedSubject(null);
+    setSelectedVersionId(null);
+    setCachedAnalysis(null);
   };
 
   // ═══════════════════ SHOW EXAM SELECTION ═══════════════════
@@ -231,7 +248,9 @@ const QuestionPatterns = () => {
   }
 
   // ═══════════════════ LOADING ═══════════════════
-  if (isAnalysisLoading) {
+  // Show the full-screen loader only when nothing has loaded yet; version
+  // switches keep previous charts visible via cachedAnalysis.
+  if ((isAnalysisLoading || isVersionsLoading) && !visibleAnalysis) {
     return (
       <div className="flex-1 min-h-screen font-sans flex items-center justify-center bg-[#0B0D12]">
         <div className="text-center space-y-4">
@@ -263,7 +282,7 @@ const QuestionPatterns = () => {
     );
   }
 
-  const { raw, totalQuestions, topSubjects, topTopics, topicsBySubject, subjectCount, topicCount } = processedData;
+  const { raw, totalQuestions, topSubjects, topTopics, subjectCount, topicCount } = processedData;
 
   // Build the subject filter list: merge subjects from analysis with the subjects fetched by exam
   const analysisSubjectNames = Object.keys(raw.subjects);
@@ -271,11 +290,6 @@ const QuestionPatterns = () => {
   const subjectOptions = examSubjects.length > 0
     ? examSubjects.map((s: any) => ({ name: s.name, _id: s._id }))
     : analysisSubjectNames.map((name) => ({ name, _id: name }));
-
-  // Filter topics by selected subject
-  const filteredTopics = selectedSubject
-    ? topicsBySubject[selectedSubject] || []
-    : raw.categorized_questions;
 
   // BrainForge consistent accent colors for charts
   const chartColors = ["#2F80ED", "#9B51E0", "#00E5B3", "#F2C94C", "#EB5757", "#00C8FF"];
@@ -354,7 +368,9 @@ const QuestionPatterns = () => {
                   </h1>
                   <p className="text-sm text-[#A1A8B3] mt-1 max-w-xl">
                     {currentExam
-                      ? `High-probability topics and trends for ${currentExam.name}`
+                      ? `High-probability topics and trends for ${currentExam.name}${
+                          currentVersion ? ` • ${currentVersion.examVersion}` : ""
+                        }`
                       : "Discover high-probability topics and trends from exam data powered by AI analysis."}
                   </p>
                 </div>
@@ -436,22 +452,46 @@ const QuestionPatterns = () => {
         <div className="bg-[#111318] rounded-2xl border border-[#23262D] overflow-hidden">
           <div className="p-5 md:p-6 space-y-6">
             <div className="flex flex-col gap-6">
+              {/* Exam Version Filter */}
+              {examVersions.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-[#A1A8B3] uppercase tracking-widest">
+                      Filter
+                    </label>
+                    <span className="text-[10px] font-semibold text-[#6B7280] flex items-center gap-1.5">
+                      {isAnalysisFetching && (
+                        <Loader2 size={11} className="animate-spin text-[#9B51E0]" />
+                      )}
+                      {examVersions.length} version{examVersions.length > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2.5">
+                  
+                    {examVersions.map((version: any) => (
+                      <button
+                        key={version._id}
+                        onClick={() => setSelectedVersionId(version._id)}
+                        className={`px-3 py-2.5 text-xs font-bold rounded-xl transition-all text-center whitespace-nowrap ${
+                          selectedVersionId === version._id
+                            ? "bg-[#9B51E0]/10 text-[#9B51E0] border border-[#9B51E0]/30"
+                            : "bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:border-[#323742] hover:text-[#F5F7FA]"
+                        }`}
+                      >
+                        {version.examVersion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Subject Filter */}
               <div className="space-y-2.5">
                 <label className="block text-[11px] font-bold text-[#A1A8B3] uppercase tracking-widest">
-                  Filter by Subject
+                  Topics
                 </label>
                 <div className="flex flex-wrap gap-2.5">
-                  <button
-                    onClick={() => setSelectedSubject(null)}
-                    className={`px-3 py-2.5 text-xs font-bold rounded-xl transition-all text-center whitespace-nowrap ${
-                      !selectedSubject
-                        ? "bg-[#2F80ED] text-white border-transparent"
-                        : "bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:border-[#323742] hover:text-[#F5F7FA]"
-                    }`}
-                  >
-                    All Subjects
-                  </button>
+               
                   {subjectOptions.map((sub: any) => {
                     const count = raw.subjects[sub.name];
                     return (
@@ -561,7 +601,7 @@ const QuestionPatterns = () => {
                     stroke="#1C1F26"
                     strokeWidth="4"
                   />
-                  {topSubjects.map(([subject, count], idx) => {
+                  {topSubjects.map(([, count], idx) => {
                     const percentage = (count / totalQuestions) * 100;
                     const offset = topSubjects
                       .slice(0, idx)

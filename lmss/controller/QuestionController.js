@@ -182,8 +182,10 @@ export const postQuestionPattern = async(req, res) => {
 
 export const getQuestionPattern =async (req,res) => {
     try {
-        const { exam } = req.query;
-        const filter = exam ? { exam } : {};
+        const { exam, examVersion } = req.query;
+        const filter = {};
+        if (exam) filter.exam = exam;
+        if (examVersion) filter.examVersion = examVersion;
         const patterns = await QuestionPatternModel.find(filter);
         res.status(200).json(patterns);
     } catch (err) {

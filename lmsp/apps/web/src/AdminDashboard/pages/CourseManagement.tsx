@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Table, Card, Button, Modal, Form, Input, Select, message, Space, Spin, Alert, Tag, Tooltip, Popconfirm, Empty, Typography } from 'antd';
 import { PlusOutlined, ReloadOutlined, EditOutlined, BookOutlined, DeleteOutlined, UserOutlined, PhoneOutlined, BookOutlined as BookIcon, EnvironmentOutlined } from '@ant-design/icons';
+import MediaUpload from '../../reusable/MediaUpload';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import { useGetAdminCoursesQuery, useGetAdminExamsQuery, useGetAdminUsersQuery, useGetAdminSubjectsByExamQuery, useCreateAdminCourseMutation, useUpdateAdminCourseMutation, useDeleteAdminCourseMutation, type AdminCourse, type CreateCourseRequest, type EnrolledStudent } from '@my-monorepo/store';
@@ -52,9 +53,14 @@ const CourseManagement: React.FC = () => {
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
 
+  const createThumbnail = Form.useWatch('thumbnail', form);
+  const editThumbnail = Form.useWatch('thumbnail', editForm);
+
   const handleCreateCourse = async (values: CreateCourseRequest) => {
     try {
-      await createCourse(values).unwrap();
+      // Ensure the uploaded thumbnail (set via setFieldValue) is sent
+      const payload = { ...values, thumbnail: form.getFieldValue('thumbnail') || undefined };
+      await createCourse(payload).unwrap();
       message.success(`Course "${values.title}" created successfully!`);
       setModalOpen(false);
       form.resetFields();
@@ -66,7 +72,8 @@ const CourseManagement: React.FC = () => {
   const handleEditCourse = async (values: any) => {
     if (!editingCourse) return;
     try {
-      await updateCourse({ courseId: editingCourse._id, data: values }).unwrap();
+      const payload = { ...values, thumbnail: editForm.getFieldValue('thumbnail') || undefined };
+      await updateCourse({ courseId: editingCourse._id, data: payload }).unwrap();
       message.success('Course updated successfully!');
       setEditModalOpen(false);
       setEditingCourse(null);
@@ -91,6 +98,7 @@ const CourseManagement: React.FC = () => {
     editForm.setFieldsValue({
       title: course.title,
       description: course.description,
+      thumbnail: course.thumbnail || '',
       instructor: course.instructor?._id,
       exam: course.exam?._id,
       subjects: course.subjects?.map((s) => s._id) || [],
@@ -99,6 +107,25 @@ const CourseManagement: React.FC = () => {
   };
 
   const columns: ColumnsType<AdminCourse> = [
+    {
+      title: '',
+      key: 'thumbnail',
+      width: 72,
+      render: (_: unknown, record: AdminCourse) =>
+        record.thumbnail ? (
+          <img
+            src={record.thumbnail}
+            alt={record.title}
+            className="w-12 h-12 rounded-lg object-cover border border-gray-100"
+          />
+        ) : (
+          <div
+            className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold"
+          >
+            {(record.title || 'C')[0].toUpperCase()}
+          </div>
+        ),
+    },
     {
       title: 'Title',
       dataIndex: 'title',
@@ -355,6 +382,15 @@ const CourseManagement: React.FC = () => {
             <TextArea rows={3} placeholder="Course description..." />
           </Form.Item>
 
+          <Form.Item label="Course Thumbnail" tooltip="Upload an image — stored on Cloudinary">
+            <MediaUpload
+              type="image"
+              value={createThumbnail}
+              onChange={(url) => form.setFieldValue('thumbnail', url)}
+              label="Upload Thumbnail"
+            />
+          </Form.Item>
+
           <Form.Item
             name="instructor"
             label="Instructor"
@@ -417,6 +453,15 @@ const CourseManagement: React.FC = () => {
 
           <Form.Item name="description" label="Description" rules={[{ required: true }]}>
             <TextArea rows={3} />
+          </Form.Item>
+
+          <Form.Item label="Course Thumbnail" tooltip="Upload an image — stored on Cloudinary">
+            <MediaUpload
+              type="image"
+              value={editThumbnail}
+              onChange={(url) => editForm.setFieldValue('thumbnail', url)}
+              label="Upload Thumbnail"
+            />
           </Form.Item>
 
           <Form.Item name="instructor" label="Instructor" rules={[{ required: true }]}>

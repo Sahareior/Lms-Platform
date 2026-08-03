@@ -8,11 +8,10 @@ import AIChatInterface from './(components)/MainPages/chat_interface/AIChatInter
 import QuestionPatterns from './(components)/MainPages/question_patterns/QuestionPatterns';
 import Perfomence from './(components)/MainPages/performence/Perfomence';
 import Settings from './(components)/Settings';
-import ExamSelection from './(components)/onBoarding/ExamSelection';
-import EnrollmentPage from './(components)/onBoarding/enrollment/EnrollmentPage';
 
 import { Login, SignUp } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
+import Onboarding from './(components)/onBoarding/Onboarding';
 import ExamOptions from './exam/ExamOptions';
 import QuizPreatise from './(components)/QuizPreatise/QuizPreatise';
 import SelectedExam from './exam/routes/SelectedExam';
@@ -30,6 +29,7 @@ import QuestionManagement from './AdminDashboard/pages/QuestionManagement';
 import QuestionBank from './AdminDashboard/pages/QuestionBank';
 import SubjectManagement from './AdminDashboard/pages/SubjectManagement';
 import ExamControl from './AdminDashboard/pages/ExamControl';
+import FeaturedExamControl from './AdminDashboard/pages/FeaturedExamControl';
 import UserPerformance from './AdminDashboard/pages/UserPerformance';
 
 const router = createBrowserRouter([
@@ -43,20 +43,12 @@ const router = createBrowserRouter([
     element: <SignUp />,
   },
 
-  // ── Onboarding Routes (auth required) ────────────────
+  // ── Onboarding (auth required, first-time exam selection) ──
   {
-    path: 'on-boarding',
+    path: 'onboarding',
     element: (
       <AuthGuard>
-        <ExamSelection />
-      </AuthGuard>
-    ),
-  },
-  {
-    path: 'on-boarding/enroll',
-    element: (
-      <AuthGuard>
-        <EnrollmentPage />
+        <Onboarding />
       </AuthGuard>
     ),
   },
@@ -116,7 +108,7 @@ const router = createBrowserRouter([
   {
     path: 'admin',
     element: (
-      <AuthGuard >
+      <AuthGuard requireAdmin>
         <AdminDashboard />
       </AuthGuard>
     ),
@@ -130,6 +122,7 @@ const router = createBrowserRouter([
       { path: 'question-bank', element: <QuestionBank /> },
       { path: 'subjects', element: <SubjectManagement /> },
       { path: 'exam-control', element: <ExamControl /> },
+      { path: 'featured-exam', element: <FeaturedExamControl /> },
       { path: 'user-performance', element: <UserPerformance /> },
     ],
   },

@@ -24,6 +24,7 @@ import {
   TagsOutlined,
   CalendarOutlined,
   BarChartOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -49,6 +50,7 @@ const AdminDashboard: React.FC = () => {
     if (path.includes('/admin/question-bank')) return 'question-bank';
     if (path.includes('/admin/subjects')) return 'subjects';
     if (path.includes('/admin/exam-control')) return 'exam-control';
+    if (path.includes('/admin/featured-exam')) return 'featured-exam';
     if (path.includes('/admin/user-performance')) return 'user-performance';
     return 'dashboard';
   };
@@ -103,6 +105,12 @@ const AdminDashboard: React.FC = () => {
       onClick: () => navigate('/admin/exam-control'),
     },
     {
+      key: 'featured-exam',
+      icon: <StarOutlined />,
+      label: 'Featured Mock Exam',
+      onClick: () => navigate('/admin/featured-exam'),
+    },
+    {
       key: 'user-performance',
       icon: <BarChartOutlined />,
       label: 'User Performance',
@@ -124,7 +132,7 @@ const AdminDashboard: React.FC = () => {
         collapsed={collapsed}
         width={240}
         style={{
-          background: 'linear-gradient(180deg, #0d1b2a 0%, #1b2838 100%)',
+    
           overflow: 'auto',
           height: '100vh',
           position: 'fixed',
@@ -215,93 +223,16 @@ const AdminDashboard: React.FC = () => {
       </Sider>
 
       <Layout style={{ marginLeft: collapsed ? 80 : 240, transition: 'margin-left 0.2s' }}>
-        <Header
-          style={{
-            padding: '0 24px',
-            background: colorBgContainer,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-            position: 'sticky',
-            top: 0,
-            zIndex: 99,
-            height: 64,
-          }}
-        >
-          <Space>
-            <Button
-              type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
-              style={{ fontSize: 16, width: 40, height: 40 }}
-            />
-            <Text type="secondary" style={{ fontSize: 14 }}>
-              {selectedKey === 'dashboard' && 'Dashboard Overview'}
-              {selectedKey === 'users' && 'User Management'}
-              {selectedKey === 'exams' && 'Exam Management'}
-              {selectedKey === 'courses' && 'Course Management'}
-              {selectedKey === 'questions' && 'Upload Questions'}
-              {selectedKey === 'question-bank' && 'Question Bank'}
-              {selectedKey === 'subjects' && 'Subject Management'}
-              {selectedKey === 'exam-control' && 'Exam Control'}
-              {selectedKey === 'user-performance' && 'User Performance'}
-            </Text>
-          </Space>
 
-          <Dropdown
-            menu={{
-              items: [
-                {
-                  key: 'profile',
-                  icon: <UserOutlined />,
-                  label: 'Profile',
-                },
-                {
-                  key: 'settings',
-                  icon: <SettingOutlined />,
-                  label: 'Settings',
-                },
-                { type: 'divider' },
-                {
-                  key: 'logout',
-                  icon: <LogoutOutlined />,
-                  label: 'Logout',
-                  danger: true,
-                },
-              ],
-            }}
-            placement="bottomRight"
-          >
-            <Space style={{ cursor: 'pointer' }}>
-              <Avatar
-                style={{
-                  backgroundColor: '#667eea',
-                  verticalAlign: 'middle',
-                }}
-                icon={<UserOutlined />}
-              />
-              <Text style={{ color: '#142347' }}>Admin</Text>
-            </Space>
-          </Dropdown>
-        </Header>
 
-        <Content
-          style={{
-            margin: 0,
-            padding: 24,
-            minHeight: 'calc(100vh - 64px)',
-            background: '#f0f2f5',
-          }}
-        >
-          <div
-            style={{
-              padding: 24,
-              minHeight: 'calc(100vh - 112px)',
-              background: colorBgContainer,
-              borderRadius: borderRadiusLG,
-            }}
-          >
+   
+          <Content className="bg-transparent p-4">
+           <div
+              className="overflow-y-auto overflow-hidden h-[calc(100vh-2rem)] border border-[#23262D] rounded-2xl p-1"
+              style={{
+                background: '#0B0D12',
+              }}
+            >
             <Outlet />
           </div>
         </Content>

@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import { skipToken } from '@reduxjs/toolkit/query/react';
 import { ConfigProvider, Layout, theme as antdTheme } from 'antd';
 import {
   LayoutDashboard,
@@ -20,14 +19,10 @@ import {
   setAiReport,
   setAiReportLoading,
   setAiReportError,
-  setAiReportHistory,
   clearAiReport,
 } from '@my-monorepo/store';
 import { clearPersistedAuth } from './auth/AuthInitializer';
-import {
-  useGetOrGenerateAiPerformanceMutation,
-  useGetAiPerformanceHistoryQuery,
-} from '@my-monorepo/store/src/redux/api/userPerformanceApi';
+import { useGetOrGenerateAiPerformanceMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
 
 const { Content, Sider } = Layout;
 
@@ -56,9 +51,6 @@ const App: React.FC = () => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.user);
   const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
-  const { data: historyData } = useGetAiPerformanceHistoryQuery(
-    user?._id ?? skipToken
-  );
   const lastSentKey = useRef<string | null>(null);
 
   const isActive = (path: string) => {
@@ -111,13 +103,6 @@ useEffect(() => {
   };
   sendData();
 }, [user?._id, getOrGenerateAiPerformance, dispatch]);
-
-useEffect(() => {
-  // Load the full report history for the progress-over-time comparison
-  if (historyData?.history) {
-    dispatch(setAiReportHistory(historyData.history));
-  }
-}, [historyData, dispatch]);
 
   return (
     <ConfigProvider
@@ -209,7 +194,7 @@ useEffect(() => {
         <Layout className="bg-transparent">
           <Content className="bg-transparent p-4">
             <div
-              className="overflow-y-auto h-[calc(100vh-2rem)] border border-[#23262D] rounded-2xl p-6"
+              className="overflow-y-auto h-[calc(100vh-2rem)] border border-[#23262D] rounded-2xl p-1"
               style={{
                 background: '#0B0D12',
               }}

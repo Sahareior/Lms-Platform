@@ -153,6 +153,36 @@ export const deleteExam = async (req, res) => {
   }
 };
 
+export const removeExamForUser = async (req, res) => {
+  try {
+    const { userId, examId } = req.body;
+
+    if (!userId || !examId) {
+      return res.status(400).json({ message: 'userId and examId are required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const examIds = Array.isArray(examId) ? examId : [examId];
+
+    // Remove exam(s) from selectedExams if present
+    user.selectedExams = user.selectedExams.filter((id) => !examIds.includes(id.toString()));
+
+    await user.save();
+
+    res.status(200).json({
+      message: 'Exam removed successfully',
+      selectedExams: user.selectedExams,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Unable to remove exam' });
+  }
+};
+
 export const getUserExams = async (req, res) => {
   try {
     const { userId } = req.params;

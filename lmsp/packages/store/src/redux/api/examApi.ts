@@ -35,10 +35,13 @@ const examApi = api.injectEndpoints({
             })
         }),
 
-        getAnalyzedQuestions: builder.query<any[], string | void>({
-            query: (examId?: string) => {
-                const params = examId ? `?exam=${examId}` : '';
-                return { url: `/questions/question-pattern${params}` };
+        getAnalyzedQuestions: builder.query<any[], { examId?: string; versionId?: string } | void>({
+            query: (params) => {
+                const search = new URLSearchParams();
+                if (params?.examId) search.set('exam', params.examId);
+                if (params?.versionId) search.set('examVersion', params.versionId);
+                const qs = search.toString();
+                return { url: `/questions/question-pattern${qs ? `?${qs}` : ''}` };
             },
         }),
 
@@ -52,6 +55,16 @@ const examApi = api.injectEndpoints({
                 method: 'POST',
                 body: data,
             }),
+            invalidatesTags: ['User'],
+        }),
+
+        removeExam: builder.mutation<void, any>({
+            query: (data) => ({
+                url: `/exams/remove`,
+                method: 'POST',
+                body: data,
+            }),
+            invalidatesTags: ['User'],
         }),
 
         getExamVersionsByExam: builder.query<any[], string>({
@@ -71,6 +84,7 @@ const examApi = api.injectEndpoints({
 export const { useGetExamsQuery,
     useGetAnalyzedQuestionsQuery,
      useSelectExamMutation,
+     useRemoveExamMutation,
      usePostScrapQuestionsMutation,
      usePostQuestionPatternMutation,
      useGetSubjectsByExamQuery,

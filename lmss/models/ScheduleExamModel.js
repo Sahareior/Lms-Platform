@@ -40,6 +40,10 @@ const scheduleExamSchema = new mongoose.Schema({
     enum: ['upcoming', 'active', 'completed', 'cancelled'],
     default: 'upcoming',
   },
+  isFeatured: {
+    type: Boolean,
+    default: false,
+  },
 }, { timestamps: true });
 
 scheduleExamSchema.index({ exam: 1, status: 1 });

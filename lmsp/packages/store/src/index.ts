@@ -90,6 +90,15 @@ export type {
   AuthResponse,
 } from './redux/api/authApi';
 
+// ─── RTK Query Upload API (Cloudinary via backend) ─────────
+export {
+  useUploadImageMutation,
+  useUploadVideoMutation,
+} from './redux/api/uploadApi';
+export type {
+  UploadResponse,
+} from './redux/api/uploadApi';
+
 // ─── RTK Query Course API ───────────────────────────────────
 export {
   useGetCoursesQuery,
@@ -153,6 +162,8 @@ export type {
 export {
   useGetExamsQuery,
   useGetAnalyzedQuestionsQuery,
+  useSelectExamMutation,
+  useRemoveExamMutation,
   useGetSubjectsByExamQuery,
   useGetExamVersionsByExamQuery,
   useGetQuestionsByExamQuery
@@ -220,6 +231,8 @@ export {
   useCreateScheduleExamMutation,
   useUpdateScheduleExamMutation,
   useDeleteScheduleExamMutation,
+  useGetFeaturedScheduleExamQuery,
+  useSetFeaturedScheduleExamMutation,
 
   useGetAllQuizAttemptsQuery,
 } from './redux/api/adminApi';

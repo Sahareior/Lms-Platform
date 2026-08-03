@@ -148,23 +148,34 @@ const userPerformanceApi = api.injectEndpoints({
     }),
 
     // ── Get today's AI report (generate + cache it if missing) ─
+    // examId: when provided, only that exam's performance is analyzed.
     getOrGenerateAiPerformance: build.mutation<
       GetOrGenerateAiResponse,
-      { userId: string; force?: boolean }
+      { userId: string; examId?: string; force?: boolean }
     >({
-      query: ({ userId, force }) => ({
-        url: `/ai-performance/${userId}${force ? '?force=true' : ''}`,
-        method: 'POST',
-      }),
+      query: ({ userId, examId, force }) => {
+        const params = new URLSearchParams();
+        if (force) params.set('force', 'true');
+        if (examId) params.set('examId', examId);
+        const qs = params.toString();
+        return {
+          url: `/ai-performance/${userId}${qs ? `?${qs}` : ''}`,
+          method: 'POST',
+        };
+      },
       invalidatesTags: [{ type: 'Performance', id: 'AI_HISTORY' }],
     }),
 
     // ── Get all saved AI reports (progress-over-time) ────────
+    // examId: when provided, only reports for that exam are returned.
     getAiPerformanceHistory: build.query<
       { success: boolean; history: AiHistoryItem[] },
-      string
+      { userId: string; examId?: string }
     >({
-      query: (userId) => ({ url: `/ai-performance/history/${userId}` }),
+      query: ({ userId, examId }) => {
+        const qs = examId ? `?examId=${examId}` : '';
+        return { url: `/ai-performance/history/${userId}${qs}` };
+      },
       providesTags: [{ type: 'Performance', id: 'AI_HISTORY' }],
     }),
 

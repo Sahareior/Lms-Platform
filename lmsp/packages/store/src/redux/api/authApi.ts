@@ -14,7 +14,10 @@ export interface RegisterRequest {
 }
 
 export interface UpdateUser {
-
+  name?: string;
+  username?: string;
+  phone?: string;
+  email?: string;
   profilePic?: string;
   dateOfBirth?: Date | string; // can be string or Date
   division?: string;

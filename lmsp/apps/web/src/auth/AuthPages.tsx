@@ -35,7 +35,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, isLo
             </div>
             <div className="flex flex-col leading-none">
               <span className="font-bold text-base text-[#F5F7FA] tracking-wide">BrainForge</span>
-              <span className="text-[9px] text-[#A1A8B3] font-medium">BanglaPrep</span>
+              {/* <span className="text-[9px] text-[#A1A8B3] font-medium">BanglaPrep</span> */}
             </div>
           </div>
 
@@ -171,7 +171,7 @@ export const Login: React.FC = () => {
       persistAuth(data.token, userInfo);
       dispatch(loginSuccess(userInfo));
 
-      const from = (location.state as any)?.from || '/on-boarding';
+      const from = (location.state as any)?.from || '/';
       navigate(from, { replace: true });
     } catch (error) {
       console.error('Login failed:', error);
@@ -258,7 +258,8 @@ export const SignUp: React.FC = () => {
       persistAuth(data.token, userInfo);
       dispatch(loginSuccess(userInfo));
 
-      navigate('/on-boarding', { replace: true });
+      // First-time users land on the onboarding page (AuthGuard redirects them there)
+      navigate('/', { replace: true });
     } catch (error) {
       console.error('Registration failed:', error);
     }
