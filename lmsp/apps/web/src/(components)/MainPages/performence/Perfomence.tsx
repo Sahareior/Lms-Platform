@@ -280,9 +280,7 @@ const Performance = () => {
             <button className="flex items-center justify-center gap-1 text-xs border border-[#23262D] px-3 py-1.5 rounded-lg hover:bg-[#161920] text-[#A1A8B3] bg-[#111318] w-full md:w-auto">
               <Calendar size={14} /> Saved reports <ChevronDown size={12} />
             </button>
-            <button className="flex items-center justify-center gap-1 text-xs bg-[#2F80ED] text-white px-3 py-1.5 rounded-lg hover:bg-[#256BCE] transition w-full md:w-auto active:scale-95">
-              <Download size={14} /> Export
-            </button>
+           
           </div>
         </header>
 

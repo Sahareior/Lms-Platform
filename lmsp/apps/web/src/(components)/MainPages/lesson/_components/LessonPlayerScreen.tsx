@@ -87,12 +87,7 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
           <span className="text-[#2F80ED] font-semibold">Lesson {currentLessonIndex + 1}</span>
         </nav>
 
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#2F80ED]/20 text-[#2F80ED] border border-[#2F80ED]/40 flex items-center justify-center text-xs font-bold">
-            R
-          </div>
-          <span className="text-sm font-medium text-[#F5F7FA] hidden md:inline">Rahim</span>
-        </div>
+
       </header>
 
       {/* ────── MAIN CONTENT ────── */}

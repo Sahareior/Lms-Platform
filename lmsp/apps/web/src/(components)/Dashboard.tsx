@@ -20,13 +20,12 @@ import {
   TrendingUp,
   Zap,
   Layers,
+  CircleCheck,
 } from "lucide-react";
 import {
-  useGetCoursesQuery,
   useEnrollCourseMutation,
-  useGetExamsQuery,
   useGetMeQuery,
-  useGetCourseByIdQuery,
+  useGetCoursesQuery,
   useAppSelector,
   useGetFeaturedScheduleExamQuery,
 } from "@my-monorepo/store";
@@ -78,7 +77,15 @@ function ProgressRing({ progress, size = 36 }: { progress: number; size?: number
 }
 
 // ─── Enrolled Course Card ──────────────────────────────────
-function EnrolledCard({ course, onResume }: { course: any; onResume: () => void }) {
+function EnrolledCard({
+  course,
+  onResume,
+  onOpen,
+}: {
+  course: any;
+  onResume: () => void;
+  onOpen: () => void;
+}) {
   const category = course.exam?.name || course.category || "General";
   const totalLessons = course.lessons?.length || course.totalLessons || 0;
   const title = course.title || "Untitled Course";
@@ -91,7 +98,10 @@ function EnrolledCard({ course, onResume }: { course: any; onResume: () => void 
       : course.instructors;
 
   return (
-    <div className="group bg-[#111318] rounded-2xl overflow-hidden border border-[#23262D] hover:border-[#2F80ED]/60 transition-all duration-300 flex flex-col hover:shadow-[0_0_30px_-10px_rgba(47,128,237,0.4)]">
+    <div
+      onClick={onOpen}
+      className="group bg-[#111318] rounded-2xl overflow-hidden border border-[#23262D] hover:border-[#2F80ED]/60 transition-all duration-300 flex flex-col cursor-pointer hover:shadow-[0_0_30px_-10px_rgba(47,128,237,0.4)]"
+    >
       <div className="relative h-28 bg-gradient-to-br from-[#161920] to-[#1C1F26] p-5 flex flex-col justify-end border-b border-[#23262D] overflow-hidden">
         <div className="absolute -right-6 -top-6 w-32 h-32 bg-[#2F80ED]/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-700" />
         <span className="text-[10px] uppercase font-bold tracking-wider text-[#A1A8B3] relative z-10">
@@ -135,7 +145,10 @@ function EnrolledCard({ course, onResume }: { course: any; onResume: () => void 
           </div>
         </div>
         <button
-          onClick={onResume}
+          onClick={(e) => {
+            e.stopPropagation();
+            onResume();
+          }}
           className="w-full flex items-center justify-center gap-2 bg-[#2F80ED] text-white py-2.5 rounded-xl font-bold text-xs hover:bg-[#256BCE] transition-all active:scale-[0.98] shadow-[0_4px_12px_rgba(47,128,237,0.3)] hover:shadow-[0_4px_20px_rgba(47,128,237,0.5)]"
         >
           <PlayCircle size={15} />
@@ -151,10 +164,14 @@ function AvailableCard({
   course,
   onEnroll,
   isEnrolling,
+  enrolledCourse,
+  onOpen
 }: {
   course: any;
   onEnroll: () => void;
   isEnrolling: boolean;
+  enrolledCourse: any[];
+  onOpen: () => void;
 }) {
   const totalLessons = course.lessons?.length || course.totalLessons || 0;
   const category = course.exam?.name || course.category || "General";
@@ -168,8 +185,15 @@ function AvailableCard({
       ? course.instructor?.name
       : course.instructors;
 
+      const isEnrolled = enrolledCourse.some((items:any) => items._id === course._id)
+
+      console.log(isEnrolled,'is enrolled')
+
   return (
-    <div className="group bg-[#111318] rounded-2xl overflow-hidden border border-[#23262D] hover:border-[#00E5B3]/60 transition-all duration-300 flex flex-col hover:shadow-[0_0_30px_-10px_rgba(0,229,179,0.3)]">
+    <div
+      onClick={onOpen}
+      className="group bg-[#111318] rounded-2xl overflow-hidden border border-[#23262D] hover:border-[#00E5B3]/60 transition-all duration-300 flex flex-col cursor-pointer hover:shadow-[0_0_30px_-10px_rgba(0,229,179,0.3)]"
+    >
       <div className="relative h-28 bg-gradient-to-br from-[#161920] to-[#1C1F26] p-5 flex flex-col justify-end border-b border-[#23262D] overflow-hidden">
         <div className="absolute -right-6 -top-6 w-32 h-32 bg-[#00E5B3]/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-700" />
         <div className="flex items-start justify-between relative z-10">
@@ -220,8 +244,11 @@ function AvailableCard({
           )}
         </div>
         <button
-          onClick={onEnroll}
-          disabled={isEnrolling}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEnroll();
+          }}
+          disabled={isEnrolling || isEnrolled}
           className="w-full flex items-center justify-center gap-2 bg-[#00E5B3] text-black py-2.5 rounded-xl font-bold text-xs hover:bg-[#00C298] transition-all active:scale-[0.98] disabled:opacity-50 shadow-[0_4px_12px_rgba(0,229,179,0.3)] hover:shadow-[0_4px_20px_rgba(0,229,179,0.5)]"
         >
           {isEnrolling ? (
@@ -231,8 +258,19 @@ function AvailableCard({
             </>
           ) : (
             <>
-              <Plus size={15} />
+             {
+              isEnrolled? (
+               <div className="flex justify-center items-center gap-2">
+                   <CircleCheck  size={15} />
+              <span>Enrolled</span>
+                </div>
+              ):(
+                <div className="flex justify-center items-center gap-2">
+                   <Plus size={15} />
               <span>Enroll Now</span>
+                </div>
+              )
+             }
             </>
           )}
         </button>
@@ -395,12 +433,9 @@ export default function Dashboard() {
     }
   }, [activeTab, selectedExams]);
 
-  const { data: courseData, isLoading: isLoadingCourses } = useGetCourseByIdQuery(activeTab, {
-    skip: activeTab === "All",
-  });
+  const { data: courseData, isLoading: isLoadingCourses } = useGetCoursesQuery();
 
-  useGetCoursesQuery();
-  useGetExamsQuery();
+
 
   const handleEnroll = async (courseId: string) => {
     if (!userId) return;
@@ -417,7 +452,17 @@ export default function Dashboard() {
   const filteredEnrolled = enrolledCoursesList.filter(
     (c) => activeTab === "All" || c.exam?._id === activeTab || c.category === activeTab
   );
-  const availableCoursesList = Array.isArray(courseData) ? courseData : [];
+  const availableCoursesList = (
+    Array.isArray(courseData)
+      ? courseData
+      : Array.isArray(courseData?.courses)
+      ? courseData.courses
+      : []
+  ).filter(
+    (c: any) => activeTab === "All" || c.exam?._id === activeTab || c.category === activeTab
+  );
+
+  
 
   // ─── AI Report derived data ──────────────────────────────
   const aiStats = aiReport?.stats;
@@ -551,7 +596,7 @@ export default function Dashboard() {
           icon={Layers}
           label="Browse Courses"
           description="Discover new topics"
-          onClick={() => navigate("/courses")}
+          onClick={() => navigate("/available-courses")}
           color="text-[#2F80ED]"
         />
         <QuickAction
@@ -601,6 +646,7 @@ export default function Dashboard() {
                 key={course._id}
                 course={course}
                 onResume={() => course._id && navigate(`/courses/${course._id}`)}
+                onOpen={() => course._id && navigate(`/course/${course._id}`)}
               />
             ))}
           </div>
@@ -611,7 +657,7 @@ export default function Dashboard() {
               You haven't enrolled in any courses yet.
             </p>
             <button
-              onClick={() => navigate("/courses")}
+              onClick={() => navigate("/available-courses")}
               className="mt-4 text-xs font-bold text-[#00E5B3] hover:underline"
             >
               Browse available courses
@@ -660,7 +706,7 @@ export default function Dashboard() {
             </div>
           </div>
           <button
-            onClick={() => navigate("/courses")}
+            onClick={() => navigate("/available-courses")}
             className="text-xs font-bold text-[#00E5B3] hover:underline flex items-center gap-1"
           >
             <span>Browse All</span>
@@ -678,8 +724,10 @@ export default function Dashboard() {
               <AvailableCard
                 key={course._id}
                 course={course}
+                enrolledCourse={enrolledCoursesList}
                 onEnroll={() => handleEnroll(course._id)}
                 isEnrolling={enrollingId === course._id}
+                onOpen={() => course._id && navigate(`/course/${course._id}`)}
               />
             ))}
           </div>

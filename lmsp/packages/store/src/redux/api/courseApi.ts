@@ -26,21 +26,13 @@ const courseApi = api.injectEndpoints({
   endpoints: (build) => ({
     // ── List All Courses ─────────────────────────────────────
     getCourses: build.query<CourseListResponse, void>({
-      query: () => ({ url: '/courses' }),
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.courses.map(
-                ({ id }) => ({ type: 'Course' as const, id }),
-              ),
-              { type: 'Course', id: 'LIST' },
-            ]
-          : [{ type: 'Course', id: 'LIST' }],
+      query: () => ({ url: '/course' }),
+
     }),
 
-    // ── Get Single Course with Lessons ───────────────────────
+    // ── Get Single Course with Lessons ───────────────────────/by-course/:courseId
     getCourseById: build.query({
-      query: (courseId) => ({ url: `/course/${courseId}` }),
+      query: (courseId) => ({ url: `/course/by-course/${courseId}` }),
     }),
 
     // ── Enroll in a Course ───────────────────────────────────

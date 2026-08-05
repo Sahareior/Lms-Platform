@@ -8,6 +8,8 @@ import AIChatInterface from './(components)/MainPages/chat_interface/AIChatInter
 import QuestionPatterns from './(components)/MainPages/question_patterns/QuestionPatterns';
 import Perfomence from './(components)/MainPages/performence/Perfomence';
 import Settings from './(components)/Settings';
+import AvailableCourses from './(components)/AvailableCourses';
+import CourseDetails from './(components)/CourseDetails';
 
 import { Login, SignUp } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
@@ -63,6 +65,8 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Dashboard /> },
+      { path: 'available-courses', element: <AvailableCourses /> },
+      { path: 'course/:courseId', element: <CourseDetails /> },
       { path: 'courses', element: <LessonPage /> },
       { path: 'courses/:courseId', element: <LessonPage /> },
       {

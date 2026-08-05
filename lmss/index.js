@@ -16,13 +16,15 @@ import userDataRoutes from './routes/userData.js';
 import quizPerform from './routes/QuizPerformance.js';
 import aiPerformance from './routes/aiPerformance.js';
 import uploadRoutes from './routes/upload.js';
+import importantTopicsRoutes from './routes/importantTopics.js';
 const app = express();
 
 
 connectDB();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.get('/', (req, res) => {
   res.send('Hello, World!');
@@ -42,6 +44,7 @@ app.use('/user-data', userDataRoutes)
 app.use('/quiz-performance', quizPerform)
 app.use('/ai-performance', aiPerformance)
 app.use('/upload', uploadRoutes);
+app.use('/important-topics', importantTopicsRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

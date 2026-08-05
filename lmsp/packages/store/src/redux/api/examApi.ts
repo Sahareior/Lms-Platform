@@ -71,6 +71,10 @@ const examApi = api.injectEndpoints({
             query: (examId) => ({ url: `/exam-version/exam/${examId}` }),
         }),
 
+        getImportentTopics:builder.query({
+            query:(examId) => `/important-topics?exam=${examId}`
+        }),
+
         getQuestionsByExam: builder.query<any[], { examId: string; versionId?: string }>({
             query: ({ examId, versionId }) => {
                 let url = `/questions/exam/${examId}`;
@@ -88,6 +92,7 @@ export const { useGetExamsQuery,
      usePostScrapQuestionsMutation,
      usePostQuestionPatternMutation,
      useGetSubjectsByExamQuery,
+     useGetImportentTopicsQuery,
      useGetExamVersionsByExamQuery,
      useGetQuestionsByExamQuery } = examApi;
 export default examApi;

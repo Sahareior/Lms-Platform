@@ -391,7 +391,7 @@ const QuestionPatterns = () => {
         </div>
 
         {/* ═══════════ STATS ═══════════ */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             {
               number: totalQuestions.toLocaleString() + "+",
@@ -414,13 +414,7 @@ const QuestionPatterns = () => {
               iconBg: "bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30",
               icon: <BookOpen size={18} />,
             },
-            {
-              number: "45",
-              label: "Exams Covered",
-              accent: "border-[#F2C94C]",
-              iconBg: "bg-[#F2C94C]/10 text-[#F2C94C] border border-[#F2C94C]/30",
-              icon: <FileText size={18} />,
-            },
+         
             {
               number: "91%",
               label: "Predicted Accuracy",
@@ -732,39 +726,8 @@ const QuestionPatterns = () => {
         </div>
 
         {/* ═══════════ AI PREDICTED TOPICS ═══════════ */}
-        <AiPredictTopic />
+        <AiPredictTopic examId={examId} />
 
-        {/* ═══════════ FOOTER CTA ═══════════ */}
-        <div className="relative overflow-hidden rounded-2xl bg-[#111318] border border-[#23262D] p-7 md:p-8 shadow-sm">
-          <div className="absolute -top-16 -right-16 w-48 h-48 bg-[#9B51E0]/15 rounded-full blur-3xl" />
-          <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-[#2F80ED]/10 rounded-full blur-3xl" />
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-5">
-              <div className="w-12 h-12 bg-[#9B51E0]/10 border border-[#9B51E0]/30 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <FileText size={24} className="text-[#9B51E0]" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-extrabold text-lg text-[#F5F7FA]">
-                  Download Full Pattern Analysis Report
-                </h3>
-                <p className="text-[#A1A8B3] text-xs md:text-sm">
-                  PDF &bull; 28 pages &bull;{" "}
-                  {currentExam ? currentExam.name : "BCS"} 2015-2024 &bull;
-                  Chapter-wise breakdown & predictions.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <button className="border border-[#23262D] hover:bg-[#161920] text-[#F5F7FA] text-sm font-semibold px-5 py-2.5 rounded-xl transition-all w-full md:w-auto text-center active:scale-95">
-                Preview
-              </button>
-              <button className="bg-[#9B51E0] hover:bg-[#7E3CC4] text-white text-sm font-bold px-6 py-2.5 rounded-xl transition-all w-full md:w-auto flex items-center justify-center gap-2 shadow-lg shadow-[#9B51E0]/25 active:scale-95">
-                <Download size={16} />
-                Download PDF
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
