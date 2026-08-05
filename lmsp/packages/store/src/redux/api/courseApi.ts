@@ -48,21 +48,26 @@ const courseApi = api.injectEndpoints({
       query: ( userId ) => ({ url: `/course/enrolled/${userId}` })
     }),
 
-    getCourseLessons: build.query({
-      query: ({courseId}) => ({url: `/lesson/${courseId}`})
+    getCourseLessonsWithProgress: build.query<{ lessons: any[] }, { courseId: string; userId?: string }>({
+      query: ({ courseId, userId }) => ({
+        url: `/lesson/${courseId}${userId ? `?userId=${userId}` : ''}`,
+      }),
+      providesTags: ['Lesson'],
     }),
 
     // ── Mark Lesson as Complete ──────────────────────────────
     completeLesson: build.mutation<
       void,
-      { courseId: string; lessonId: string }
+      { userId: string; courseId: string; lessonId: string }
     >({
-      query: ({ courseId, lessonId }) => ({
-        url: `/courses/${courseId}/lessons/${lessonId}/complete`,
+      query: ({ userId, courseId, lessonId }) => ({
+        url: `/lesson/complete`,
         method: 'POST',
+        body: { userId, courseId, lessonId },
       }),
       invalidatesTags: (_result, _error, { courseId }) => [
         { type: 'Course', id: courseId },
+        { type: 'Lesson' },
       ],
     }),
   }),
@@ -76,5 +81,5 @@ export const {
   useEnrollCourseMutation,
   useCompleteLessonMutation,
   useGetEnrolledCourseQuery,
-  useGetCourseLessonsQuery
+  useGetCourseLessonsWithProgressQuery
 } = courseApi;

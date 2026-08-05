@@ -106,6 +106,7 @@ export {
   useGetCourseByIdQuery,
   useEnrollCourseMutation,
   useCompleteLessonMutation,
+  useGetCourseLessonsWithProgressQuery,
 } from './redux/api/courseApi';
 export type {
   CourseListResponse,

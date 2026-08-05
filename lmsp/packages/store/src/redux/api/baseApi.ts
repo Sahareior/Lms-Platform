@@ -9,7 +9,8 @@ import {
 // ─── Configuration State ───────────────────────────────────
 // These are read on every request via closure, so they can be
 // updated at any time without rebuilding the API slice.
-let _baseUrl = 'http://localhost:3000/';
+let _baseUrl = 'https://lmss-livid.vercel.app/';
+// let _baseUrl = 'http://localhost:3000/';
 let _token: string | null = null;
 
 /**

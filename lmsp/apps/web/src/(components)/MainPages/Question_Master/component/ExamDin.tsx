@@ -495,7 +495,7 @@ export default function ExamDin() {
       </div>
 
       {/* Bottom Action Bar */}
-      <div className="sticky -bottom-7 z-30 bg-[#111318] border-t border-[#23262D]">
+      <div className="sticky -bottom-1 z-30 bg-[#111318] border-t border-[#23262D]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-sm text-[#A1A8B3]">
             <Flag size={14} />

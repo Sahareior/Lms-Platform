@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Play, SkipBack, SkipForward, Pause, Volume2, Maximize, Loader2 } from 'lucide-react';
 
 // ─── YouTube URL Parsing ─────────────────────────────────────
@@ -6,11 +6,11 @@ function getYouTubeEmbedUrl(url: string): string | null {
   if (!url) return null;
   // youtube.com/watch?v=VIDEO_ID
   const matchStandard = url.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  if (matchStandard) return `https://www.youtube.com/embed/${matchStandard[1]}?autoplay=0&rel=0`;
+  if (matchStandard) return `https://www.youtube.com/embed/${matchStandard[1]}?enablejsapi=1&autoplay=0&rel=0`;
 
   // youtu.be/VIDEO_ID
   const matchShort = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-  if (matchShort) return `https://www.youtube.com/embed/${matchShort[1]}?autoplay=0&rel=0`;
+  if (matchShort) return `https://www.youtube.com/embed/${matchShort[1]}?enablejsapi=1&autoplay=0&rel=0`;
 
   return null;
 }
@@ -51,6 +51,7 @@ interface VideoPlayerProps {
   isLoading?: boolean;
   onPrevious?: () => void;
   onNext?: () => void;
+  onComplete?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
 }
@@ -63,12 +64,43 @@ export default function VideoPlayer({
   isLoading,
   onPrevious,
   onNext,
+  onComplete,
   hasPrevious,
   hasNext,
 }: VideoPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const embedUrl = videoUri ? getYouTubeEmbedUrl(videoUri) : null;
   const isYoutube = videoUri ? isYouTubeUrl(videoUri) : false;
+
+  // Keep the latest onComplete without re-subscribing the message listener
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  // Detect when a YouTube embed finishes (fires postMessage events with enablejsapi=1)
+  useEffect(() => {
+    if (!isYoutube || !embedUrl) return;
+
+    let wasPlaying = false;
+    const handleMessage = (e: MessageEvent) => {
+      // Guard against opaque/empty origins before parsing
+      if (!e.origin || !/(^|\.)youtube(-nocookie)?\.com$/.test(e.origin)) return;
+
+      const data = e.data as any;
+      if (!data || data.event !== 'infoDelivery' || !data.info) return;
+
+      if (data.info.playerState === 1) {
+        wasPlaying = true; // video started playing
+      } else if (data.info.playerState === 0 && wasPlaying) {
+        wasPlaying = false; // video ended after actually playing
+        onCompleteRef.current?.();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isYoutube, embedUrl]);
 
   if (isLoading) {
     return (
@@ -90,7 +122,12 @@ export default function VideoPlayer({
             allowFullScreen
           />
         ) : (
-          <video src={videoUri} controls className="absolute inset-0 w-full h-full object-cover" />
+          <video
+            src={videoUri}
+            controls
+            className="absolute inset-0 w-full h-full object-cover"
+            onEnded={() => onCompleteRef.current?.()}
+          />
         )
       ) : (
         <>

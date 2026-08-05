@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft, BookOpen, MessageSquare, Layout, PenTool, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { skipToken } from '@reduxjs/toolkit/query/react';
-import { useGetCourseLessonsQuery } from '@my-monorepo/store';
+import { useCompleteLessonMutation, useGetCourseLessonsWithProgressQuery } from '@my-monorepo/store';
 import VideoPlayer from './VideoPlayer';
 import OverviewTab from './OverviewTab';
 import NotesTab from './NotesTab';
@@ -17,7 +17,8 @@ interface CourseInfo {
   id?: string;
   title?: string;
   category?: string;
-  instructor?: string;
+  exam?: { name?: string };
+  instructor?: string | { name?: string };
   lessons?: Array<{ id: string; title: string; duration: number; isCompleted: boolean }>;
   course?: any;
 }
@@ -32,9 +33,11 @@ interface LessonPlayerScreenProps {
 export default function LessonPlayerScreen({ courseId, course, userId, onBack }: LessonPlayerScreenProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
-  const { data: courseLessons, isLoading: isLoadingCourseLessons } = useGetCourseLessonsQuery(
-    courseId && courseId !== 'undefined' ? courseId : skipToken
+  const { data: courseLessons, isLoading: isLoadingCourseLessons } = useGetCourseLessonsWithProgressQuery(
+    courseId && courseId !== 'undefined' ? { courseId, userId } : skipToken
   );
+
+  const [completeLesson, { isLoading: isCompleting }] = useCompleteLessonMutation();
 
   // Merge API lessons with fallback
   const apiLessons: any[] = (courseLessons as any)?.lessons || [];
@@ -46,10 +49,51 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
   const currentLesson: any = lessonsData[currentLessonIndex] || lessonsData[0] || {};
   const currentLessonId = currentLesson._id || currentLesson.id || '';
 
+  // ─── Resume at the first uncompleted lesson ───────────────
+  // On load (and when switching courses), jump to the first lesson
+  // that isn't completed instead of always starting at lesson 1.
+  const hasResumedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const isFirstLoadForThisCourse = hasResumedRef.current !== courseId;
+
+    // Reset the player position when switching to a different course
+    if (isFirstLoadForThisCourse) {
+      setCurrentLessonIndex(0);
+    }
+
+    // Once completion data is available, jump to the first uncompleted lesson
+    const hasCompletionData = lessonsData.some((l: any) => typeof l.isCompleted === 'boolean');
+    if (isFirstLoadForThisCourse && hasCompletionData && lessonsData.length > 0) {
+      hasResumedRef.current = courseId;
+      const firstUncompleted = lessonsData.findIndex((l: any) => !l.isCompleted);
+      if (firstUncompleted > 0) {
+        setCurrentLessonIndex(firstUncompleted);
+      }
+    }
+  }, [lessonsData, courseId]);
+
   const completedCount = lessonsData.filter((l: any) => l.isCompleted).length;
   const progressPercent = lessonsData.length > 0
     ? Math.round((completedCount / lessonsData.length) * 100)
     : 0;
+
+  // ─── Lesson Completion ────────────────────────────────────
+  const markLessonComplete = async (lessonId: string) => {
+    if (!lessonId || !userId || !courseId) return;
+    try {
+      await completeLesson({ userId, courseId, lessonId }).unwrap();
+    } catch (err) {
+      console.error('Failed to mark lesson as complete:', err);
+    }
+  };
+
+  // Mark the current lesson complete and move to the next one
+  const advanceToNextLesson = () => {
+    markLessonComplete(currentLessonId);
+    if (currentLessonIndex < lessonsData.length - 1) {
+      setCurrentLessonIndex(currentLessonIndex + 1);
+    }
+  };
 
   const tabs = [
     { key: 'overview', label: 'Overview', icon: BookOpen },
@@ -102,7 +146,8 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
             duration={currentLesson.duration}
             isLoading={isLoadingCourseLessons}
             onPrevious={() => currentLessonIndex > 0 && setCurrentLessonIndex(currentLessonIndex - 1)}
-            onNext={() => currentLessonIndex < lessonsData.length - 1 && setCurrentLessonIndex(currentLessonIndex + 1)}
+            onNext={advanceToNextLesson}
+            onComplete={advanceToNextLesson}
             hasPrevious={currentLessonIndex > 0}
             hasNext={currentLessonIndex < lessonsData.length - 1}
           />
@@ -142,7 +187,7 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
               </div>
 
               <button
-                onClick={() => currentLessonIndex < lessonsData.length - 1 && setCurrentLessonIndex(currentLessonIndex + 1)}
+                onClick={advanceToNextLesson}
                 disabled={currentLessonIndex === lessonsData.length - 1}
                 className="flex items-center gap-1.5 text-xs font-semibold bg-[#2F80ED] text-white px-4 py-1.5 rounded-lg hover:bg-[#256BCE] disabled:opacity-50 transition active:scale-[0.98]"
               >
@@ -221,6 +266,9 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
             totalCount={lessonsData.length}
             completionCriteria={currentLesson.completionCriteria}
             hasQuiz={!!currentLesson.quiz}
+            isCurrentCompleted={!!currentLesson.isCompleted}
+            isCompleting={isCompleting}
+            onMarkComplete={() => markLessonComplete(currentLessonId)}
           />
         </div>
       </div>

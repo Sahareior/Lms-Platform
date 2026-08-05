@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Lesson from "../models/Lesson.js";
 import CourseModel from "../models/Courses.js";
+import UserData from "../models/UserDataModel.js";
 
 export const createLesson = async (req, res) => {
     const lessonData = req.body;
@@ -28,12 +29,30 @@ export const createLesson = async (req, res) => {
 
 export const getLessonsByCourseId = async (req, res) => {
     const { courseId } = req.params;
+    const { userId } = req.query;
     if (!courseId || !mongoose.Types.ObjectId.isValid(courseId)) {
         return res.status(400).json({ message: 'Invalid course id' });
     }
     try {
-        const lessons = await Lesson.find({ course: courseId });
-        res.status(200).json({ lessons });
+        const lessons = await Lesson.find({ course: courseId }).sort({ order: 1, createdAt: 1 });
+
+        // Determine which lessons this user has completed (if logged in)
+        let completedLessonIds = new Set();
+        if (userId) {
+            const userData = await UserData.findOne({ user: userId });
+            const progressEntry = userData?.courseProgress?.find(
+                (p) => p.course.toString() === courseId
+            );
+            completedLessonIds = new Set(
+                (progressEntry?.completedLessons || []).map((id) => id.toString())
+            );
+        }
+
+        const lessonsWithProgress = lessons.map((lesson) => ({
+            ...lesson.toObject(),
+            isCompleted: completedLessonIds.has(lesson._id.toString()),
+        }));
+        res.status(200).json({ lessons: lessonsWithProgress });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Something went wrong' });
@@ -54,6 +73,62 @@ export const updateLesson = async (req, res) => {
         res.status(500).json({ message: 'Something went wrong' });
     }
 }
+
+export const markLessonComplete = async (req, res) => {
+    const { userId, courseId, lessonId } = req.body;
+    if (!userId || !courseId || !lessonId) {
+        return res.status(400).json({ message: 'userId, courseId and lessonId are required' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(courseId) || !mongoose.Types.ObjectId.isValid(lessonId)) {
+        return res.status(400).json({ message: 'Invalid course or lesson id' });
+    }
+    try {
+        const [course, lesson] = await Promise.all([
+            CourseModel.findById(courseId),
+            Lesson.findById(lessonId),
+        ]);
+        if (!course) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+        if (!lesson) {
+            return res.status(404).json({ message: 'Lesson not found' });
+        }
+
+        let userData = await UserData.findOne({ user: userId });
+        if (!userData) {
+            userData = new UserData({ user: userId, mockExam: [], questionPreatise: [] });
+        }
+
+        // Find (or create) the progress entry for this course
+        let progressEntry = userData.courseProgress.find(
+            (p) => p.course.toString() === courseId
+        );
+        if (!progressEntry) {
+            progressEntry = { course: courseId, completedLessons: [] };
+            userData.courseProgress.push(progressEntry);
+        }
+
+        // Avoid duplicate entries
+        const alreadyCompleted = progressEntry.completedLessons.some(
+            (id) => id.toString() === lessonId
+        );
+        if (!alreadyCompleted) {
+            progressEntry.completedLessons.push(lessonId);
+        }
+
+        await userData.save();
+
+        res.status(200).json({
+            message: 'Lesson marked as complete',
+            courseId,
+            completedLessons: progressEntry.completedLessons,
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Something went wrong' });
+    }
+}
+
 
 export const deleteLesson = async (req, res) => {
     const { lessonId } = req.params;

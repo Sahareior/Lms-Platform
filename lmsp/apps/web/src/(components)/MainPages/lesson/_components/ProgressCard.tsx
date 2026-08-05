@@ -6,9 +6,12 @@ interface ProgressCardProps {
   totalCount: number;
   completionCriteria?: 'WATCH' | 'QUIZ' | 'MANUAL';
   hasQuiz?: boolean;
+  isCurrentCompleted?: boolean;
+  isCompleting?: boolean;
+  onMarkComplete?: () => void;
 }
 
-export default function ProgressCard({ completedCount, totalCount, completionCriteria, hasQuiz }: ProgressCardProps) {
+export default function ProgressCard({ completedCount, totalCount, completionCriteria, hasQuiz, isCurrentCompleted, isCompleting, onMarkComplete }: ProgressCardProps) {
   const remaining = totalCount - completedCount;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
@@ -45,9 +48,17 @@ export default function ProgressCard({ completedCount, totalCount, completionCri
           <span>Take Required Quiz</span>
         </button>
       ) : (
-        <button className="w-full bg-[#00E5B3] text-black hover:bg-[#00C298] font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]">
+        <button
+          onClick={onMarkComplete}
+          disabled={isCompleting || isCurrentCompleted}
+          className={`w-full font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition active:scale-[0.98] ${
+            isCurrentCompleted
+              ? 'bg-[#00E5B3]/15 text-[#00E5B3] border border-[#00E5B3]/30 cursor-default'
+              : 'bg-[#00E5B3] text-black hover:bg-[#00C298] disabled:opacity-60'
+          }`}
+        >
           <Check size={16} />
-          <span>Mark as Complete</span>
+          <span>{isCurrentCompleted ? 'Completed' : isCompleting ? 'Marking…' : 'Mark as Complete'}</span>
         </button>
       )}
     </div>

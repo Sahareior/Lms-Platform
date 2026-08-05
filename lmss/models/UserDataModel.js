@@ -13,6 +13,23 @@ const userDataSchema = new mongoose.Schema(
         ref: "Course",
       },
     ],
+    // ─── Course Lesson Progress ─────────────────────────────────
+    // Tracks completed lessons per enrolled course
+    courseProgress: [
+      {
+        course: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Course",
+          required: true,
+        },
+        completedLessons: [
+          {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Lesson",
+          },
+        ],
+      },
+    ],
     // ─── Mock Exam Performance ─────────────────────────────────
     // Stores per-question performance data from mock exams
     mockExam: [
