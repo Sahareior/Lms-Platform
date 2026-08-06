@@ -30,7 +30,6 @@ const { Text } = Typography;
 
 const AdminDashboard: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -121,6 +120,7 @@ const AdminDashboard: React.FC = () => {
   return (
     <ConfigProvider theme={adminTheme}>
       <Layout className="h-screen bg-black">
+        {/* Fixed sidebar */}
         <Sider
           trigger={null}
           collapsible
@@ -138,6 +138,7 @@ const AdminDashboard: React.FC = () => {
             borderRight: '1px solid #171717',
           }}
         >
+          {/* Logo area */}
           <div
             style={{
               height: 64,
@@ -192,6 +193,7 @@ const AdminDashboard: React.FC = () => {
             }}
           />
 
+          {/* Back to app button */}
           <div
             style={{
               position: 'absolute',
@@ -219,12 +221,46 @@ const AdminDashboard: React.FC = () => {
           </div>
         </Sider>
 
-        <Layout style={{ marginLeft: collapsed ? 80 : 240, transition: 'margin-left 0.2s', background: '#000000' }}>
-  
+        {/* Right side layout with header and content */}
+        <Layout
+          style={{
+            marginLeft: collapsed ? 80 : 240,
+            transition: 'margin-left 0.2s',
+            background: '#000000',
+            minHeight: '100vh',
+          }}
+        >
+          {/* Header with menu toggle button */}
+          <Header
+            style={{
+              background: '#000000',
+              borderBottom: '1px solid #171717',
+              padding: '0 16px',
+              display: 'flex',
+              alignItems: 'center',
+              height: 64,
+            }}
+          >
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              style={{
+                color: '#9BA8A0',
+                fontSize: 16,
+                width: 40,
+                height: 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            />
+          </Header>
 
-          <Content className="bg-transparent p-4">
+          {/* Main content area */}
+          <Content style={{ padding: '1rem', flex: 1 }}>
             <div
-              className="overflow-y-auto overflow-hidden h-[calc(100vh-1rem)] border rounded-2xl p-1"
+              className="h-full overflow-y-auto border rounded-2xl p-1"
               style={{
                 background: '#000000',
                 borderColor: '#171717',

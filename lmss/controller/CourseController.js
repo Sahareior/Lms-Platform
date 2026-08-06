@@ -1,4 +1,5 @@
 import CourseModel from "../models/Courses.js";
+import UserData from "../models/UserDataModel.js";
 
 const createCourse = async (req, res) => {
     const courseData = req.body;
@@ -110,11 +111,47 @@ const getEnrolledCourses = async (req, res) => {
     const { userId } = req.params;
     console.log('Fetching enrolled courses for user ID:', userId); 
     try{
-        const courses = await CourseModel.find({ enrolledStudents: userId }).populate('lessons').populate('exam').populate('subjects');
-        if(courses.length === 0){
-            return res.status(404).json({ message: 'No enrolled courses found for this user' });
-        }
-        res.status(200).json(courses);
+        const [courses, userData] = await Promise.all([
+            CourseModel.find({ enrolledStudents: userId }).populate('lessons').populate('exam').populate('subjects'),
+            UserData.findOne({ user: userId }),
+        ]);
+
+        // Map courseId → set of completed lesson ids for this user
+        const progressMap = new Map(
+            (userData?.courseProgress || []).map((entry) => [
+                entry.course?.toString(),
+                new Set((entry.completedLessons || []).map((id) => id.toString())),
+            ])
+        );
+
+        // Merge per-user progress into each enrolled course so the UI
+        // can render the real progress %, completed count and next chapter.
+        const enriched = courses.map((course) => {
+            const courseObj = course.toObject();
+            const completedIds = progressMap.get(course._id.toString()) || new Set();
+            const lessons = Array.isArray(courseObj.lessons) ? courseObj.lessons : [];
+            const sortedLessons = [...lessons].sort(
+                (a, b) => (a.order ?? 0) - (b.order ?? 0) || new Date(a.createdAt) - new Date(b.createdAt)
+            );
+            const completedCount = sortedLessons.filter((l) => completedIds.has(l._id.toString())).length;
+            const progress = sortedLessons.length > 0
+                ? Math.min(100, Math.round((completedCount / sortedLessons.length) * 100))
+                : 0;
+            const nextLesson = sortedLessons.find((l) => !completedIds.has(l._id.toString()));
+
+            return {
+                ...courseObj,
+                totalLessons: sortedLessons.length,
+                lessonsCompleted: completedCount,
+                completedLessons: sortedLessons
+                    .filter((l) => completedIds.has(l._id.toString()))
+                    .map((l) => l._id.toString()),
+                progress,
+                chapter: completedCount === 0 ? 'Start Learning' : nextLesson ? nextLesson.title : 'Completed',
+            };
+        });
+
+        res.status(200).json(enriched);
     }
     catch (err) {
         console.error(err);

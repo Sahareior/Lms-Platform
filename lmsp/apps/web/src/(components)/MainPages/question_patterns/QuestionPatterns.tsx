@@ -194,11 +194,17 @@ const QuestionPatterns = () => {
     return userData.selectedExams.find((ex: any) => ex._id === examId);
   }, [examId, userData]);
 
+  const examVersionWithQuestions = examVersions?.filter(examV => (
+    examV?.questions?.length>0
+  ))
+
+  console.log(examVersionWithQuestions,'rrrrrrrrrrrr')
+
   // Find the currently selected exam version object
   const currentVersion = useMemo(() => {
-    if (!selectedVersionId || examVersions.length === 0) return null;
-    return examVersions.find((v: any) => v._id === selectedVersionId) || null;
-  }, [selectedVersionId, examVersions]);
+    if (!selectedVersionId || examVersionWithQuestions.length === 0) return null;
+    return examVersionWithQuestions.find((v: any) => v._id === selectedVersionId) || null;
+  }, [selectedVersionId, examVersionWithQuestions]);
 
   // Process API data
   const processedData = useMemo(() => {
@@ -333,7 +339,7 @@ const QuestionPatterns = () => {
   /* ═══════════════════ RENDER ANALYSIS PAGE ═══════════════════ */
   return (
     <div className="flex-1 min-h-screen font-sans text-[#F5F7FA] bg-[#0B0D12]">
-      <div className="max-w-8xl mx-auto py-6 px-4 md:px-6 space-y-7">
+      <div className="max-w-8xl mx-auto py-6 px-2 space-y-7">
         {/* ── TOP NAV BACK ── */}
         <div className="flex items-center justify-between">
           <button
@@ -447,7 +453,7 @@ const QuestionPatterns = () => {
           <div className="p-5 md:p-6 space-y-6">
             <div className="flex flex-col gap-6">
               {/* Exam Version Filter */}
-              {examVersions.length > 0 && (
+              {examVersionWithQuestions.length > 0 && (
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-[11px] font-bold text-[#A1A8B3] uppercase tracking-widest">
@@ -457,12 +463,12 @@ const QuestionPatterns = () => {
                       {isAnalysisFetching && (
                         <Loader2 size={11} className="animate-spin text-[#9B51E0]" />
                       )}
-                      {examVersions.length} version{examVersions.length > 1 ? "s" : ""}
+                      {examVersionWithQuestions.length} version{examVersionWithQuestions.length > 1 ? "s" : ""}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2.5">
                   
-                    {examVersions.map((version: any) => (
+                    {examVersionWithQuestions.map((version: any) => (
                       <button
                         key={version._id}
                         onClick={() => setSelectedVersionId(version._id)}
@@ -516,7 +522,7 @@ const QuestionPatterns = () => {
         {/* ═══════════ CHARTS ROW ═══════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Chart 1: Top Subjects */}
-          <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-6 flex flex-col h-[460px]">
+          <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-2 flex flex-col h-[460px]">
             <div className="flex justify-between items-center mb-4 shrink-0">
               <div>
                 <h3 className="font-bold text-[#F5F7FA] text-sm flex items-center gap-2">
@@ -572,7 +578,7 @@ const QuestionPatterns = () => {
           </div>
 
           {/* Chart 2: Subject Distribution (Donut) */}
-          <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-6 flex flex-col h-[460px]">
+          <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-2 flex flex-col h-[460px]">
             <div className="mb-4 shrink-0">
               <h3 className="font-bold text-[#F5F7FA] text-sm flex items-center gap-2">
                 <BarChart3 size={16} className="text-[#00C8FF]" />

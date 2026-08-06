@@ -30,7 +30,8 @@ const RESOURCE_TYPES = ['PDF', 'DOC', 'PPT', 'VIDEO', 'AUDIO', 'OTHER'] as const
 // Helpers
 const secondsToMinutes = (s: number) => Math.max(0.1, Math.round((s / 60) * 10) / 10);
 
-const parseMaterial = (val: string | string[] | undefined): string[] | undefined => {
+const parseMaterial = (val: string | string[] | undefined): string[] | undefined =>
+   {
   if (!val) return undefined;
   if (Array.isArray(val)) return val;
   return val.split(',').map(s => s.trim()).filter(Boolean);

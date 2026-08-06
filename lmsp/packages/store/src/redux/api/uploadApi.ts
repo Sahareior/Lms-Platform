@@ -12,6 +12,17 @@ export interface UploadResponse {
   mimeType?: string;
 }
 
+// Signed upload params issued by the backend. The browser uses these to POST
+// the file directly to api.cloudinary.com (bypassing the API server entirely
+// for the large file transfer).
+export interface UploadSignature {
+  cloud_name: string;
+  api_key: string;
+  timestamp: number;
+  folder: string;
+  signature: string;
+}
+
 // ─── Injected Endpoints ─────────────────────────────────────
 // Media uploads: the frontend sends the raw file, the backend streams
 // it to Cloudinary and returns the secure URL.
@@ -40,9 +51,22 @@ const uploadApi = api.injectEndpoints({
         return { url: '/upload/file', method: 'POST', body: formData };
       },
     }),
+
+    getUploadSignature: build.mutation<UploadSignature, { folder?: string }>({
+      query: (body) => ({
+        url: '/upload/sign',
+        method: 'POST',
+        body: body ?? {},
+      }),
+    }),
   }),
   overrideExisting: false,
 });
 
 // ─── Exported Hooks ─────────────────────────────────────────
-export const { useUploadImageMutation, useUploadVideoMutation, useUploadFileMutation } = uploadApi;
+export const {
+  useUploadImageMutation,
+  useUploadVideoMutation,
+  useUploadFileMutation,
+  useGetUploadSignatureMutation,
+} = uploadApi;

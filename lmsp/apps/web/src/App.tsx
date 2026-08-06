@@ -20,6 +20,7 @@ import {
   setAiReportLoading,
   setAiReportError,
   clearAiReport,
+  clearCurrentReport,
 } from '@my-monorepo/store';
 import { clearPersistedAuth } from './auth/AuthInitializer';
 import { useGetOrGenerateAiPerformanceMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
@@ -77,9 +78,9 @@ useEffect(() => {
     try {
       dispatch(setAiReportLoading(true));
       const res = await getOrGenerateAiPerformance({ userId: user._id }).unwrap();
-      // No performance data yet → clear any stale report
+      // No performance data yet → clear any stale report (keep saved history)
       if (res.empty || !res.stats || !res.ai_report) {
-        dispatch(clearAiReport());
+        dispatch(clearCurrentReport());
         return;
       }
       dispatch(

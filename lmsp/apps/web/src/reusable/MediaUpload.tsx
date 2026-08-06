@@ -9,7 +9,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
-import { useUploadImageMutation, useUploadVideoMutation, useUploadFileMutation, type UploadResponse } from '@my-monorepo/store';
+import { useGetUploadSignatureMutation, type UploadResponse } from '@my-monorepo/store';
 
 const { Text } = Typography;
 
@@ -23,11 +23,27 @@ interface MediaUploadProps {
   showPreview?: boolean;
 }
 
+// Cloudinary resource type per upload kind. `raw` keeps PDFs/docs/audio intact
+// instead of Cloudinary's `auto` detection (which can treat PDFs as images).
+const RESOURCE_TYPE: Record<MediaUploadProps['type'], string> = {
+  image: 'image',
+  video: 'video',
+  file: 'raw',
+};
+
 /**
- * Uploads a file through the backend /upload/* proxy to Cloudinary.
- * Emits the returned secure URL through `onChange`, along with optional
- * metadata (video duration, original file name + mime type) so callers
- * can auto-fill fields without a second request.
+ * Uploads a file DIRECTLY from the browser to Cloudinary.
+ *
+ * Flow:
+ *  1. Ask the backend for a one-time signed upload (POST /upload/sign).
+ *  2. Stream the file straight to https://api.cloudinary.com/... with those
+ *     signed params — the API server never touches the file bytes.
+ *
+ * Routing the transfer through Express was the source of "Request Timeout"
+ * errors: large files buffered in server memory, plus a second server →
+ * Cloudinary hop that stalled whenever another upload (e.g. a video) was in
+ * flight. Direct uploads remove the server from the transfer entirely, so
+ * concurrent uploads and large files work reliably.
  */
 const MediaUpload: React.FC<MediaUploadProps> = ({
   type,
@@ -38,25 +54,68 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
   accept,
   showPreview = true,
 }) => {
-  const [uploadImage, { isLoading: imageLoading }] = useUploadImageMutation();
-  const [uploadVideo, { isLoading: videoLoading }] = useUploadVideoMutation();
-  const [uploadFile, { isLoading: fileLoading }] = useUploadFileMutation();
+  const [getSignature, { isLoading: signing }] = useGetUploadSignatureMutation();
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isLoading = type === 'image' ? imageLoading : type === 'video' ? videoLoading : fileLoading;
+  const isLoading = signing || isUploading;
 
   const customRequest: UploadProps['customRequest'] = async ({ file, onSuccess, onError }) => {
     setError(null);
+    setIsUploading(true);
     onLoadingChange?.(true);
+    // Guard against a stalled upload: abort the request so the UI can fail
+    // gracefully instead of showing "Uploading…" forever. Videos get a longer
+    // allowance than images/files.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      type === 'video' ? 15 * 60 * 1000 : 5 * 60 * 1000
+    );
     try {
-      let result: UploadResponse;
-      if (type === 'image') {
-        result = await uploadImage(file as File).unwrap();
-      } else if (type === 'video') {
-        result = await uploadVideo(file as File).unwrap();
-      } else {
-        result = await uploadFile(file as File).unwrap();
+      // 1) Get a short-lived signed upload from the backend.
+      const { cloud_name, api_key, timestamp, folder, signature } = await getSignature({}).unwrap();
+
+      // 2) Upload the file straight to Cloudinary.
+      const resourceType = RESOURCE_TYPE[type];
+      const uploadUrl = `https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/upload`;
+      const formData = new FormData();
+      formData.append('file', file as File);
+      formData.append('api_key', api_key);
+      formData.append('timestamp', String(timestamp));
+      formData.append('folder', folder);
+      formData.append('signature', signature);
+
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+      // Parse defensively: a non-JSON body (proxy/network error page) would
+      // otherwise surface as a raw "Unexpected token…" SyntaxError.
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        /* keep {} */
       }
+      if (!response.ok || data?.error) {
+        throw new Error(data?.error?.message || data?.message || 'Upload failed');
+      }
+
+      // 3) Normalize Cloudinary's response into the app's UploadResponse shape.
+      const result: UploadResponse = {
+        message: 'Uploaded successfully',
+        url: data.secure_url || data.url,
+        publicId: data.public_id,
+        width: data.width,
+        height: data.height,
+        duration: data.duration,
+        name: (file as File).name,
+        mimeType: (file as File).type,
+      };
+
       // Pass upload metadata (duration, original name, mime type) so callers
       // can auto-fill fields like the lesson duration or resource type.
       onChange?.(result.url, {
@@ -71,11 +130,13 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
       );
       onSuccess?.(result);
     } catch (err: any) {
-      const msg = err?.data?.message || 'Upload failed. Please try again.';
+      const msg = err?.data?.message || err?.message || 'Upload failed. Please try again.';
       setError(msg);
       message.error(msg);
       onError?.(err as Error);
     } finally {
+      clearTimeout(timeoutId);
+      setIsUploading(false);
       onLoadingChange?.(false);
     }
   };
@@ -90,7 +151,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
         disabled={isLoading}
         onChange={() => {
           // Suppress Ant Design Upload's native onChange event on file select.
-          // We emit the uploaded URL via onChange only in customRequest after server upload resolves.
+          // We emit the uploaded URL via onChange only in customRequest after the upload resolves.
         }}
       >
         <Button

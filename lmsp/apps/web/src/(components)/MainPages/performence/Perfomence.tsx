@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Calendar,
-  Download,
   ChevronDown,
   ChevronRight,
   Target,
@@ -13,6 +12,10 @@ import {
   XCircle,
   RefreshCw,
   Database,
+  History,
+  TrendingUp,
+  Award,
+  X,
 } from 'lucide-react';
 import {
   useAppSelector,
@@ -21,7 +24,7 @@ import {
   setAiReportLoading,
   setAiReportError,
   setAiReportHistory,
-  clearAiReport,
+  clearCurrentReport,
   useGetOrGenerateAiPerformanceMutation,
   useGetAiPerformanceHistoryQuery,
   useGetMeQuery,
@@ -88,6 +91,8 @@ const Performance = () => {
 
   // ─── Exam selection (per-exam AI report) ──────────────────
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+  const [savedReportsOpen, setSavedReportsOpen] = useState(false);
+  const aiError = useAppSelector((state) => state.aiPerformance.error);
   const initialLoadDone = useRef(false);
 
   // Fetch the AI report whenever the exam selection changes (null = all exams).
@@ -109,7 +114,7 @@ const Performance = () => {
         }).unwrap();
         if (cancelled) return;
         if (res.empty || !res.stats || !res.ai_report) {
-          dispatch(clearAiReport());
+          dispatch(clearCurrentReport());
           return;
         }
         dispatch(
@@ -169,7 +174,7 @@ const Performance = () => {
         force: true,
       }).unwrap();
       if (res.empty || !res.stats || !res.ai_report) {
-        dispatch(clearAiReport());
+        dispatch(clearCurrentReport());
         return;
       }
       dispatch(
@@ -232,9 +237,36 @@ const Performance = () => {
   // userData.selectedExams is populated with exam objects by the backend
   const selectedExams = (userData?.selectedExams as any[]) || [];
 
+  // ─── Saved reports summary (progress-over-time) ─────────────
+  const reportHistory = history ?? [];
+  const reportCount = reportHistory.length;
+  const bestScore =
+    reportCount > 0
+      ? Math.max(...reportHistory.map((h) => h.score_percentage))
+      : null;
+  const avgScore =
+    reportCount > 0
+      ? reportHistory.reduce((s, h) => s + h.score_percentage, 0) / reportCount
+      : null;
+  const latestScore =
+    reportCount > 0 ? reportHistory[reportCount - 1].score_percentage : 0;
+  const improving =
+    reportCount > 1 && latestScore > reportHistory[0].score_percentage;
+
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
       <div className="w-full mx-auto space-y-6 p-2">
+
+        {/* ─── ERROR BANNER ─── */}
+        {aiError && (
+          <div className="flex items-start gap-3 bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-2xl p-4">
+            <AlertTriangle size={18} className="text-[#EB5757] mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-[#EB5757]">AI report unavailable</p>
+              <p className="text-xs text-[#EB5757]/80 leading-relaxed mt-0.5">{aiError}</p>
+            </div>
+          </div>
+        )}
 
         {/* ─── HEADER ─── */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#111318] p-4 rounded-2xl border border-[#23262D]">
@@ -277,8 +309,17 @@ const Performance = () => {
               <RefreshCw size={14} className={isRegenerating || aiReportLoading ? 'animate-spin' : ''} />
               {isRegenerating || aiReportLoading ? 'Generating…' : 'Regenerate'}
             </button>
-            <button className="flex items-center justify-center gap-1 text-xs border border-[#23262D] px-3 py-1.5 rounded-lg hover:bg-[#161920] text-[#A1A8B3] bg-[#111318] w-full md:w-auto">
-              <Calendar size={14} /> Saved reports <ChevronDown size={12} />
+            <button
+              onClick={() => setSavedReportsOpen(true)}
+              className="flex items-center justify-center gap-1 text-xs border border-[#23262D] px-3 py-1.5 rounded-lg hover:bg-[#161920] text-[#A1A8B3] bg-[#111318] w-full md:w-auto transition active:scale-95"
+            >
+              <Calendar size={14} /> Saved reports
+              {reportCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#2F80ED]/15 text-[#2F80ED] font-bold">
+                  {reportCount}
+                </span>
+              )}
+              <ChevronDown size={12} />
             </button>
            
           </div>
@@ -456,7 +497,7 @@ const Performance = () => {
                   <th className="px-5 py-3 text-center">Attempted</th>
                   <th className="px-5 py-3 text-center">Correct</th>
                   <th className="px-5 py-3 text-left w-[200px]">Accuracy</th>
-                  <th className="px-5 py-3 text-center">Action</th>
+                  {/* <th className="px-5 py-3 text-center">Action</th> */}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#23262D]">
@@ -508,15 +549,7 @@ const Performance = () => {
                       </div>
                     </td>
                     <td className="px-5 py-3 text-center">
-                      <button
-                        className={`text-xs px-3 py-1 rounded border font-medium transition ${
-                          row.isWeak || row.isCritical
-                            ? 'border-[#EB5757]/30 text-[#EB5757] hover:bg-[#EB5757]/10'
-                            : 'border-[#23262D] text-[#A1A8B3] hover:bg-[#161920] hover:text-[#F5F7FA]'
-                        }`}
-                      >
-                        {row.isWeak || row.isCritical ? 'Review' : 'Practice'}
-                      </button>
+                    
                     </td>
                   </tr>
                 ))
@@ -538,9 +571,7 @@ const Performance = () => {
                 Personalized for weak areas • auto‑updated daily
               </span>
             </div>
-            <button className="text-xs font-medium text-[#00E5B3] hover:underline flex items-center gap-1 mt-2 md:mt-0">
-              <Plus size={14} /> Regenerate
-            </button>
+           
           </div>
 
           {(aiInsights?.study_plan?.length ?? 0) > 0 ? (
@@ -678,6 +709,137 @@ const Performance = () => {
             Back to Top <ChevronRight size={16} />
           </button>
         </div>
+
+        {/* ─── SAVED REPORTS MODAL ─── */}
+        {savedReportsOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={() => setSavedReportsOpen(false)}
+          >
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-2xl max-h-[85vh] bg-[#111318] border border-[#23262D] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            >
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#23262D]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#2F80ED]/10 border border-[#2F80ED]/30 flex items-center justify-center">
+                    <History size={18} className="text-[#2F80ED]" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[#F5F7FA]">Saved Reports</h3>
+                    <p className="text-[10px] text-[#A1A8B3]">
+                      Daily AI reports – track your improvement over time
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSavedReportsOpen(false)}
+                  className="p-2 rounded-lg text-[#A1A8B3] hover:text-[#F5F7FA] hover:bg-[#161920] transition"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Modal body */}
+              <div className="overflow-y-auto flex-1 p-5 space-y-5">
+                {reportCount === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+                    <div className="w-14 h-14 rounded-full bg-[#161920] border border-[#23262D] flex items-center justify-center">
+                      <Database size={22} className="text-[#2F80ED]" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-[#F5F7FA]">No saved reports yet</p>
+                      <p className="text-xs text-[#A1A8B3] mt-1">
+                        Attempt quizzes and hit “Regenerate” to create your first daily AI report.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Summary cards */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-[#161920] border border-[#23262D] rounded-xl p-3 text-center">
+                        <div className="text-[10px] text-[#A1A8B3] mb-1 flex items-center justify-center gap-1">
+                          <Calendar size={10} /> Reports
+                        </div>
+                        <div className="text-lg font-bold text-[#F5F7FA]">{reportCount}</div>
+                      </div>
+                      <div className="bg-[#161920] border border-[#23262D] rounded-xl p-3 text-center">
+                        <div className="text-[10px] text-[#A1A8B3] mb-1 flex items-center justify-center gap-1">
+                          <Award size={10} className="text-[#F2C94C]" /> Best
+                        </div>
+                        <div className="text-lg font-bold text-[#00E5B3]">{bestScore?.toFixed(1)}%</div>
+                      </div>
+                      <div className="bg-[#161920] border border-[#23262D] rounded-xl p-3 text-center">
+                        <div className="text-[10px] text-[#A1A8B3] mb-1 flex items-center justify-center gap-1">
+                          <TrendingUp size={10} className="text-[#2F80ED]" /> Avg
+                        </div>
+                        <div className="text-lg font-bold text-[#F5F7FA]">{avgScore?.toFixed(1)}%</div>
+                      </div>
+                    </div>
+
+                    {reportCount > 1 && (
+                      <div
+                        className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${
+                          improving
+                            ? 'bg-[#00E5B3]/10 border-[#00E5B3]/30 text-[#00E5B3]'
+                            : 'bg-[#EB5757]/10 border-[#EB5757]/30 text-[#EB5757]'
+                        }`}
+                      >
+                        <TrendingUp size={14} />
+                        {improving
+                          ? `Your latest score (${latestScore?.toFixed(1)}%) is ${(latestScore - reportHistory[0].score_percentage).toFixed(1)} pts above your first report — keep it up!`
+                          : `Your latest score (${latestScore?.toFixed(1)}%) hasn't topped your first report yet — review your weak areas and try again.`}
+                      </div>
+                    )}
+
+                    {/* Report list */}
+                    <div className="space-y-2">
+                      {reportHistory
+                        .slice()
+                        .reverse()
+                        .map((h, idx) => (
+                          <div
+                            key={h.generatedAt}
+                            className="flex items-center justify-between gap-3 bg-[#161920] border border-[#23262D] rounded-xl px-4 py-3 hover:border-[#323742] transition"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-9 h-9 rounded-full bg-[#2F80ED]/10 border border-[#2F80ED]/30 flex items-center justify-center text-[#2F80ED] text-xs font-bold flex-shrink-0">
+                                {reportCount - idx}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-[#F5F7FA]">
+                                  {new Date(h.generatedAt).toLocaleDateString('en-US', {
+                                    weekday: 'short',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  })}
+                                </p>
+                                <p className="text-[10px] text-[#A1A8B3] truncate">
+                                  {h.exam} • {h.correct_answers}/{h.total_questions} correct
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-sm font-bold text-[#F5F7FA]">
+                                {h.score_percentage.toFixed(1)}%
+                              </div>
+                              {h.delta !== null && (
+                                <DeltaBadge delta={h.delta} suffix="%" />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

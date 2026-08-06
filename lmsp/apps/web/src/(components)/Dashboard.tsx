@@ -87,11 +87,20 @@ function EnrolledCard({
   onOpen: () => void;
 }) {
   const category = course.exam?.name || course.category || "General";
-  const totalLessons = course.lessons?.length || course.totalLessons || 0;
+  const lessonsList = Array.isArray(course.lessons) ? course.lessons : [];
+  const totalLessons = course.totalLessons || lessonsList.length || 0;
   const title = course.title || "Untitled Course";
   const chapter = course.chapter || "Start Learning";
-  const progress = course.progress || 0;
-  const lessonsCompleted = course.lessonsCompleted || 0;
+  const lessonsCompleted =
+    course.lessonsCompleted ??
+    (Array.isArray(course.completedLessons) ? course.completedLessons.length : 0);
+  // Prefer the backend-computed progress; fall back to client-side derivation
+  const progress = Math.min(
+    100,
+    Math.round(
+      course.progress ?? (totalLessons ? (lessonsCompleted / totalLessons) * 100 : 0)
+    )
+  );
   const instructor =
     typeof course.instructor === "object"
       ? course.instructor?.name
@@ -331,6 +340,11 @@ function FeaturedMockExamCard({
   // Count down to the start date for upcoming exams, otherwise to the end date
   const countdownTarget = isUpcoming ? featured?.startDate : featured?.endDate;
   const countdown = useCountdown(countdownTarget);
+  // Expired when the backend marked it completed/cancelled, or the countdown ran out
+  const isExpired =
+    status === "completed" ||
+    status === "cancelled" ||
+    (!isUpcoming && countdown?.diff === 0);
 
   if (isLoading) {
     return (
@@ -361,6 +375,36 @@ function FeaturedMockExamCard({
     );
   }
 
+  // Time limit expired → show a suitable ended/cancelled banner instead of the live card
+  if (isExpired) {
+    const isCancelled = status === "cancelled";
+    return (
+      <div className="lg:col-span-2 bg-[#111318] border border-[#23262D] rounded-2xl p-6 flex flex-col items-center justify-center text-center min-h-[260px]">
+        <div className="w-14 h-14 bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-2xl flex items-center justify-center mb-4">
+          <Clock size={24} className="text-[#EB5757]" />
+        </div>
+        <span className="px-2.5 py-1 bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3">
+          {isCancelled ? "Cancelled" : "Time Limit Expired"}
+        </span>
+        <h3 className="font-bold text-base text-[#F5F7FA] mb-1">
+          {isCancelled ? "Mock Exam Cancelled" : "Mock Exam Has Ended"}
+        </h3>
+        <p className="text-xs text-[#A1A8B3] max-w-sm mb-5">
+          {isCancelled
+            ? "This mock exam was cancelled. Browse all available mock exams and practice tests."
+            : `The time window for "${featured.title}" has expired. Browse all available mock exams and practice tests.`}
+        </p>
+        <button
+          onClick={onStart}
+          className="inline-flex items-center gap-2 bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-5 py-2.5 rounded-xl font-bold text-xs hover:border-[#9B51E0]/50 hover:text-[#9B51E0] transition-all"
+        >
+          <PlayCircle size={15} />
+          Browse Mock Exams
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="lg:col-span-2 bg-gradient-to-br from-[#111318] to-[#1C1F26] border border-[#23262D] rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
       <div className="absolute top-0 right-0 w-64 h-64 bg-[#9B51E0]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
@@ -373,9 +417,7 @@ function FeaturedMockExamCard({
             <Clock size={12} className="text-[#9B51E0]" />
             {isUpcoming
               ? `Starts in ${countdown?.hours}:${countdown?.mins}:${countdown?.secs}`
-              : countdown && countdown.diff > 0
-              ? `${countdown.hours}:${countdown.mins}:${countdown.secs} remaining`
-              : "Ended"}
+              : `${countdown?.hours}:${countdown?.mins}:${countdown?.secs} remaining`}
           </span>
         </div>
         <h2 className="text-2xl font-extrabold text-[#F5F7FA] mb-1">{featured.title}</h2>
@@ -748,7 +790,14 @@ export default function Dashboard() {
           featured={featuredExam}
           isLoading={isFeaturedLoading}
           onStart={() => {
-            if (featuredExam) {
+            const isExpired =
+              featuredExam?.status === "completed" ||
+              featuredExam?.status === "cancelled" ||
+              Boolean(
+                featuredExam?.endDate &&
+                  new Date(featuredExam.endDate).getTime() <= Date.now()
+              );
+            if (featuredExam && !isExpired) {
               const examId =
                 typeof featuredExam.exam === "object" ? featuredExam.exam._id : featuredExam.exam;
               const versionId =
@@ -853,7 +902,7 @@ export default function Dashboard() {
         </div>
 
         {/* Subject Strength */}
-        <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-6">
+        <div className="bg-[#111318] h-[400px] overflow-y-auto border border-[#23262D] rounded-2xl p-6">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h3 className="text-base font-bold text-[#F5F7FA]">Subject-wise Accuracy</h3>
@@ -865,50 +914,100 @@ export default function Dashboard() {
             </div>
           </div>
           {subjectData.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {subjectData.map(
-              (item: any, idx: number) => {
-                const accuracy = item.accuracy ?? item.score;
-                const isWeak = item.isWeak ?? accuracy < 40;
-                return (
-                  <div
-                    key={idx}
-                    className={`rounded-xl p-3.5 flex flex-col justify-between aspect-square bg-[#161920] border ${
-                      isWeak ? "border-[#EB5757]/40" : "border-[#23262D]"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-1">
-                      <h4 className="text-xs font-bold leading-tight truncate">
-                        {item.subject || item.name}
-                      </h4>
-                      {isWeak && (
-                        <span className="text-[9px] font-bold text-[#EB5757] bg-[#EB5757]/10 px-1.5 py-0.5 rounded border border-[#EB5757]/30 flex-shrink-0">
-                          Weak
-                        </span>
-                      )}
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-[#23262D] bg-gradient-to-br from-[#161920] to-[#1C1F26] p-3 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1.5 rounded-lg bg-[#2F80ED]/10 border border-[#2F80ED]/20">
+                      <Layers size={14} className="text-[#2F80ED]" />
                     </div>
-                    <div className="flex items-end gap-1 mt-auto">
-                      <span
-                        className={`text-2xl font-extrabold tracking-tight ${
-                          isWeak ? "text-[#EB5757]" : "text-[#F5F7FA]"
-                        }`}
-                      >
-                        {accuracy}
-                      </span>
-                      <span className="text-[10px] font-bold mb-1 opacity-80">%</span>
-                    </div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#A1A8B3]">
+                      Performance snapshot
+                    </p>
                   </div>
-                );
-              }
-            )}
-          </div>
+                  <p className="text-sm font-semibold text-[#F5F7FA]">
+                    Avg. accuracy {(
+                      subjectData.reduce((sum: number, item: any) => {
+                        const accuracy = Number(item.accuracy ?? item.score ?? 0);
+                        return sum + (Number.isFinite(accuracy) ? accuracy : 0);
+                      }, 0) / subjectData.length
+                    ).toFixed(0)}%
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-[#A1A8B3]">Strong / Needs work</p>
+                  <p className="text-sm font-bold text-[#00E5B3]">
+                    {subjectData.filter((item: any) => {
+                      const accuracy = Number(item.accuracy ?? item.score ?? 0);
+                      return Number.isFinite(accuracy) && accuracy >= 70;
+                    }).length}/{subjectData.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                {subjectData.map((item: any, idx: number) => {
+                  const accuracy = Number(item.accuracy ?? item.score ?? 0);
+                  const safeAccuracy = Number.isFinite(accuracy) ? accuracy : 0;
+                  const isWeak = item.isWeak ?? safeAccuracy < 40;
+                  const isStrong = safeAccuracy >= 70;
+                  const subjectName = item.subject || item.name || "Subject";
+                  const badgeText = isWeak ? "Needs focus" : isStrong ? "Strong" : "Steady";
+                  const badgeClasses = isWeak
+                    ? "text-[#EB5757] bg-[#EB5757]/10 border-[#EB5757]/20"
+                    : isStrong
+                    ? "text-[#00E5B3] bg-[#00E5B3]/10 border-[#00E5B3]/20"
+                    : "text-[#F2C94C] bg-[#F2C94C]/10 border-[#F2C94C]/20";
+                  const barClasses = isWeak
+                    ? "from-[#EB5757] to-[#F2C94C]"
+                    : "from-[#00E5B3] to-[#2F80ED]";
+
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-xl border border-[#23262D] bg-[#161920] p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-semibold text-[#F5F7FA] truncate">
+                            {subjectName}
+                          </h4>
+                          <p className="text-[11px] text-[#A1A8B3] mt-0.5">
+                            {isWeak
+                              ? "A bit more practice will boost this area quickly."
+                              : "This subject is performing well and staying consistent."}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${badgeClasses}`}>
+                            {badgeText}
+                          </span>
+                          <div className="mt-2 flex items-end justify-end gap-1">
+                            <span className={`text-lg font-extrabold ${isWeak ? "text-[#EB5757]" : "text-[#F5F7FA]"}`}>
+                              {safeAccuracy}
+                            </span>
+                            <span className="text-[10px] font-bold mb-1 text-[#A1A8B3]">%</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 h-2 rounded-full bg-[#1C1F26] overflow-hidden">
+                        <div
+                          className={`h-full rounded-full bg-gradient-to-r ${barClasses}`}
+                          style={{ width: `${Math.max(8, safeAccuracy)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           ) : (
-          <div className="flex flex-col items-center justify-center h-44 text-center gap-2">
-            <Target size={22} className="text-[#2F80ED]" />
-            <p className="text-xs text-[#A1A8B3]">
-              No subject data yet — generate an AI report to see your accuracy per subject.
-            </p>
-          </div>
+            <div className="flex flex-col items-center justify-center h-44 text-center gap-2">
+              <Target size={22} className="text-[#2F80ED]" />
+              <p className="text-xs text-[#A1A8B3]">
+                No subject data yet — generate an AI report to see your accuracy per subject.
+              </p>
+            </div>
           )}
         </div>
       </div>

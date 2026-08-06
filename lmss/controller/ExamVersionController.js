@@ -17,7 +17,7 @@ export const addExamVersion = async (req, res) => {
 export const getExamVersion = async (req,res) => {
 
     try{
-        const examVersions = await ExamVersion.find()
+        const examVersions = await ExamVersion.find().populate('questions');
        res.status(200).json(examVersions);
   } catch (err) {
     console.error(err);
@@ -28,7 +28,7 @@ export const getExamVersion = async (req,res) => {
 export const getExamVersionsByExam = async (req, res) => {
   try {
     const { examId } = req.params;
-    const examVersions = await ExamVersion.find({ exam: examId });
+    const examVersions = await ExamVersion.find({ exam: examId }).populate('questions');
     res.status(200).json(examVersions);
   } catch (err) {
     console.error(err);

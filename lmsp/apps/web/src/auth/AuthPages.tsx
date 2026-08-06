@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   Mail, Lock, Eye, EyeOff, User, ArrowRight,
-  CheckCircle2, BookOpen, Sparkles,
+  CheckCircle2, BookOpen, Sparkles, AlertTriangle, X,
+  Loader2, // Spinner icon
 } from 'lucide-react';
 import {
   useAppDispatch, useLoginMutation, useRegisterMutation,
@@ -152,11 +153,13 @@ const PrimaryButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { 
 export const Login: React.FC = () => {
   const dispatch = useAppDispatch();
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const [login] = useLoginMutation();
+  const [login, { isLoading }] = useLoginMutation(); // isLoading flag
 
   const handleLogin = async (email: string, password: string) => {
+    setErrorMessage(null);
     try {
       const data = await login({ email, password }).unwrap();
       
@@ -175,6 +178,10 @@ export const Login: React.FC = () => {
       navigate(from, { replace: true });
     } catch (error) {
       console.error('Login failed:', error);
+      const message = (error as any)?.data?.message;
+      setErrorMessage(
+        message || 'Login failed. Please check your credentials and try again.'
+      );
     }
   };
 
@@ -189,6 +196,28 @@ export const Login: React.FC = () => {
         const form = e.target as HTMLFormElement;
         handleLogin(form.email.value, form.password.value);
       }}>
+
+        {/* Error Alert */}
+        {errorMessage && (
+          <div
+            role="alert"
+            className="relative z-10 flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 animate-in"
+          >
+            <AlertTriangle size={18} className="text-red-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-red-400 mb-0.5">Login Failed</p>
+              <p className="text-xs text-red-300/80 leading-relaxed">{errorMessage}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              aria-label="Dismiss error"
+              className="text-red-400/60 hover:text-red-300 transition-colors flex-shrink-0"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
         
         {/* Email */}
         <div>
@@ -226,8 +255,18 @@ export const Login: React.FC = () => {
           />
         </div>
 
-        <PrimaryButton type="submit">
-          Log In <ArrowRight size={18} />
+        {/* Submit Button with Loading Spinner */}
+        <PrimaryButton type="submit" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Logging in...
+            </>
+          ) : (
+            <>
+              Log In <ArrowRight size={18} />
+            </>
+          )}
         </PrimaryButton>
       
       </form>
@@ -240,7 +279,7 @@ export const SignUp: React.FC = () => {
   const dispatch = useAppDispatch();
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
-  const [register] = useRegisterMutation();
+  const [register, { isLoading }] = useRegisterMutation(); // isLoading flag
   const navigate = useNavigate();
 
   const handleCreateUser = async (email: string, password: string, name: string) => {
@@ -262,6 +301,7 @@ export const SignUp: React.FC = () => {
       navigate('/', { replace: true });
     } catch (error) {
       console.error('Registration failed:', error);
+      // You could add an error state here if desired
     }
   };
 
@@ -344,8 +384,18 @@ export const SignUp: React.FC = () => {
           </p>
         </div>
 
-        <PrimaryButton type="submit" disabled={!agreed}>
-          Create Account <ArrowRight size={18} />
+        {/* Submit Button with Loading Spinner */}
+        <PrimaryButton type="submit" disabled={!agreed || isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Creating account...
+            </>
+          ) : (
+            <>
+              Create Account <ArrowRight size={18} />
+            </>
+          )}
         </PrimaryButton>
       
       </form>

@@ -52,19 +52,76 @@
   box-shadow: 0 0 20px -3px rgba(242, 201, 76, 0.35);
 }
 
-/* Custom Thin Dark Scrollbar */
+/* ═══════════════════════════════════════════════════════════
+   SCROLLBAR DESIGN SYSTEM
+   Thin, rounded, floating-pill scrollbars that match the dark UI.
+   Applied globally (main app + admin dashboard) with helpers:
+     .custom-scrollbar → slim explicit scrollbar (compat)
+     .hide-scrollbar   → scrollable but invisible bar
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Firefox ─────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2E333D transparent;
+}
+
+/* ── WebKit / Blink (Chrome, Edge, Safari) ───────────────── */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+/* Transparent track — never paints a box over content */
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Floating pill thumb (2px inset keeps a slim 6px visual bar) */
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #30353F, #262A33);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #3E4552, #333A46);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, #4A5262, #3E4552);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Stable window gutter — no layout shift when a scrollbar appears */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* ── Slim explicit scrollbar (existing scroll containers) ── */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #111318;
-  border-radius: 9999px;
-}
+
+/* Fully visible 6px pill (remove the global inset border) */
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #23262D;
-  border-radius: 9999px;
+  border: 0;
+  background-clip: padding-box;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #323742;
+
+/* ── Scrollable but hidden bar (e.g. horizontal chip rows) ── */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }

@@ -174,7 +174,7 @@ export default function AskAiTab({ lessonTitle }: AskAiTabProps) {
           </button>
         </div>
         {/* Quick suggestions */}
-        <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1">
+        <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1 hide-scrollbar">
           {['Explain this topic', 'Give me a summary', 'Create MCQs', 'Real-world example'].map((s) => (
             <button
               key={s}

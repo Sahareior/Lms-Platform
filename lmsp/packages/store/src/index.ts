@@ -38,6 +38,7 @@ export {
   setAiReportError,
   setAiReportHistory,
   clearAiReport,
+  clearCurrentReport,
 } from './redux/slices/aiPerformanceSlice';
 export type {
   AiPerformanceState,
@@ -95,9 +96,11 @@ export {
   useUploadImageMutation,
   useUploadVideoMutation,
   useUploadFileMutation,
+  useGetUploadSignatureMutation,
 } from './redux/api/uploadApi';
 export type {
   UploadResponse,
+  UploadSignature,
 } from './redux/api/uploadApi';
 
 // ─── RTK Query Course API ───────────────────────────────────

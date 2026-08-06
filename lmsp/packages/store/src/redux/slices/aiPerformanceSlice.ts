@@ -68,6 +68,17 @@ const aiPerformanceSlice = createSlice({
       state.isLoading = false;
       state.error = null;
     },
+    /** Clears only the current report – keeps `history` so the Saved Reports
+     *  viewer keeps showing past daily reports even when today's report is
+     *  empty (e.g. no new quiz submissions yet today). */
+    clearCurrentReport(state) {
+      state.report = null;
+      state.previous = null;
+      state.isCached = false;
+      state.generatedAt = null;
+      state.isLoading = false;
+      state.error = null;
+    },
   },
 });
 
@@ -77,5 +88,6 @@ export const {
   setAiReportError,
   setAiReportHistory,
   clearAiReport,
+  clearCurrentReport,
 } = aiPerformanceSlice.actions;
 export default aiPerformanceSlice.reducer;

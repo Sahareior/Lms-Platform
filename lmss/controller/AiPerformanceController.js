@@ -7,7 +7,8 @@ import { resolveSubmittedQuestions } from "./quizPerformController.js";
 // this directly on every refetch; the backend now proxies it and caches the
 // result so the AI is called at most once per day per user.
 const AI_PERFORMANCE_URL =
-  process.env.AI_PERFORMANCE_URL || "http://127.0.0.1:5000/user-performance";
+  process.env.AI_PERFORMANCE_URL ||
+  "http://127.0.0.1:5000/user-performance";
 // AI analysis can take a while – give it a generous timeout.
 const AI_TIMEOUT_MS = 120000;
 
@@ -22,6 +23,37 @@ function startOfToday() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+// ─── Helper: sanitize performances for the AI service ───────
+// The AI service validates strictly: `subject` must be a dict (never null),
+// `question` must be a plain string, and `questionData` must be a full object
+// (it rejects null). Entries whose question could not be resolved are dropped
+// so one stale question can't fail the whole report.
+function sanitizeForAiService(performances) {
+  return performances
+    .map((perf) => {
+      const submittedQuestions = (perf.submittedQuestions || [])
+        .filter((sq) => sq.questionData && typeof sq.questionData === "object")
+        .map((sq) => ({
+          ...sq,
+          question: sq.question?.toString ? sq.question.toString() : sq.question,
+        }));
+      if (submittedQuestions.length === 0) return null;
+      return {
+        ...perf,
+        user: perf.user || { _id: null, name: "Unknown", email: "" },
+        exam: perf.exam || { _id: null, name: "Unknown Exam" },
+        examVersion: perf.examVersion || { _id: null, examVersion: "Unknown" },
+        // The AI service rejects `subject: null` – fall back to a generic dict.
+        subject:
+          perf.subject && typeof perf.subject === "object"
+            ? perf.subject
+            : { _id: null, name: "General" },
+        submittedQuestions,
+      };
+    })
+    .filter(Boolean);
 }
 
 // ─── Helper: call the external AI service ───────────────────
@@ -51,6 +83,127 @@ async function callAiService(performances, authHeader) {
   }
 }
 
+// ─── Helper: deterministic local report (AI-free fallback) ──
+// If the AI service is unreachable we still generate a useful report from the
+// performance data itself so the endpoint never hard-fails on a user who has
+// answered questions. Mirrors the AI service's response shape.
+function buildLocalReport(performances) {
+  let total = 0;
+  let correct = 0;
+  const subjectMap = new Map(); // subject name -> { attempted, correct }
+  const mistakes = [];
+  const examNames = new Set();
+
+  for (const perf of performances) {
+    const subjectName = perf.subject?.name || "General";
+    const examName = perf.exam?.name || "Unknown";
+    examNames.add(examName);
+
+    if (!subjectMap.has(subjectName)) {
+      subjectMap.set(subjectName, { attempted: 0, correct: 0 });
+    }
+    const sb = subjectMap.get(subjectName);
+
+    for (const sq of perf.submittedQuestions || []) {
+      const qd = sq.questionData;
+      if (!qd) continue;
+      total++;
+      sb.attempted++;
+      const isCorrect = sq.providedAnswer === qd.correct_answer;
+      if (isCorrect) {
+        correct++;
+        sb.correct++;
+      } else {
+        mistakes.push({
+          question_text: qd.question_text || "Question",
+          identified_subject: subjectName,
+          user_answer: sq.providedAnswer || "",
+          correct_answer: qd.correct_answer || "",
+          explanation:
+            "Review this topic's fundamentals to avoid repeating the same mistake.",
+        });
+      }
+    }
+  }
+
+  const incorrect = total - correct;
+  const score_percentage = total
+    ? Math.round((correct / total) * 1000) / 10
+    : 0;
+
+  const subject_breakdown = [...subjectMap.entries()].map(([subject, s]) => {
+    const accuracy = s.attempted
+      ? Math.round((s.correct / s.attempted) * 1000) / 10
+      : 0;
+    return {
+      subject,
+      attempted: s.attempted,
+      correct: s.correct,
+      accuracy,
+      isWeak: accuracy < 60,
+      isCritical: accuracy < 40,
+    };
+  });
+
+  const sorted = [...subject_breakdown].sort((a, b) => b.accuracy - a.accuracy);
+  const strengths = sorted
+    .filter((s) => s.accuracy >= 60 && s.attempted > 0)
+    .slice(0, 3)
+    .map((s) => ({
+      topic: s.subject,
+      accuracy: s.accuracy,
+      detail: `Strong performance in ${s.subject} with ${s.accuracy}% accuracy.`,
+    }));
+  const weak_areas = sorted
+    .filter((s) => s.accuracy < 60 && s.attempted > 0)
+    .slice(0, 3)
+    .map((s) => ({
+      topic: s.subject,
+      accuracy: s.accuracy,
+      reason: `Accuracy in ${s.subject} is ${s.accuracy}%, below the 60% target.`,
+      recommendation: `Spend focused revision time on ${s.subject} and retry practice questions.`,
+    }));
+
+  const verdict =
+    score_percentage >= 80
+      ? "Excellent"
+      : score_percentage >= 60
+      ? "Good"
+      : score_percentage >= 40
+      ? "Needs Improvement"
+      : "Critical";
+
+  return {
+    stats: {
+      total_questions: total,
+      correct_answers: correct,
+      incorrect_answers: incorrect,
+      score_percentage,
+      exam: [...examNames].join(", ") || "Unknown",
+    },
+    ai_report: {
+      score_analysis: {
+        percentage: Math.round(score_percentage),
+        verdict,
+        message: `You scored ${score_percentage}% across ${total} question${
+          total === 1 ? "" : "s"
+        }. ${verdict === "Excellent" ? "Outstanding work — keep it up!" : verdict === "Good" ? "Solid effort — a bit more practice will push you higher." : "Keep practising consistently to build accuracy and confidence."}`,
+      },
+      subject_breakdown,
+      strengths,
+      weak_areas,
+      mistake_breakdown: mistakes.slice(0, 10),
+      study_plan: weak_areas.slice(0, 3).map((w, i) => ({
+        day: `Day ${i + 1}`,
+        focus_subject: w.topic,
+        title: `${w.topic} Fundamentals`,
+        description: `Revise core concepts in ${w.topic} and attempt 10-15 practice questions.`,
+        duration_minutes: 30,
+      })),
+    },
+  };
+}
+
 // ─── Helper: build the "previous" report payload ────────────
 function toPreviousPayload(report) {
   if (!report) return null;
@@ -75,6 +228,8 @@ async function findPreviousReport(userId, excludeId, examId = null) {
 // ─── Helper: deduplicated generate-and-save ─────────────────
 // Concurrent callers share the same AI call + DB write.
 // Cache key includes the exam so per-exam generations don't collide.
+// If the AI service is down, falls back to a local deterministic report so
+// the user still gets a persisted report for the day.
 function generateAndSaveReport(userId, examId = null, authHeader) {
   const cacheKey = `${userId}|${examId || "all"}`;
   if (inflightGeneration.has(cacheKey)) {
@@ -93,7 +248,20 @@ function generateAndSaveReport(userId, examId = null, authHeader) {
       return { empty: true };
     }
 
-    const data = await callAiService(resolved, authHeader);
+    let data;
+    const sanitized = sanitizeForAiService(resolved);
+    if (sanitized.length > 0) {
+      try {
+        data = await callAiService(sanitized, authHeader);
+      } catch (err) {
+        console.error("AI performance service unavailable – using local fallback:", err.message);
+        data = buildLocalReport(resolved);
+      }
+    } else {
+      // No question could be resolved to a full object the AI service accepts.
+      data = buildLocalReport(resolved);
+    }
+
     const report = await AiPerformanceReport.create({
       user: userId,
       exam: examId || null,

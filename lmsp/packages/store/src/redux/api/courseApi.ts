@@ -41,11 +41,22 @@ const courseApi = api.injectEndpoints({
         url: `/course/enroll/${courseId}`,
         method: 'POST',
         body: { userId }
-      })
+      }),
+      invalidatesTags: [{ type: 'Course', id: 'ENROLLED' }],
     }),
 
-    getEnrolledCourse: build.query({
-      query: ( userId ) => ({ url: `/course/enrolled/${userId}` })
+    // ── Enrolled Courses with per-user progress ───────────────
+    // Backend merges progress %, lessonsCompleted, chapter and
+    // completedLessons into each course (see CourseController).
+    getEnrolledCourse: build.query<any, string>({
+      query: (userId) => ({ url: `/course/enrolled/${userId}` }),
+      providesTags: (result): { type: 'Course'; id: string }[] =>
+        Array.isArray(result)
+          ? [
+              { type: 'Course', id: 'ENROLLED' },
+              ...result.map((c: any) => ({ type: 'Course' as const, id: String(c._id) })),
+            ]
+          : [{ type: 'Course', id: 'ENROLLED' }],
     }),
 
     getCourseLessonsWithProgress: build.query<{ lessons: any[] }, { courseId: string; userId?: string }>({
@@ -67,6 +78,7 @@ const courseApi = api.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, { courseId }) => [
         { type: 'Course', id: courseId },
+        { type: 'Course', id: 'ENROLLED' },
         { type: 'Lesson' },
       ],
     }),
