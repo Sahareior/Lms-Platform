@@ -41,7 +41,7 @@ const ExamOptions = () => {
   return (
     <div>
       {location.pathname === "/mock-exam" ? (
-        <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] p-4 md:p-6">
+        <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]  md:p-6">
           <div className="mx-auto max-w-6xl rounded-2xl bg-[#111318] border border-[#23262D] p-6 shadow-sm">
             {/* Header */}
             <h2 className="mb-6 text-center text-2xl md:text-3xl font-extrabold tracking-tight">

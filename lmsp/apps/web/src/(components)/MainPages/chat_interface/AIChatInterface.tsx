@@ -1,17 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-   Bot,
-   Settings,
-   Download,
-   MoreVertical,
-   Send,
-   Lightbulb,
-   FileText,
-   Play,
-   Calendar,
-   CheckCircle,
-   ChevronRight,
-} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bot, MoreVertical, Send } from 'lucide-react';
 import { useSendChatMessageMutation } from '@my-monorepo/store';
 
 type ChatMessage = {
@@ -22,11 +10,42 @@ type ChatMessage = {
 };
 
 const AIChatInterface = () => {
-   const [hidden, setHidden] = useState(false);
    const [messages, setMessages] = useState<ChatMessage[]>([]);
    const [inputText, setInputText] = useState('');
    const [sendChatMessage, { isLoading }] = useSendChatMessageMutation();
    const chatContainerRef = useRef<HTMLDivElement | null>(null);
+   const inputRef = useRef<HTMLInputElement | null>(null);
+   const updateKbOffsetRef = useRef<() => void>(() => {});
+   const date = new Date();
+   const [kbOffset, setKbOffset] = useState(0);
+
+   // ── Mobile keyboard handling ──────────────────────────────────────────────
+   // iOS Safari overlays the virtual keyboard on top of the page and ignores
+   // `100dvh`, so an absolutely-positioned composer gets hidden behind it.
+   // The VisualViewport API is the only signal that reports the keyboard on
+   // every mobile browser, so we lift the composer by the keyboard height.
+   // (On Android, `interactive-widget=resizes-content` + `100dvh` already
+   // resize the layout, so this offset stays at 0 there.)
+   useEffect(() => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const updateKbOffset = () => {
+         const diff = Math.max(0, window.innerHeight - vv.height);
+         // Only lift the composer while the input is focused AND the visual
+         // viewport shrank by a keyboard-sized amount (ignore the address
+         // bar / browser chrome, which is ~<100px).
+         const keyboardOpen = document.activeElement === inputRef.current && diff > 100;
+         setKbOffset(keyboardOpen ? diff : 0);
+      };
+      updateKbOffsetRef.current = updateKbOffset;
+      vv.addEventListener('resize', updateKbOffset);
+      vv.addEventListener('scroll', updateKbOffset);
+      updateKbOffset();
+      return () => {
+         vv.removeEventListener('resize', updateKbOffset);
+         vv.removeEventListener('scroll', updateKbOffset);
+      };
+   }, []);
 
    const createTimestamp = () =>
       new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -75,9 +94,9 @@ const AIChatInterface = () => {
    };
 
    return (
-      <div className="w-full h-[calc(100vh-10px)] bg-[#0B0D12] text-[#F5F7FA] font-sans overflow-hidden">
-         {/* ================= MAIN CARD ================= */}
-         <main className="w-full flex flex-col h-full bg-[#111318] rounded-2xl border border-[#23262D] shadow-[0_0_20px_-5px_rgba(0,229,179,0.15)] relative overflow-hidden">
+      <div className="w-full md:h-[calc(100dvh-40px)] h-full bg-[#0B0D12] text-[#F5F7FA] font-sans overflow-hidden">
+         {/* ================= MAIN CARD =======z========== */}
+         <main className="w-full min-h-0 flex flex-col h-full bg-[#111318] rounded-2xl border border-[#23262D] shadow-[0_0_20px_-5px_rgba(0,229,179,0.15)] relative overflow-hidden">
 
             {/* --- Header --- */}
             <header className="border-b border-[#23262D] p-5 bg-[#111318] flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-10">
@@ -89,25 +108,25 @@ const AIChatInterface = () => {
                      <h2 className="text-base font-extrabold text-[#F5F7FA] tracking-tight">AI Assistant</h2>
                      <div className="flex flex-wrap items-center gap-2 text-xs mt-0.5">
                         <span className="w-2 h-2 rounded-full bg-[#00E5B3] animate-pulse"></span>
-                        <span className="text-[#A1A8B3] font-semibold">Online • Response 2s</span>
-                        <span className="px-2 py-0.5 border border-[#00E5B3]/30 bg-[#00E5B3]/10 text-[#00E5B3] rounded-full font-bold text-[10px]">
+                        <span className="text-[#A1A8B3] font-semibold">Online </span>
+                        {/* <span className="px-2 py-0.5 border border-[#00E5B3]/30 bg-[#00E5B3]/10 text-[#00E5B3] rounded-full font-bold text-[10px]">
                            BCS Syllabus Trained
-                        </span>
+                        </span> */}
                      </div>
                   </div>
                </div>
                <div className="flex items-center gap-2">
-                  <button className="text-xs font-bold flex items-center gap-1.5 px-3.5 py-2 text-[#A1A8B3] border border-[#23262D] rounded-xl hover:bg-[#161920] hover:text-[#F5F7FA] transition active:scale-95">
+                  {/* <button className="text-xs font-bold flex items-center gap-1.5 px-3.5 py-2 text-[#A1A8B3] border border-[#23262D] rounded-xl hover:bg-[#161920] hover:text-[#F5F7FA] transition active:scale-95">
                      <Download size={14} /> Export Chat
-                  </button>
-                  <button className="text-xs font-bold flex items-center gap-1.5 px-3.5 py-2 text-[#A1A8B3] border border-[#23262D] rounded-xl hover:bg-[#161920] hover:text-[#F5F7FA] transition active:scale-95">
+                  </button> */}
+                  {/* <button className="text-xs font-bold flex items-center gap-1.5 px-3.5 py-2 text-[#A1A8B3] border border-[#23262D] rounded-xl hover:bg-[#161920] hover:text-[#F5F7FA] transition active:scale-95">
                      <Settings size={14} /> Settings
-                  </button>
+                  </button> */}
                </div>
             </header>
 
             {/* --- Exam Context Bar --- */}
-            <div className="bg-[#161920] border-b border-[#23262D] text-white px-5 py-3 flex justify-between items-center text-xs">
+            {/* <div className="bg-[#161920] border-b border-[#23262D] text-white px-5 py-3 flex justify-between items-center text-xs">
                <div className="flex items-center gap-2 flex-wrap">
                   <div className="w-2 h-2 rounded-full bg-[#00E5B3]"></div>
                   <span className="text-[#A1A8B3] font-bold uppercase tracking-wider text-[9px]">Context:</span>
@@ -118,11 +137,15 @@ const AIChatInterface = () => {
                <button className="flex items-center gap-1 text-[#00E5B3] hover:text-[#00C298] font-bold transition text-[11px]">
                   Change <ChevronRight size={13} />
                </button>
-            </div>
+            </div> */}
 
             {/* --- Chat Area --- */}
-            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-5 md:p-6 bg-[#0E1016] space-y-6 pb-40">
-               <div className="text-center text-[10px] text-[#6B7280] font-bold uppercase tracking-wider">Today, June 14</div>
+            <div
+               ref={chatContainerRef}
+               className="flex-1 min-h-0 overflow-y-auto p-5 md:p-6 bg-[#0E1016] space-y-6"
+               style={{ paddingBottom: `calc(10rem + ${kbOffset}px)` }}
+            >
+               <div className="text-center text-[10px] text-[#6B7280] font-bold uppercase tracking-wider">{date.toDateString()}</div>
 
                {messages.length === 0 ? (
                   <div className="rounded-3xl border border-dashed border-[#323742] bg-[#161920] p-10 text-center text-[#A1A8B3]">
@@ -172,9 +195,12 @@ const AIChatInterface = () => {
             </div>
 
             {/* --- Footer Input Area --- */}
-            <div className="absolute bottom-0 left-0 right-0 bg-[#111318] border-t border-[#23262D] p-4 pb-6 z-10 rounded-b-2xl">
+            <div
+               className="absolute left-0 right-0 bg-[#111318] border-t border-[#23262D] p-4 pb-6 z-10 rounded-b-2xl"
+               style={{ bottom: kbOffset }}
+            >
                {/* Suggestion Chips */}
-               <div
+               {/* <div
                   onClick={() => setHidden((prev) => !prev)}
                   className={`flex gap-2 overflow-x-auto pb-2 mb-3.5 hide-scrollbar ${hidden ? 'hidden' : ''}`}
                >
@@ -193,14 +219,17 @@ const AIChatInterface = () => {
                   <button className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold border border-[#23262D] bg-[#161920] rounded-full px-3.5 py-2 hover:bg-[#1C1F26] hover:text-[#F5F7FA] text-[#A1A8B3] transition active:scale-95">
                      <CheckCircle size={13} className="text-[#00E5B3]" /> Weak area
                   </button>
-               </div>
+               </div> */}
 
                {/* Input Field */}
                <div className="flex items-center gap-3 relative">
                   <input
+                     ref={inputRef}
                      type="text"
                      value={inputText}
                      onChange={(event) => setInputText(event.target.value)}
+                     onFocus={() => updateKbOffsetRef.current()}
+                     onBlur={() => updateKbOffsetRef.current()}
                      onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                            event.preventDefault();

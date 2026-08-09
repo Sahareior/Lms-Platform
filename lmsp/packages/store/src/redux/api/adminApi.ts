@@ -65,6 +65,8 @@ export interface AdminQuestion {
   data: Array<{
     question_number: number;
     question_text: string;
+    scenario_text?: string;
+    image_url?: string;
     options: Record<string, string>;
     correct_answer?: string;
   }>;
@@ -563,7 +565,7 @@ const adminApi = api.injectEndpoints({
 
     updateAdminSingleQuestion: build.mutation<
       AdminQuestion,
-      { questionId: string; questionNumber: number; data: { question_text?: string; options?: Record<string, string>; correct_answer?: string } }
+      { questionId: string; questionNumber: number; data: { question_text?: string; scenario_text?: string; image_url?: string; options?: Record<string, string>; correct_answer?: string } }
     >({
       query: ({ questionId, questionNumber, data }) => ({
         url: `/questions/${questionId}/question/${questionNumber}`,

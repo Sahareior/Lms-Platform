@@ -65,10 +65,7 @@ export default function CourseSelectionScreen({ enrolledCourses, onSelectCourse 
                         {title}
                       </h4>
                     </div>
-                    <div className="flex items-center gap-1 bg-[#23262D] border border-[#323742] rounded-lg px-2 py-1 flex-shrink-0">
-                      <Star size={11} className="fill-[#F2C94C] text-[#F2C94C]" />
-                      <span className="text-[10px] font-bold text-[#F5F7FA]">{rating}</span>
-                    </div>
+                   
                   </div>
                 </div>
 

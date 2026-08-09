@@ -122,7 +122,7 @@ useEffect(() => {
         },
       }}
     >
-      <Layout className="h-screen bg-[#0B0D12] text-[#F5F7FA]">
+      <Layout className="h-dvh bg-[#0B0D12] text-[#F5F7FA]">
         <Sider
           width={260}
           breakpoint="lg"
@@ -193,9 +193,9 @@ useEffect(() => {
         </Sider>
 
         <Layout className="bg-transparent">
-          <Content className="bg-transparent p-4">
+          <Content className="bg-transparent md:p-4">
             <div
-              className="overflow-y-auto h-[calc(100vh-2rem)] border border-[#23262D] rounded-2xl p-1"
+              className="overflow-y-auto h-[calc(100dvh-0.5rem)] md:h-[calc(100dvh-2rem)] border border-[#23262D] rounded-2xl p-1"
               style={{
                 background: '#0B0D12',
               }}
