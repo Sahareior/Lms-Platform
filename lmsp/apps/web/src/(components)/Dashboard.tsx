@@ -592,7 +592,21 @@ export default function Dashboard() {
             <span className="text-[#00E5B3] font-medium">Keep pushing forward!</span>
           </p>
         </div>
-      
+      <div>
+                  {user?.role === 'admin' && (
+                <div className="mb-3">
+                  <div className="h-px bg-[#23262D] mb-3" />
+                  <button
+                    onClick={() => navigate('/admin')}
+                    
+                  >
+                  
+                    <span className="font-medium text-sm">Admin Panel</span>
+                   
+                  </button>
+                </div>
+              )}
+      </div>
       </div>
 
       {/* ────── STATS ROW ────── */}

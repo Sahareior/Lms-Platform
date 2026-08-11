@@ -7,8 +7,7 @@ import { resolveSubmittedQuestions } from "./quizPerformController.js";
 // this directly on every refetch; the backend now proxies it and caches the
 // result so the AI is called at most once per day per user.
 const AI_PERFORMANCE_URL =
-
-  "http://127.0.0.1:5000/user-performance" || "https://llm-backend-hfna.onrender.com/user-performance"
+  process.env.AI_PERFORMANCE_URL || "http://127.0.0.1:5000/user-performance";
 // AI analysis can take a while – give it a generous timeout.
 const AI_TIMEOUT_MS = 120000;
 

@@ -142,7 +142,7 @@ useEffect(() => {
                 </div>
               </div>
 
-              <nav className="space-y-2 overflow-y-auto h-[75%] custom-scrollbar">
+              <nav className="space-y-2 overflow-y-auto h-[85%] custom-scrollbar">
                 {navItems.map((item, index) => {
                   const active = isActive(item.path);
                   return (
@@ -165,30 +165,10 @@ useEffect(() => {
 
             {/* ── Bottom Section: Admin Panel + User Profile Card ── */}
             <div>
-              {user?.role === 'admin' && (
-                <div className="mb-3">
-                  <div className="h-px bg-[#23262D] mb-3" />
-                  <button
-                    onClick={() => navigate('/admin')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${
-                      isActive('/admin')
-                        ? 'bg-[#22C55E] text-black glow-ai border-transparent font-semibold'
-                        : 'bg-transparent text-[#A1A8B3] border-transparent hover:bg-[#161920] hover:text-[#F5F7FA]'
-                    }`}
-                  >
-                    <ShieldCheck size={18} className={isActive('/admin') ? 'text-black' : 'text-[#22C55E]'} />
-                    <span className="font-medium text-sm">Admin Panel</span>
-                    {!isActive('/admin') && (
-                      <span className="ml-auto text-[9px] font-bold uppercase tracking-wide text-[#22C55E] bg-[#22C55E]/10 border border-[#22C55E]/30 px-1.5 py-0.5 rounded-md">
-                        Admin
-                      </span>
-                    )}
-                  </button>
-                </div>
-              )}
+    
 
               {/* ── User Profile Card ───────────────────────── */}
-              <div className="bg-[#161920] border border-[#23262D] rounded-2xl p-4 flex items-center gap-3 group">
+              <div className="bg-[#161920] border border-[#23262D] rounded-2xl  p-1 mt-3 flex items-center gap-3 group">
               <div className="h-9 w-9 rounded-full bg-[#2F80ED]/20 text-[#2F80ED] font-semibold flex items-center justify-center border border-[#2F80ED]/40 shrink-0">
                 {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
               </div>
