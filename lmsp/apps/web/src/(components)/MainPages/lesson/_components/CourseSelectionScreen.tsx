@@ -46,6 +46,7 @@ export default function CourseSelectionScreen({ enrolledCourses, onSelectCourse 
             const instructor = typeof course.instructor === 'object'
               ? course.instructor?.name || 'Instructor'
               : course.instructor || 'Instructor';
+              console.log('course', course);
 
             return (
               <div
@@ -65,10 +66,7 @@ export default function CourseSelectionScreen({ enrolledCourses, onSelectCourse 
                         {title}
                       </h4>
                     </div>
-                    <div className="flex items-center gap-1 bg-[#23262D] border border-[#323742] rounded-lg px-2 py-1 flex-shrink-0">
-                      <Star size={11} className="fill-[#F2C94C] text-[#F2C94C]" />
-                      <span className="text-[10px] font-bold text-[#F5F7FA]">{rating}</span>
-                    </div>
+                   
                   </div>
                 </div>
 
@@ -96,24 +94,14 @@ export default function CourseSelectionScreen({ enrolledCourses, onSelectCourse 
 
                     {/* Meta Tags */}
                     <div className="flex flex-wrap gap-2 mb-4">
+
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#161920] rounded-lg text-[10px] font-medium text-[#A1A8B3] border border-[#23262D]">
-                        <Clock size={10} className="text-[#00E5B3]" /> {duration}
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#161920] rounded-lg text-[10px] font-medium text-[#A1A8B3] border border-[#23262D]">
-                        <Target size={10} className="text-[#2F80ED]" /> {level}
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#161920] rounded-lg text-[10px] font-medium text-[#A1A8B3] border border-[#23262D]">
-                        <Users size={10} className="text-[#9B51E0]" /> {students}
+                        <Users size={10} className="text-[#9B51E0]" /> {students} students
                       </span>
                     </div>
 
                     {/* Instructor */}
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-[#2F80ED]/20 text-[#2F80ED] border border-[#2F80ED]/40 flex items-center justify-center text-[9px] font-bold">
-                        {instructor.charAt(0)}
-                      </div>
-                      <span className="text-xs text-[#A1A8B3] font-medium truncate">{instructor}</span>
-                    </div>
+                   
                   </div>
 
                   {/* Action Button */}

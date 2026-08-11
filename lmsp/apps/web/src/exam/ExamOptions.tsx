@@ -41,7 +41,7 @@ const ExamOptions = () => {
   return (
     <div>
       {location.pathname === "/mock-exam" ? (
-        <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] p-4 md:p-6">
+        <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]  md:p-6">
           <div className="mx-auto max-w-6xl rounded-2xl bg-[#111318] border border-[#23262D] p-6 shadow-sm">
             {/* Header */}
             <h2 className="mb-6 text-center text-2xl md:text-3xl font-extrabold tracking-tight">
@@ -90,7 +90,7 @@ const ExamOptions = () => {
             {/* Study Section */}
             <div className="mt-8 border border-[#23262D] rounded-xl overflow-hidden">
               <h2 className="border-b border-[#23262D] py-4 text-center text-xl font-bold bg-[#161920]">
-                Study Section
+                Study Section (coming soon..)
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2">
                 {studyItems.map((item, index) => (

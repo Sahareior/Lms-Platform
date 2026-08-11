@@ -30,8 +30,7 @@ const RESOURCE_TYPES = ['PDF', 'DOC', 'PPT', 'VIDEO', 'AUDIO', 'OTHER'] as const
 // Helpers
 const secondsToMinutes = (s: number) => Math.max(0.1, Math.round((s / 60) * 10) / 10);
 
-const parseMaterial = (val: string | string[] | undefined): string[] | undefined =>
-   {
+const parseMaterial = (val: string | string[] | undefined): string[] | undefined => {
   if (!val) return undefined;
   if (Array.isArray(val)) return val;
   return val.split(',').map(s => s.trim()).filter(Boolean);
@@ -250,8 +249,8 @@ const LessonManagement: React.FC = () => {
       render: (title: string, record: AdminLesson) => (
         <div className="flex items-center gap-3">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${record.isPublished
-              ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/25'
-              : 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25'
+            ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/25'
+            : 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25'
             }`}>
             <VideoCameraOutlined className="text-base" />
           </div>
@@ -290,8 +289,8 @@ const LessonManagement: React.FC = () => {
         <Tag
           icon={record.isPublished ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
           className={`!rounded-full !px-2.5 !py-0.5 !border-0 !font-medium ${record.isPublished
-              ? '!bg-emerald-500/15 !text-emerald-300'
-              : '!bg-amber-500/15 !text-amber-300'
+            ? '!bg-emerald-500/15 !text-emerald-300'
+            : '!bg-amber-500/15 !text-amber-300'
             }`}
         >
           {record.isPublished ? 'Published' : 'Draft'}

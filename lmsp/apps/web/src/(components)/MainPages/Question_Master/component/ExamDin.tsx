@@ -24,6 +24,8 @@ interface ApiQuestion {
   _id: string;
   question_number: number;
   question_text: string;
+  scenario_text?: string;
+  image_url?: string;
   options: Record<string, string>;
   correct_answer: string;
 }
@@ -32,6 +34,8 @@ interface Question {
   _id: string;           // <-- ADDED MongoDB _id
   id: number;            // question_number (for UI)
   question: string;
+  scenarioText: string;
+  imageUrl: string;
   options: string[];
   correctAnswer: number;
   explanation: string;
@@ -55,6 +59,8 @@ function transformQuestions(apiQuestions: ApiQuestion[]): Question[] {
     _id: q._id,                       // <-- store the real ID
     id: q.question_number,
     question: q.question_text,
+    scenarioText: q.scenario_text || "",
+    imageUrl: q.image_url || "",
     options: optionKeys.map((key) => q.options[key] ?? ""),
     correctAnswer: letterToIndex[q.correct_answer] ?? 0,
     explanation: "",
@@ -359,6 +365,29 @@ export default function ExamDin() {
               </div>
 
               <div className="p-6 sm:p-8 pt-4">
+                {/* Scenario / passage text */}
+                {q.scenarioText && (
+                  <div className="mb-5 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#9B51E0] mb-2">
+                      Scenario / Passage
+                    </p>
+                    <p className="text-[20px] leading-relaxed text-white whitespace-pre-line">
+                      {q.scenarioText}
+                    </p>
+                  </div>
+                )}
+
+                {/* Question image */}
+                {q.imageUrl && (
+                  <div className="mb-5">
+                    <img
+                      src={q.imageUrl}
+                      alt="Question diagram"
+                      className="max-w-full max-h-72 object-contain rounded-xl border border-[#23262D] bg-[#161920]"
+                    />
+                  </div>
+                )}
+
                 <h2 className="font-semibold text-lg leading-7 mb-6 whitespace-pre-line text-[#F5F7FA]">
                   {q.question}
                 </h2>

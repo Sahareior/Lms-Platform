@@ -24,6 +24,8 @@ import {
   EyeInvisibleOutlined,
   QuestionCircleOutlined,
   BookOutlined,
+  PictureOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -36,6 +38,7 @@ import {
   useUpdateAdminSingleQuestionMutation,
   type AdminQuestion,
 } from '@my-monorepo/store';
+import MediaUpload from '../../reusable/MediaUpload';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -57,10 +60,13 @@ const QuestionBank: React.FC = () => {
     docId: string;
     questionNumber: number;
     question_text: string;
+    scenario_text?: string;
+    image_url?: string;
     options: Record<string, string>;
     correct_answer?: string;
   } | null>(null);
   const [editForm] = Form.useForm();
+  const imageUrl = Form.useWatch('image_url', editForm);
 
   // ── Lookup helpers ─────────────────────────────────────────
   const getExamName = (examId: string) =>
@@ -102,6 +108,8 @@ const QuestionBank: React.FC = () => {
     q: {
       question_number: number;
       question_text: string;
+      scenario_text?: string;
+      image_url?: string;
       options: Record<string, string>;
       correct_answer?: string;
     }
@@ -110,11 +118,15 @@ const QuestionBank: React.FC = () => {
       docId,
       questionNumber: q.question_number,
       question_text: q.question_text,
+      scenario_text: q.scenario_text,
+      image_url: q.image_url,
       options: q.options,
       correct_answer: q.correct_answer,
     });
     editForm.setFieldsValue({
       question_text: q.question_text,
+      scenario_text: q.scenario_text || '',
+      image_url: q.image_url || '',
       ...Object.fromEntries(
         Object.entries(q.options).map(([key, val]) => [`option_${key}`, val])
       ),
@@ -139,6 +151,8 @@ const QuestionBank: React.FC = () => {
         questionNumber: editingQuestion.questionNumber,
         data: {
           question_text: values.question_text,
+          scenario_text: values.scenario_text || '',
+          image_url: values.image_url || '',
           options,
           correct_answer: values.correct_answer || undefined,
         },
@@ -176,6 +190,30 @@ const QuestionBank: React.FC = () => {
           <Text className="text-sm" style={{ maxWidth: 400 }} ellipsis={{ tooltip: text }}>
             {text}
           </Text>
+        ),
+      },
+      {
+        title: 'Scenario / Image',
+        key: 'scenario',
+        width: 150,
+        render: (_: unknown, record: any) => (
+          <Space direction="vertical" size={2}>
+            {record.scenario_text ? (
+              <Tag color="geekblue" icon={<FileTextOutlined />}>
+                Scenario
+              </Tag>
+            ) : null}
+            {record.image_url ? (
+              <Tag color="purple" icon={<PictureOutlined />}>
+                Image
+              </Tag>
+            ) : null}
+            {!record.scenario_text && !record.image_url ? (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                —
+              </Text>
+            ) : null}
+          </Space>
         ),
       },
       {
@@ -413,7 +451,7 @@ const QuestionBank: React.FC = () => {
             showSizeChanger: true,
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} documents`,
           }}
-          scroll={{ x: 900 }}
+          scroll={{ x: 1100 }}
         />
       </Card>
 
@@ -447,6 +485,61 @@ const QuestionBank: React.FC = () => {
             rules={[{ required: true, message: 'Question text is required' }]}
           >
             <TextArea rows={3} placeholder="Enter the question text..." />
+          </Form.Item>
+
+          <Form.Item
+            name="scenario_text"
+            label={
+              <span>
+                Scenario / Passage Text <span style={{ fontWeight: 400, color: '#5F6B64' }}>(optional)</span>
+              </span>
+            }
+          >
+            <TextArea
+              rows={3}
+              placeholder="Optional passage, case study or scenario that appears above the question..."
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="image_url"
+            label={
+              <span>
+                Question Image <span style={{ fontWeight: 400, color: '#5F6B64' }}>(optional)</span>
+              </span>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <MediaUpload
+                type="image"
+                value={imageUrl}
+                onChange={(url) => editForm.setFieldsValue({ image_url: url })}
+                label="Upload Image"
+              />
+              {imageUrl && (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={imageUrl}
+                    alt="Question image preview"
+                    style={{
+                      maxWidth: 200,
+                      maxHeight: 110,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                      border: '1px solid #232323',
+                    }}
+                  />
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => editForm.setFieldsValue({ image_url: '' })}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
+            </div>
           </Form.Item>
 
           <div className="grid grid-cols-2 gap-4">

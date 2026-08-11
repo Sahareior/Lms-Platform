@@ -123,7 +123,7 @@ export default function ExamCategorySelection() {
                 <button
                   key={exam._id}
                   onClick={() => navigate(`/question-center/${exam._id}`)}
-                  className="group relative bg-[#111318] rounded-2xl border border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.3)] transition-all duration-300 overflow-hidden text-left active:scale-[0.98]"
+                  className="group relative flex h-full flex-col bg-[#111318] rounded-2xl border border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.3)] transition-all duration-300 overflow-hidden text-left active:scale-[0.98]"
                 >
                   {/* Top accent bar */}
                   <div
@@ -131,7 +131,7 @@ export default function ExamCategorySelection() {
                     style={{ backgroundColor: color }}
                   />
 
-                  <div className="p-5">
+                  <div className="flex flex-1 flex-col p-5">
                     {/* Icon */}
                     <div
                       className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110"
@@ -153,14 +153,12 @@ export default function ExamCategorySelection() {
                     </p>
 
                     {/* Description */}
-                    {exam.description && (
-                      <p className="text-sm text-[#A1A8B3] leading-relaxed mb-4 line-clamp-2">
-                        {exam.description}
-                      </p>
-                    )}
+                    <p className="min-h-[3rem] text-sm text-[#A1A8B3] leading-relaxed mb-4 line-clamp-2">
+                      {exam.description || ""}
+                    </p>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between pt-3 border-t border-[#23262D]">
+                    <div className="mt-auto flex items-center justify-between pt-3 border-t border-[#23262D]">
                       <div className="flex items-center gap-3">
                         <span className="text-[11px] font-medium text-[#6B7280]">
                           {exam.applicants || "N/A"} applicants

@@ -27,8 +27,14 @@
     background: linear-gradient(180deg, #0B0D12 0%, #0E1016 60%, #12141B 100%);
     color: var(--text-primary);
     min-height: 100vh;
+    min-height: 100dvh;
     margin: 0;
   }
+}
+
+
+.ant-layout-sider .ant-layout-sider-zero-width-trigger{
+  z-index: 999999;
 }
 
 /* Custom Semantic Glow Utilities */

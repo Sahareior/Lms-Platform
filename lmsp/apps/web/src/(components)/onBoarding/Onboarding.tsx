@@ -20,26 +20,26 @@ import {
   useSelectExamMutation,
 } from '@my-monorepo/store';
 
-// ─── Vibrant gradients for exam card headers ──────────────
+// ─── Vibrant gradients for exam card accents ──────────────
 const gradientMap = [
-  'from-blue-600 via-blue-500 to-indigo-400',
-  'from-amber-500 via-amber-400 to-orange-300',
-  'from-violet-500 via-violet-400 to-purple-300',
-  'from-emerald-500 via-emerald-400 to-teal-300',
-  'from-rose-500 via-rose-400 to-pink-300',
-  'from-cyan-500 via-cyan-400 to-sky-300',
+  'from-blue-600 to-indigo-500',
+  'from-amber-500 to-orange-400',
+  'from-violet-500 to-purple-400',
+  'from-emerald-500 to-teal-400',
+  'from-rose-500 to-pink-400',
+  'from-cyan-500 to-sky-400',
 ];
 
 // ─── Icon mapping based on exam name patterns ─────────────
 const getExamIcon = (name: string) => {
   const lower = (name || '').toLowerCase();
-  if (lower.includes('bcs') || lower.includes('বিসিএস')) return <University size={20} />;
-  if (lower.includes('bank') || lower.includes('ব্যাংক')) return <ClipboardList size={20} />;
+  if (lower.includes('bcs') || lower.includes('বিসিএস')) return <University size={22} />;
+  if (lower.includes('bank') || lower.includes('ব্যাংক')) return <ClipboardList size={22} />;
   if (lower.includes('teacher') || lower.includes('শিক্ষক') || lower.includes('নিবন্ধন'))
-    return <School size={20} />;
+    return <School size={22} />;
   if (lower.includes('job') || lower.includes('সল্যুশন') || lower.includes('চাকরি'))
-    return <Calendar size={20} />;
-  return <GraduationCap size={20} />;
+    return <Calendar size={22} />;
+  return <GraduationCap size={22} />;
 };
 
 // ─── First-time Onboarding: pick your target exam ─────────
@@ -72,9 +72,6 @@ const Onboarding: React.FC = () => {
       setError('Could not save your selection. Please try again.');
       return;
     }
-    // Ensure /auth/me reflects the saved exams before leaving onboarding,
-    // so AuthGuard doesn't bounce us straight back here. A refetch hiccup
-    // is non-fatal — the selection is already saved.
     try {
       await refetchUser();
     } catch (err) {
@@ -84,7 +81,7 @@ const Onboarding: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] flex flex-col relative overflow-x-hidden">
       {/* Subtle background glows */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#2F80ED]/10 rounded-full blur-3xl" />
@@ -110,15 +107,15 @@ const Onboarding: React.FC = () => {
         </div>
       </nav>
 
-      <main className="relative z-10 flex-1 w-full max-w-5xl mx-auto px-4 md:px-8 py-10 md:py-14 flex flex-col">
+      <main className="relative z-10 flex-1 w-full max-w-5xl mx-auto px-4 md:px-8 py-10 md:py-14 pb-16 flex flex-col">
         {/* Hero */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-12">
           <div className="inline-flex items-center gap-1.5 bg-[#00E5B3]/10 text-[#00E5B3] text-[10px] font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider mb-5 border border-[#00E5B3]/30">
             <Sparkles size={11} />
             Personalised Learning Path
             <Sparkles size={11} />
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3">
             Welcome,{' '}
             {userData?.name?.split(' ')[0] || user?.name?.split(' ')[0] || 'Student'} 👋
           </h1>
@@ -150,40 +147,65 @@ const Onboarding: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {exams.map((exam: any, index: number) => {
               const isSelected = selectedIds.includes(exam._id);
               const gradient = gradientMap[index % gradientMap.length];
+              
               return (
                 <button
                   key={exam._id}
                   onClick={() => toggleSelection(exam._id)}
-                  className={`group relative text-left rounded-2xl overflow-hidden border transition-all duration-300 ${
-                    isSelected
-                      ? 'border-[#00E5B3] ring-2 ring-[#00E5B3]/30 shadow-[0_0_25px_-5px_rgba(0,229,179,0.4)] -translate-y-0.5'
-                      : 'border-[#23262D] hover:border-[#323742] hover:-translate-y-0.5'
-                  }`}
+                  className={`group relative text-left rounded-2xl overflow-hidden border p-5 transition-all duration-300 ease-out flex flex-col h-full
+                    ${
+                      isSelected
+                        ? 'border-[#00E5B3] bg-[#00E5B3]/5 shadow-[0_8px_30px_rgba(0,229,179,0.15)]'
+                        : 'border-[#1F2229] bg-[#111318] hover:border-[#2D3139] hover:bg-[#14161C] hover:-translate-y-1'
+                    }`}
                 >
-                  <div className={`relative h-24 bg-gradient-to-br ${gradient}`}>
-                    <div className="absolute w-24 h-24 rounded-full bg-white/10 -top-10 -right-8" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div
-                        className={`p-3 rounded-xl backdrop-blur-sm transition-all duration-300 ${
-                          isSelected ? 'bg-[#111318]/80 scale-105' : 'bg-white/10 group-hover:bg-white/20'
+                  {/* Background Accent Glow */}
+                  <div
+                    className={`absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl bg-gradient-to-br ${gradient} transition-opacity duration-500 pointer-events-none ${
+                      isSelected ? 'opacity-30' : 'opacity-[0.07] group-hover:opacity-20'
+                    }`}
+                  />
+
+                  {/* Top Section: Icon & Status */}
+                  <div className="relative z-10 flex items-start justify-between mb-8">
+                    <div
+                      className={`p-3.5 rounded-xl transition-all duration-300 ease-out shadow-lg
+                        ${
+                          isSelected
+                            ? 'bg-[#00E5B3]/15 text-[#00E5B3] ring-1 ring-[#00E5B3]/30'
+                            : `bg-gradient-to-br ${gradient} text-white shadow-black/20 group-hover:scale-110 group-hover:rotate-3`
                         }`}
-                      >
-                        {getExamIcon(exam.name)}
-                      </div>
+                    >
+                      {getExamIcon(exam.name)}
                     </div>
-                    {isSelected && (
-                      <div className="absolute top-2.5 right-2.5 bg-[#00E5B3] text-black rounded-full p-1 shadow-lg">
-                        <Check size={12} strokeWidth={3} />
-                      </div>
-                    )}
+
+                    {/* Selection Indicator */}
+                    <div
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300
+                        ${
+                          isSelected
+                            ? 'bg-[#00E5B3] border-[#00E5B3] scale-100'
+                            : 'border-[#2A2F38] scale-90 group-hover:border-[#4A505C]'
+                        }`}
+                    >
+                      {isSelected && <Check size={14} strokeWidth={4} className="text-black" />}
+                    </div>
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-bold text-sm text-[#F5F7FA] mb-1">{exam.name}</h3>
-                    <p className="text-xs text-[#A1A8B3] line-clamp-2">
+
+                  {/* Content Section */}
+                  <div className="relative z-10 mt-auto">
+                    <h3
+                      className={`font-bold text-base mb-2 transition-colors duration-300 ${
+                        isSelected ? 'text-[#00E5B3]' : 'text-[#F5F7FA] group-hover:text-white'
+                      }`}
+                    >
+                      {exam.name}
+                    </h3>
+                    <p className="text-xs text-[#6B7280] line-clamp-2 leading-relaxed">
                       {exam.description || 'Comprehensive preparation for this exam.'}
                     </p>
                   </div>
@@ -202,7 +224,7 @@ const Onboarding: React.FC = () => {
       </main>
 
       {/* Sticky footer CTA */}
-      <div className="relative z-10 border-t border-[#23262D] bg-[#111318]/90 backdrop-blur px-6 py-4">
+      <div className="sticky bottom-0 relative z-10 shrink-0 border-t border-[#23262D] bg-[#111318]/95 backdrop-blur px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-[#A1A8B3]">
             {selectedIds.length > 0 ? (

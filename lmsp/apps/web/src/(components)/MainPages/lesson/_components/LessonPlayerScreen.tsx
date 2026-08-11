@@ -135,7 +135,7 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
       </header>
 
       {/* ────── MAIN CONTENT ────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-8xl p-2 mx-auto">
         {/* Left column: Video + Tabs + Tab Content */}
         <div className="lg:col-span-2 flex flex-col gap-6">
           {/* Video Player */}

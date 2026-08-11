@@ -56,6 +56,7 @@ export {
   useQuestionAnalyzerMutation,
   useQuestionPaperScraperMutation,
   useAiUserPerFormanceMutation,
+  useAiragUploadStatusQuery,
 } from './redux/api/aiApi';
 export type {
   AiChatRequest,
@@ -64,6 +65,8 @@ export type {
   QuestionPaperScraperResponse,
   QuestionAnalyzerQuestion,
   QuestionAnalyzerRequest,
+  RagUploadResponse,
+  RagJobStatus,
   AiPerformanceStats,
   AiScoreAnalysis,
   AiSubjectBreakdown,

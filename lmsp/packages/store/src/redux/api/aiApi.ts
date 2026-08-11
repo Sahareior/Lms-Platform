@@ -9,8 +9,8 @@ import { getAuthToken } from './baseApi';
 
 // ─── Configuration State ───────────────────────────────────
 // Separate base URL for AI-specific endpoints (default port 5000).
-let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
-// let _aiBaseUrl = 'http://127.0.0.1:5000/';
+// let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
+let _aiBaseUrl = 'http://127.0.0.1:5000/';
 
 /**
  * Configure the AI API client.
@@ -53,6 +53,26 @@ export interface QuestionAnalyzerQuestion {
 
 export interface QuestionAnalyzerRequest {
   questions: QuestionAnalyzerQuestion[];
+}
+
+/** Response from POST /file-upload-rag — indexing runs in the background. */
+export interface RagUploadResponse {
+  success?: boolean;
+  job_id?: string;
+  status?: string;
+  file?: string;
+  supabase_doc_id?: string | null;
+  message?: string;
+}
+
+/** Status payload from GET /rag/job/{job_id} (polled while indexing). */
+export interface RagJobStatus {
+  status: string;
+  progress: number;
+  total: number;
+  message: string | null;
+  error: string | null;
+  result: unknown;
 }
 
 // ─── AI User Performance Report Types ────────────────────────
@@ -125,6 +145,8 @@ export interface AiPerformanceResponse {
   ai_report: AiPerformanceReport;
 }
 
+
+
 // ─── Custom Base Query (dynamic URL + shared auth token) ──
 const dynamicAiBaseQuery: BaseQueryFn<
   FetchArgs,
@@ -169,7 +191,7 @@ export const aiApi = createApi({
       // invalidatesTags: ['Chat'],
     }),
 
-    uploadDocuments: build.mutation({
+    uploadDocuments: build.mutation<RagUploadResponse, FormData>({
       query:(data) => ({
         url:'/file-upload-rag',
         method:'POST',
@@ -193,6 +215,13 @@ export const aiApi = createApi({
       })
     }),
 
+    airagUploadStatus: build.query<RagJobStatus, string>({
+      query:(id) => ({
+        url:`rag/job/${id}`,
+        method:'GET'
+      })
+    }),
+
     aiUserPerFormance: build.mutation<AiPerformanceResponse, unknown>({
       query:(data) => ({
         url:'/user-performance',
@@ -212,5 +241,6 @@ export const {
   useUploadDocumentsMutation,
   useQuestionAnalyzerMutation,
   useQuestionPaperScraperMutation,
-  useAiUserPerFormanceMutation
+  useAiUserPerFormanceMutation,
+  useAiragUploadStatusQuery
 } = aiApi;

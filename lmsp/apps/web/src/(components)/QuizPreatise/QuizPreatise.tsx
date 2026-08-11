@@ -30,6 +30,8 @@ interface QuestionStats {
 
 interface QuestionItem {
   question: string;
+  scenarioText?: string;
+  imageUrl?: string;
   options: string[];
   correctAnswer?: number;
   questionNumber?: number;
@@ -118,6 +120,8 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
           );
           flattened.push({
             question: q.question_text,
+            scenarioText: q.scenario_text || "",
+            imageUrl: q.image_url || "",
             options: opts,
             correctAnswer: getCorrectAnswerIndex(q),
             questionNumber: q.question_number,
@@ -567,6 +571,29 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
                   </span>
                 )}
               </div>
+
+              {/* Scenario / passage text */}
+              {q.scenarioText && (
+                <div className="mb-5 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#9B51E0] mb-2">
+                    Scenario / Passage
+                  </p>
+                  <p className="text-sm leading-relaxed text-[#C9D0DA] whitespace-pre-line">
+                    {q.scenarioText}
+                  </p>
+                </div>
+              )}
+
+              {/* Question image */}
+              {q.imageUrl && (
+                <div className="mb-5">
+                  <img
+                    src={q.imageUrl}
+                    alt="Question diagram"
+                    className="max-w-full max-h-72 object-contain rounded-xl border border-[#23262D] bg-[#161920]"
+                  />
+                </div>
+              )}
 
               <h3 className="text-base font-medium leading-relaxed text-[#F5F7FA] mb-6">
                 {q.question}

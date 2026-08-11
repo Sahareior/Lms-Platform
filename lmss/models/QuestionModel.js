@@ -11,6 +11,14 @@ const questionItemSchema = new mongoose.Schema(
             required: true,
             trim: true,
         },
+        scenario_text: {
+            type: String,
+            default: "",
+        },
+        image_url: {
+            type: String,
+            default: "",
+        },
         options: {
             type: Map,
             of: String,
