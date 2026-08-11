@@ -705,9 +705,7 @@ const Performance = () => {
               </p>
             </div>
           </div>
-          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="bg-[#00E5B3] hover:bg-[#00C298] text-black text-sm font-bold px-6 py-2 rounded-lg transition active:scale-95 flex items-center gap-2 w-full md:w-auto justify-center">
-            Back to Top <ChevronRight size={16} />
-          </button>
+         
         </div>
 
         {/* ─── SAVED REPORTS MODAL ─── */}

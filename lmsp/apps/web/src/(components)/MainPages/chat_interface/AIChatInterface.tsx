@@ -89,7 +89,7 @@ const AIChatInterface = () => {
             sender: 'ai',
             text: 'Unable to send your question right now. Please try again.',
             time: createTimestamp(),
-         });
+         });j
       }
    };
 
@@ -196,8 +196,8 @@ const AIChatInterface = () => {
 
             {/* --- Footer Input Area --- */}
             <div
-               className="absolute left-0 right-0 bg-[#111318] border-t border-[#23262D] p-4 pb-6 z-10 rounded-b-2xl"
-               style={{ bottom: kbOffset }}
+               className={`${kbOffset > 0 ? 'fixed' : 'absolute'} left-0 right-0 bg-[#111318] border-t border-[#23262D] p-4 pb-6 z-10 rounded-b-2xl`}
+               style={{ bottom: 0 }}
             >
                {/* Suggestion Chips */}
                {/* <div

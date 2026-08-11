@@ -264,13 +264,19 @@ export const updateSingleQuestion = async (req, res) => {
       return res.status(404).json({ message: 'Question document not found' });
     }
 
-    if (doc.question_number !== parseInt(questionNumber, 10)) {
+    // Locate the subdocument inside doc.data by its question_number
+    const target = doc.data.find(
+      (q) => q.question_number === parseInt(questionNumber, 10)
+    );
+    if (!target) {
       return res.status(404).json({ message: 'Question number does not match document' });
     }
 
-    if (updates.question_text !== undefined) doc.question_text = updates.question_text;
-    if (updates.options !== undefined) doc.options = updates.options;
-    if (updates.correct_answer !== undefined) doc.correct_answer = updates.correct_answer;
+    if (updates.question_text !== undefined) target.question_text = updates.question_text;
+    if (updates.options !== undefined) target.options = updates.options;
+    if (updates.correct_answer !== undefined) target.correct_answer = updates.correct_answer;
+    if (updates.scenario_text !== undefined) target.scenario_text = updates.scenario_text;
+    if (updates.image_url !== undefined) target.image_url = updates.image_url;
 
     await doc.save();
 
@@ -291,11 +297,15 @@ export const deleteSingleQuestion = async (req, res) => {
       return res.status(404).json({ message: 'Question document not found' });
     }
 
-    if (doc.question_number !== parseInt(questionNumber, 10)) {
+    const targetIndex = doc.data.findIndex(
+      (q) => q.question_number === parseInt(questionNumber, 10)
+    );
+    if (targetIndex === -1) {
       return res.status(404).json({ message: 'Question number does not match document' });
     }
 
-    await doc.deleteOne();
+    doc.data.splice(targetIndex, 1);
+    await doc.save();
 
     res.status(200).json({
       message: 'Question deleted successfully',

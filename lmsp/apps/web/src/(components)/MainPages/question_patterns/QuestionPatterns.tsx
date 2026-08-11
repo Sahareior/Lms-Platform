@@ -531,9 +531,7 @@ const QuestionPatterns = () => {
                 </h3>
                 <p className="text-xs text-[#A1A8B3] mt-0.5">By total question count</p>
               </div>
-              <span className="text-[10px] font-bold text-[#00E5B3] bg-[#00E5B3]/10 px-2.5 py-1 rounded-lg border border-[#00E5B3]/30">
-                LIVE
-              </span>
+    
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1.5 space-y-3">
@@ -552,9 +550,11 @@ const QuestionPatterns = () => {
                         <span className="text-[10px] font-extrabold text-[#6B7280] w-4 text-center">
                           0{idx + 1}
                         </span>
-                        <span className="font-semibold text-[#F5F7FA] group-hover:text-[#2F80ED] transition-colors truncate">
-                          {subject}
-                        </span>
+                       <div className="flex items-center gap-2 pr-2">
+   <span className="font-semibold flex flex-grow text-[#F5F7FA] group-hover:text-[#2F80ED] leading-snug transition-colors break-words">
+     {subject}
+   </span>
+</div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-[10px] text-[#A1A8B3] font-medium">
