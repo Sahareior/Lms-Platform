@@ -6,8 +6,9 @@ import { resolveSubmittedQuestions } from "./quizPerformController.js";
 // URL of the external (expensive) AI analysis service. The frontend used to hit
 // this directly on every refetch; the backend now proxies it and caches the
 // result so the AI is called at most once per day per user.
-const AI_PERFORMANCE_URL =
-  process.env.AI_PERFORMANCE_URL || "http://127.0.0.1:5000/user-performance";
+const AI_PERFORMANCE_URL = (
+  process.env.AI_PERFORMANCE_URL || "http://127.0.0.1:5000/user-performance"
+).trim();
 // AI analysis can take a while – give it a generous timeout.
 const AI_TIMEOUT_MS = 120000;
 
@@ -253,7 +254,7 @@ function generateAndSaveReport(userId, examId = null, authHeader) {
       try {
         data = await callAiService(sanitized, authHeader);
       } catch (err) {
-        console.error("AI performance service unavailable – using local fallback:", err.message);
+        console.error("AI performance service unavailable – using local fallback:", err.message, err.cause || "");
         data = buildLocalReport(resolved);
       }
     } else {
