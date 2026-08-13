@@ -17,6 +17,7 @@ import quizPerform from './routes/QuizPerformance.js';
 import aiPerformance from './routes/aiPerformance.js';
 import uploadRoutes from './routes/upload.js';
 import importantTopicsRoutes from './routes/importantTopics.js';
+import aiChatRoutes from './routes/aiChat.js';
 const app = express();
 
 
@@ -45,6 +46,7 @@ app.use('/quiz-performance', quizPerform)
 app.use('/ai-performance', aiPerformance)
 app.use('/upload', uploadRoutes);
 app.use('/important-topics', importantTopicsRoutes);
+app.use('/ai-chat', aiChatRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

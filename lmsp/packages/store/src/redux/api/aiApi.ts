@@ -9,8 +9,8 @@ import { getAuthToken } from './baseApi';
 
 // ─── Configuration State ───────────────────────────────────
 // Separate base URL for AI-specific endpoints (default port 5000).
-let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
-// let _aiBaseUrl = 'http://127.0.0.1:5000/';
+// let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
+let _aiBaseUrl = 'http://127.0.0.1:5000/';
 
 /**
  * Configure the AI API client.

@@ -181,6 +181,19 @@ export type {
   SubjectByExam
 } from "./redux/api/examApi"
 
+// ─── RTK Query AI Chat History API ─────────────────────────
+export {
+  useGetAiChatHistoryQuery,
+  useLazyGetAiChatHistoryQuery,
+  useSaveAiChatMessagesMutation,
+} from './redux/api/aiChatApi';
+export type {
+  AiChatHistoryMessage,
+  AiChatHistoryResponse,
+  SaveAiChatMessageInput,
+  SaveAiChatMessagesResponse,
+} from './redux/api/aiChatApi';
+
 // ─── RTK Query User Performance API ────────────────────────
 export {
   useGetUserPerformanceQuery,

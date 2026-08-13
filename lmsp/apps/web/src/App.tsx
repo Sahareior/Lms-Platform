@@ -213,6 +213,7 @@ useEffect(() => {
         <Layout className="bg-transparent">
           <Content className="bg-transparent md:p-4">
             <div
+              data-scroll-container
               className="overflow-y-auto h-[calc(100dvh-0.5rem)] md:h-[calc(100dvh-2rem)] border border-[#23262D] rounded-2xl p-1"
               style={{
                 background: '#0B0D12',
