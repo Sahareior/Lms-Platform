@@ -1,4 +1,5 @@
 import { api } from './baseApi';
+import type { ExamCategory } from '../../types';
 
 // ─── Admin Types ──────────────────────────────────────────────
 export interface AdminUser {
@@ -54,6 +55,7 @@ export interface AdminExam {
   image?: string;
   description?: string;
   applicants?: string;
+  category?: ExamCategory;
   createdAt?: string;
 }
 
@@ -91,6 +93,7 @@ export interface CreateExamRequest {
   image?: string;
   description?: string;
   applicants?: string;
+  category?: ExamCategory;
 }
 
 export interface UpdateExamRequest {
@@ -98,6 +101,7 @@ export interface UpdateExamRequest {
   image?: string;
   description?: string;
   applicants?: string;
+  category?: ExamCategory;
 }
 
 export interface CreateCourseRequest {

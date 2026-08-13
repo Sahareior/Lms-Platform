@@ -17,6 +17,8 @@ import quizPerform from './routes/QuizPerformance.js';
 import aiPerformance from './routes/aiPerformance.js';
 import uploadRoutes from './routes/upload.js';
 import importantTopicsRoutes from './routes/importantTopics.js';
+import aiChatRoutes from './routes/aiChat.js';
+import { generalRateLimit } from './middleware/rateLimit.js';
 const app = express();
 
 
@@ -25,6 +27,9 @@ connectDB();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// General rate limiting for all API requests (skipped when Redis is unconfigured)
+app.use(generalRateLimit);
 
 app.get('/', (req, res) => {
   res.send('Hello, World!');
@@ -45,6 +50,7 @@ app.use('/quiz-performance', quizPerform)
 app.use('/ai-performance', aiPerformance)
 app.use('/upload', uploadRoutes);
 app.use('/important-topics', importantTopicsRoutes);
+app.use('/ai-chat', aiChatRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

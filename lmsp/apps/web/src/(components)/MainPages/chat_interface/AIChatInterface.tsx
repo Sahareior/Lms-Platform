@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, MoreVertical, Send } from 'lucide-react';
-import { useSendChatMessageMutation } from '@my-monorepo/store';
+import {
+   useAppSelector,
+   useSendChatMessageMutation,
+   useLazyGetAiChatHistoryQuery,
+   useSaveAiChatMessagesMutation,
+   type AiChatHistoryMessage,
+} from '@my-monorepo/store';
 
 type ChatMessage = {
    id: string;
@@ -9,15 +15,32 @@ type ChatMessage = {
    time: string;
 };
 
+// Number of history messages loaded per scroll-pagination page.
+const HISTORY_PAGE_SIZE = 30;
+
 const AIChatInterface = () => {
    const [messages, setMessages] = useState<ChatMessage[]>([]);
    const [inputText, setInputText] = useState('');
    const [sendChatMessage, { isLoading }] = useSendChatMessageMutation();
+   const [fetchHistory, { isFetching: isHistoryLoading }] = useLazyGetAiChatHistoryQuery();
+   const [saveMessages] = useSaveAiChatMessagesMutation();
    const chatContainerRef = useRef<HTMLDivElement | null>(null);
    const inputRef = useRef<HTMLInputElement | null>(null);
    const updateKbOffsetRef = useRef<() => void>(() => {});
    const date = new Date();
    const [kbOffset, setKbOffset] = useState(0);
+
+   // ── Chat history (persisted per user on the backend) ────────────
+   const userId = useAppSelector((state) => state.user.user?._id);
+   const [hasMore, setHasMore] = useState(false);
+   const [nextCursor, setNextCursor] = useState<string | null>(null);
+   // Guard so history is only fetched once per mount (not twice in StrictMode).
+   const historyLoadedRef = useRef(false);
+   // When false, the auto-scroll effect leaves the position alone (used while
+   // prepending older messages so the user doesn't get yanked around).
+   const autoScrollRef = useRef(true);
+   const scrollAnchorRef = useRef(0);
+   const scrollHeightBeforeRef = useRef(0);
 
    // ── Mobile keyboard handling ──────────────────────────────────────────────
    // iOS Safari overlays the virtual keyboard on top of the page and ignores
@@ -50,15 +73,77 @@ const AIChatInterface = () => {
    const createTimestamp = () =>
       new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+   const formatTime = (iso?: string) =>
+      iso
+         ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+         : createTimestamp();
+
+   const toChatMessage = (m: AiChatHistoryMessage): ChatMessage => ({
+      id: m._id,
+      sender: m.sender,
+      text: m.text,
+      time: formatTime(m.createdAt),
+   });
+
+   // ── Load the most recent page of history on mount ────────────────
+   useEffect(() => {
+      if (!userId || historyLoadedRef.current) return;
+      historyLoadedRef.current = true;
+      fetchHistory({ limit: HISTORY_PAGE_SIZE })
+         .unwrap()
+         .then((res) => {
+            setHasMore(res.hasMore);
+            setNextCursor(res.nextCursor);
+            setMessages(res.messages.map(toChatMessage));
+         })
+         .catch(() => {
+            // History failed to load – start with an empty chat; the user
+            // can still send messages and history reloads on next visit.
+         });
+   }, [userId, fetchHistory]);
+
+   // Auto-scroll to the bottom when new messages arrive (but NOT while
+   // prepending older history pages – see handleScroll).
    useEffect(() => {
       const container = chatContainerRef.current;
-      if (container) {
+      if (container && autoScrollRef.current) {
          container.scrollTop = container.scrollHeight;
       }
    }, [messages]);
 
    const addMessage = (message: ChatMessage) => {
       setMessages((prev) => [...prev, message]);
+   };
+
+   // ── Scroll to the top → load an older page of history ────────────
+   const handleScroll = () => {
+      const container = chatContainerRef.current;
+      if (!container || isHistoryLoading || !hasMore || !nextCursor) return;
+      if (container.scrollTop > 60) return;
+
+      // Remember the anchor so the viewport stays put when older messages
+      // are prepended above the current content.
+      scrollAnchorRef.current = container.scrollTop;
+      scrollHeightBeforeRef.current = container.scrollHeight;
+      autoScrollRef.current = false;
+
+      fetchHistory({ limit: HISTORY_PAGE_SIZE, before: nextCursor })
+         .unwrap()
+         .then((res) => {
+            setHasMore(res.hasMore);
+            setNextCursor(res.nextCursor);
+            setMessages((prev) => [...res.messages.map(toChatMessage), ...prev]);
+            requestAnimationFrame(() => {
+               const c = chatContainerRef.current;
+               if (c) {
+                  c.scrollTop =
+                     scrollAnchorRef.current + (c.scrollHeight - scrollHeightBeforeRef.current);
+               }
+            });
+         })
+         .catch(() => {
+            // Ignore – the user can scroll up again to retry.
+         });
    };
 
    const handleSend = async () => {
@@ -74,22 +159,33 @@ const AIChatInterface = () => {
 
       addMessage(userMessage);
       setInputText('');
+      autoScrollRef.current = true;
 
+      let aiText: string;
       try {
          const response = await sendChatMessage({ question }).unwrap();
-         addMessage({
-            id: `ai-${Date.now()}`,
-            sender: 'ai',
-            text: response.answer,
-            time: createTimestamp(),
-         });
+         aiText = response.answer;
       } catch (error) {
-         addMessage({
-            id: `ai-error-${Date.now()}`,
-            sender: 'ai',
-            text: 'Unable to send your question right now. Please try again.',
-            time: createTimestamp(),
-         });j
+         aiText = 'Unable to send your question right now. Please try again.';
+      }
+
+      addMessage({
+         id: `ai-${Date.now()}`,
+         sender: 'ai',
+         text: aiText,
+         time: createTimestamp(),
+      });
+
+      // Persist the exchange so it survives page navigation.
+      try {
+         await saveMessages({
+            messages: [
+               { sender: 'user', text: question },
+               { sender: 'ai', text: aiText },
+            ],
+         }).unwrap();
+      } catch {
+         // Persistence failure shouldn't break the visible conversation.
       }
    };
 
@@ -142,14 +238,24 @@ const AIChatInterface = () => {
             {/* --- Chat Area --- */}
             <div
                ref={chatContainerRef}
+               onScroll={handleScroll}
                className="flex-1 min-h-0 overflow-y-auto p-5 md:p-6 bg-[#0E1016] space-y-6"
                style={{ paddingBottom: `calc(10rem + ${kbOffset}px)` }}
             >
                <div className="text-center text-[10px] text-[#6B7280] font-bold uppercase tracking-wider">{date.toDateString()}</div>
 
+               {/* Loading older messages (scroll pagination) */}
+               {isHistoryLoading && messages.length > 0 && (
+                  <div className="flex justify-center">
+                     <span className="text-[10px] text-[#6B7280] font-bold uppercase tracking-wider animate-pulse">
+                        Loading earlier messages...
+                     </span>
+                  </div>
+               )}
+
                {messages.length === 0 ? (
                   <div className="rounded-3xl border border-dashed border-[#323742] bg-[#161920] p-10 text-center text-[#A1A8B3]">
-                     Ask a question to start the chat.
+                     {isHistoryLoading ? 'Loading chat history...' : 'Ask a question to start the chat.'}
                   </div>
                ) : (
                   messages.map((message) => (

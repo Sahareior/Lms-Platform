@@ -30,12 +30,12 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, isLo
           <div className="absolute top-0 left-0 w-72 h-72 bg-[#00E5B3]/5 rounded-full blur-3xl pointer-events-none" />
           
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-10 relative z-10">
-            <div className="bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-2xl p-2">
-              <img src="/logo.png" className="w-14 h-14 object-cover" alt="BrainForge" />
+          <div className="flex items-center gap-3 mb-6 relative z-10">
+            <div className=" ">
+              <img src="/logo1.png" className="w-36 object-cover" alt="Geneseon" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="font-bold text-base text-[#F5F7FA] tracking-wide">BrainForge</span>
+              {/* <span className="font-bold text-base text-[#F5F7FA] tracking-wide">Geneseon</span> */}
               {/* <span className="text-[9px] text-[#A1A8B3] font-medium">BanglaPrep</span> */}
             </div>
           </div>

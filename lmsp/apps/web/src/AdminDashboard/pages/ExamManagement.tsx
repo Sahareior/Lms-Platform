@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Table, Card, Button, Modal, Form, Input, message, Tag, Space, Spin, Alert, Popconfirm, Empty } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Table, Card, Button, Modal, Form, Input, Select, message, Tag, Space, Spin, Alert, Popconfirm, Empty } from 'antd';
 import { PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, BranchesOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -15,9 +15,21 @@ import {
   type AdminExamVersion,
   type CreateExamRequest,
   type CreateExamVersionRequest,
+  type ExamCategory,
 } from '@my-monorepo/store';
 
 const { TextArea } = Input;
+
+// ─── Exam Categories ────────────────────────────────────────
+const EXAM_CATEGORIES: Array<{ label: string; value: ExamCategory }> = [
+  { label: 'Academic', value: 'academic' },
+  { label: 'Job Preparation', value: 'job_preparation' },
+];
+
+const CATEGORY_META: Record<ExamCategory, { color: string; label: string }> = {
+  academic: { color: 'blue', label: 'Academic' },
+  job_preparation: { color: 'purple', label: 'Job Prep' },
+};
 
 const ExamManagement: React.FC = () => {
   const { data: exams, isLoading, error, refetch } = useGetAdminExamsQuery();
@@ -37,8 +49,15 @@ const ExamManagement: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<AdminExam | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<ExamCategory | 'all'>('all');
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
+
+  const filteredExams = useMemo(() => {
+    if (!exams) return exams;
+    if (categoryFilter === 'all') return exams;
+    return exams.filter((e) => e.category === categoryFilter);
+  }, [exams, categoryFilter]);
 
   // ── Exam Version State ──────────────────────────────────────
   const [versionModalOpen, setVersionModalOpen] = useState(false);
@@ -78,6 +97,8 @@ const ExamManagement: React.FC = () => {
       description: exam.description,
       applicants: exam.applicants,
       image: exam.image,
+      // Exams created before categories existed default to job_preparation
+      category: exam.category || 'job_preparation',
     });
     setEditModalOpen(true);
   };
@@ -221,6 +242,16 @@ const ExamManagement: React.FC = () => {
       sorter: (a, b) => a.name.localeCompare(b.name),
     },
     {
+      title: 'Category',
+      dataIndex: 'category',
+      key: 'category',
+      width: 140,
+      render: (category: ExamCategory) => {
+        const meta = CATEGORY_META[category] || { color: 'default', label: category || '—' };
+        return <Tag color={meta.color}>{meta.label}</Tag>;
+      },
+    },
+    {
       title: 'Description',
       dataIndex: 'description',
       key: 'description',
@@ -319,10 +350,25 @@ const ExamManagement: React.FC = () => {
         </Space>
       </div>
 
+      <div className="mb-4 flex items-center gap-3">
+        <Select
+          style={{ width: 220 }}
+          value={categoryFilter}
+          onChange={(val) => setCategoryFilter(val)}
+          options={[
+            { label: 'All Categories', value: 'all' },
+            ...EXAM_CATEGORIES,
+          ]}
+        />
+        <span className="text-sm" style={{ color: '#5F6B64' }}>
+          {filteredExams?.length ?? 0} exam{filteredExams?.length === 1 ? '' : 's'} shown
+        </span>
+      </div>
+
       <Card style={{ borderRadius: 12, overflow: 'hidden' }}>
         <Table
           columns={columns}
-          dataSource={exams}
+          dataSource={filteredExams}
           rowKey="_id"
           pagination={{
             pageSize: 10,
@@ -368,6 +414,18 @@ const ExamManagement: React.FC = () => {
 
           <Form.Item name="image" label="Image URL">
             <Input placeholder="https://example.com/exam-image.jpg" />
+          </Form.Item>
+
+          <Form.Item
+            name="category"
+            label="Category"
+            rules={[{ required: true, message: 'Please select a category' }]}
+            initialValue="job_preparation"
+          >
+            <Select
+              placeholder="Select category"
+              options={[...EXAM_CATEGORIES]}
+            />
           </Form.Item>
 
           <Form.Item className="mb-0 flex justify-end">
@@ -417,6 +475,17 @@ const ExamManagement: React.FC = () => {
 
           <Form.Item name="image" label="Image URL">
             <Input placeholder="https://example.com/exam-image.jpg" />
+          </Form.Item>
+
+          <Form.Item
+            name="category"
+            label="Category"
+            rules={[{ required: true, message: 'Please select a category' }]}
+          >
+            <Select
+              placeholder="Select category"
+              options={[...EXAM_CATEGORIES]}
+            />
           </Form.Item>
 
           <Form.Item className="mb-0 flex justify-end">

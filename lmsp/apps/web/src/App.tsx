@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ConfigProvider, Layout, theme as antdTheme } from 'antd';
 import {
   LayoutDashboard,
@@ -51,6 +51,7 @@ const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const [collapsed, setCollapsed] = useState(false);
   const { user } = useAppSelector((state) => state.user);
   const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
   const lastSentKey = useRef<string | null>(null);
@@ -127,17 +128,24 @@ useEffect(() => {
         <Sider
           width={260}
           breakpoint="lg"
-          collapsedWidth="0"
+          collapsedWidth={0}
+          collapsible
+          collapsed={collapsed}
+          onCollapse={(value) => setCollapsed(value)}
+          // When `collapsedWidth` is 0, Antd renders a small trigger button —
+          // `zeroWidthTriggerStyle` lets us position it. Center vertically
+          // and nudge it slightly into the content area.
+          zeroWidthTriggerStyle={{ top: '50%', transform: 'translateY(-50%)',  }}
           style={{ background: '#111318', borderRight: '1px solid #23262D' }}
         >
           <aside className="w-full h-full bg-[#111318] text-[#F5F7FA] p-6 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-3 mb-8">
-                <div className="h-16 w-16 rounded-xl flex items-center justify-center glow-primary">
-                <img src="/logo.png" alt="" />
-                </div>
+              
+                <img className='w-24' src="/a.png" alt="" />
+             
                 <div>
-                  <h1 className="font-bold text-lg text-[#F5F7FA] tracking-wide">BrainForge</h1>
+                  <h1 className="font-bold text-lg text-[#F5F7FA] tracking-wide">Geneseon</h1>
                   <p className="text-xs text-[#A1A8B3]">AI LMS Platform</p>
                 </div>
               </div>
@@ -148,7 +156,11 @@ useEffect(() => {
                   return (
                     <button
                       key={index}
-                      onClick={() => navigate(item.path)}
+                      onClick={() => {
+                        navigate(item.path);
+                        // collapse the sider after navigation (good for small screens)
+                        setCollapsed(true);
+                      }}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${
                         active
                           ? `${item.activeColorClass} ${item.glowClass} border-transparent`
@@ -201,6 +213,7 @@ useEffect(() => {
         <Layout className="bg-transparent">
           <Content className="bg-transparent md:p-4">
             <div
+              data-scroll-container
               className="overflow-y-auto h-[calc(100dvh-0.5rem)] md:h-[calc(100dvh-2rem)] border border-[#23262D] rounded-2xl p-1"
               style={{
                 background: '#0B0D12',

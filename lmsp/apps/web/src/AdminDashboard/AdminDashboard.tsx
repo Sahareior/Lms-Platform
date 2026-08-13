@@ -260,6 +260,7 @@ const AdminDashboard: React.FC = () => {
           {/* Main content area */}
           <Content style={{ padding: '1rem', flex: 1 }}>
             <div
+              data-scroll-container
               className="h-full overflow-y-auto border rounded-2xl p-1"
               style={{
                 background: '#000000',

@@ -1,4 +1,5 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Outlet } from 'react-router-dom';
+import ScrollToTop from './ScrollToTop';
 import App from './App';
 import Dashboard from './(components)/Dashboard';
 import LessonPage from './(components)/MainPages/lesson/LessonPage';
@@ -35,34 +36,43 @@ import FeaturedExamControl from './AdminDashboard/pages/FeaturedExamControl';
 import UserPerformance from './AdminDashboard/pages/UserPerformance';
 
 const router = createBrowserRouter([
-  // ── Public Routes (no auth required) ──────────────────
+  // ── Root layout: reset scroll to top on every route change ──
   {
-    path: 'login',
-    element: <Login />,
-  },
-  {
-    path: 'register',
-    element: <SignUp />,
-  },
-
-  // ── Onboarding (auth required, first-time exam selection) ──
-  {
-    path: 'onboarding',
     element: (
-      <AuthGuard>
-        <Onboarding />
-      </AuthGuard>
+      <>
+        <ScrollToTop />
+        <Outlet />
+      </>
     ),
-  },
+    children: [
+      // ── Public Routes (no auth required) ──────────────────
+      {
+        path: 'login',
+        element: <Login />,
+      },
+      {
+        path: 'register',
+        element: <SignUp />,
+      },
 
-  // ── Main App Layout (auth required) ──────────────────
-  {
-    path: '/',
-    element: (
-      <AuthGuard>
-        <App />
-      </AuthGuard>
-    ),
+      // ── Onboarding (auth required, first-time exam selection) ──
+      {
+        path: 'onboarding',
+        element: (
+          <AuthGuard>
+            <Onboarding />
+          </AuthGuard>
+        ),
+      },
+
+      // ── Main App Layout (auth required) ──────────────────
+      {
+        path: '/',
+        element: (
+          <AuthGuard>
+            <App />
+          </AuthGuard>
+        ),
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'available-courses', element: <AvailableCourses /> },
@@ -108,26 +118,28 @@ const router = createBrowserRouter([
     ],
   },
 
-  // ── Admin Routes (auth + admin role required) ────────
-  {
-    path: 'admin',
-    element: (
-      <AuthGuard requireAdmin>
-        <AdminDashboard />
-      </AuthGuard>
-    ),
-    children: [
-      { index: true, element: <DashboardOverview /> },
-      { path: 'users', element: <UserManagement /> },
-      { path: 'exams', element: <ExamManagement /> },
-      { path: 'courses', element: <CourseManagement /> },
-      { path: 'courses/:courseId/lessons', element: <LessonManagement /> },
-      { path: 'questions', element: <QuestionManagement /> },
-      { path: 'question-bank', element: <QuestionBank /> },
-      { path: 'subjects', element: <SubjectManagement /> },
-      { path: 'exam-control', element: <ExamControl /> },
-      { path: 'featured-exam', element: <FeaturedExamControl /> },
-      { path: 'user-performance', element: <UserPerformance /> },
+      // ── Admin Routes (auth + admin role required) ────────
+      {
+        path: 'admin',
+        element: (
+          <AuthGuard requireAdmin>
+            <AdminDashboard />
+          </AuthGuard>
+        ),
+        children: [
+          { index: true, element: <DashboardOverview /> },
+          { path: 'users', element: <UserManagement /> },
+          { path: 'exams', element: <ExamManagement /> },
+          { path: 'courses', element: <CourseManagement /> },
+          { path: 'courses/:courseId/lessons', element: <LessonManagement /> },
+          { path: 'questions', element: <QuestionManagement /> },
+          { path: 'question-bank', element: <QuestionBank /> },
+          { path: 'subjects', element: <SubjectManagement /> },
+          { path: 'exam-control', element: <ExamControl /> },
+          { path: 'featured-exam', element: <FeaturedExamControl /> },
+          { path: 'user-performance', element: <UserPerformance /> },
+        ],
+      },
     ],
   },
 ]);

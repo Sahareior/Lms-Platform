@@ -12,7 +12,7 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
-import { useGetExamsQuery } from "@my-monorepo/store";
+import { useGetExamsQuery, useGetMeQuery } from "@my-monorepo/store";
 import type { Exam } from "@my-monorepo/store";
 
 /** Map exam names to category-based icons & colours */
@@ -73,6 +73,7 @@ function matchLabel(index: number): string {
 export default function ExamCategorySelection() {
   const navigate = useNavigate();
   const { data: exams, isLoading, isError } = useGetExamsQuery();
+  const {data:user} = useGetMeQuery()
   console.log(exams)
 
   return (
@@ -115,9 +116,9 @@ export default function ExamCategorySelection() {
         )}
 
         {/* Exam Grid */}
-        {exams && exams.length > 0 && (
+        {user?.selectedExams && user?.selectedExams.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {exams.map((exam: Exam, idx: number) => {
+            {user?.selectedExams.map((exam: Exam, idx: number) => {
               const { icon, color, subtitle } = examMeta(exam.name);
               return (
                 <button
@@ -160,9 +161,7 @@ export default function ExamCategorySelection() {
                     {/* Footer */}
                     <div className="mt-auto flex items-center justify-between pt-3 border-t border-[#23262D]">
                       <div className="flex items-center gap-3">
-                        <span className="text-[11px] font-medium text-[#6B7280]">
-                          {exam.applicants || "N/A"} applicants
-                        </span>
+                       
                         <span
                           className="text-[11px] font-medium px-2 py-0.5 rounded-full"
                           style={{
@@ -187,7 +186,7 @@ export default function ExamCategorySelection() {
         )}
 
         {/* Empty state */}
-        {exams && exams.length === 0 && (
+        {user?.selectedExams && user?.selectedExams.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <BookOpen size={36} className="text-[#6B7280]" />
             <p className="text-[#A1A8B3] text-sm">No exams available yet.</p>

@@ -21,6 +21,7 @@ import {
   Zap,
   Layers,
   CircleCheck,
+  Shield,
 } from "lucide-react";
 import {
   useEnrollCourseMutation,
@@ -593,19 +594,46 @@ export default function Dashboard() {
           </p>
         </div>
       <div>
-                  {user?.role === 'admin' && (
-                <div className="mb-3">
-                  <div className="h-px bg-[#23262D] mb-3" />
-                  <button
-                    onClick={() => navigate('/admin')}
-                    
-                  >
-                  
-                    <span className="font-medium text-sm">Admin Panel</span>
-                   
-                  </button>
-                </div>
-              )}
+                {user?.role === 'admin' && (
+  <div className="mb-3">
+    <div className="h-px bg-[#23262D] mb-3" />
+    <button
+      onClick={() => navigate('/admin')}
+      className="group relative w-full md:w-auto inline-flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-[#1a1d24] to-[#111318] border border-[#2F80ED]/20 rounded-2xl hover:border-[#2F80ED]/60 transition-all duration-300 hover:shadow-[0_8px_30px_-5px_rgba(47,128,237,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+    >
+      {/* Icon container with glow effect */}
+      <div className="relative">
+        <div className="absolute inset-0 bg-[#2F80ED]/20 rounded-xl blur-lg scale-150 group-hover:bg-[#2F80ED]/40 transition-all duration-300" />
+        <div className="relative p-2.5 bg-gradient-to-br from-[#2F80ED] to-[#1a5cb8] rounded-xl border border-[#2F80ED]/40 shadow-[0_4px_12px_rgba(47,128,237,0.3)]">
+          <Shield className="w-5 h-5 text-white" />
+        </div>
+      </div>
+      
+      {/* Text content */}
+      <div className="flex flex-col items-start">
+        <span className="font-bold text-sm text-[#F5F7FA] group-hover:text-white transition-colors">
+          Admin Panel
+        </span>
+        <span className="text-[10px] text-[#A1A8B3] font-medium uppercase tracking-wider">
+          Manage Everything
+        </span>
+      </div>
+      
+      {/* Arrow indicator */}
+      <div className="ml-2 flex items-center gap-1">
+        <ArrowRight 
+          size={16} 
+          className="text-[#A1A8B3] group-hover:text-[#2F80ED] group-hover:translate-x-1 transition-all duration-300" 
+        />
+      </div>
+      
+      {/* Shine effect on hover */}
+      <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+        <div className="absolute -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent via-white/10 to-transparent group-hover:animate-shine" />
+      </div>
+    </button>
+  </div>
+)}
       </div>
       </div>
 
