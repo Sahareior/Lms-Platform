@@ -1,6 +1,7 @@
 import QuizAttempt from "../models/QuizAttempt.js";
 import QuestionModel from "../models/QuestionModel.js";
 import UserData from "../models/UserDataModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
 
 // ─── Helper: read question fields from a flat Question document ──────────
 function findCorrectAnswer(questionDoc) {
@@ -44,6 +45,8 @@ export const startAttempt = async (req, res) => {
     });
 
     await attempt.save();
+
+    await invalidatePrefix('cache:quiz-attempt');
 
     // Populate exam name for response
     const populated = await QuizAttempt.findById(attempt._id)
@@ -344,6 +347,8 @@ export const completeAttempt = async (req, res) => {
     attempt.completedAt = new Date();
 
     await attempt.save();
+
+    await invalidatePrefix('cache:quiz-attempt');
 
     // ─── Update User Performance Arrays ─────────────────────────
     try {

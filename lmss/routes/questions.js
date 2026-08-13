@@ -1,5 +1,6 @@
 import express from "express"
 import { authenticate } from '../middleware/auth.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 import {
     getAllQuestions,
     getQuestionPattern,
@@ -14,10 +15,10 @@ import {
 
 const questions = express.Router();
 
-// Public: view questions and patterns
-questions.get('/', getAllQuestions);
-questions.get('/exam/:examId', getQuestionsByExam);
-questions.get('/question-pattern', getQuestionPattern);
+// Public: view questions and patterns (heavy payloads, cache them)
+questions.get('/', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:question' }), getAllQuestions);
+questions.get('/exam/:examId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:question' }), getQuestionsByExam);
+questions.get('/question-pattern', cacheMiddleware({ ttl: 600, keyPrefix: 'cache:question-pattern' }), getQuestionPattern);
 
 // Protected: create, update, delete questions
 questions.post('/save', authenticate, saveQuestionsInDb);

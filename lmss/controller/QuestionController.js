@@ -1,5 +1,6 @@
 import QuestionModel from "../models/QuestionModel.js";
 import QuestionPatternModel from "../models/QuestionPatternModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
 
 export const saveQuestionsInDb = async (req, res) => {
     try {
@@ -44,6 +45,7 @@ export const saveQuestionsInDb = async (req, res) => {
             data
         });
 
+        await invalidatePrefix('cache:question');
         res.status(201).json(saved);
 
     } catch (err) {
@@ -130,6 +132,8 @@ export const postQuestionPattern = async(req, res) => {
         if (subjectRef) questionPattern.subject = subjectRef;
 
         await questionPattern.save();
+
+        await invalidatePrefix('cache:question-pattern');
 
         const displayName = versionLabel ? `${exam} ${versionLabel}` : exam;
         return res.status(201).json({
@@ -231,6 +235,7 @@ export const updateQuestionDocument = async (req, res) => {
         if (!updated) {
             return res.status(404).json({ message: 'Question document not found' });
         }
+        await invalidatePrefix('cache:question');
         res.status(200).json(updated);
     } catch (err) {
         console.error(err);
@@ -246,6 +251,7 @@ export const deleteQuestionDocument = async (req, res) => {
         if (!deleted) {
             return res.status(404).json({ message: 'Question document not found' });
         }
+        await invalidatePrefix('cache:question');
         res.status(200).json({ message: 'Question document deleted successfully' });
     } catch (err) {
         console.error(err);
@@ -280,6 +286,8 @@ export const updateSingleQuestion = async (req, res) => {
 
     await doc.save();
 
+    await invalidatePrefix('cache:question');
+
     const populated = await doc.populate(['exam', 'examVersion', 'subject']);
     res.status(200).json(populated);
   } catch (err) {
@@ -306,6 +314,8 @@ export const deleteSingleQuestion = async (req, res) => {
 
     doc.data.splice(targetIndex, 1);
     await doc.save();
+
+    await invalidatePrefix('cache:question');
 
     res.status(200).json({
       message: 'Question deleted successfully',

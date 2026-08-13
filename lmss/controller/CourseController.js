@@ -1,11 +1,13 @@
 import CourseModel from "../models/Courses.js";
 import UserData from "../models/UserDataModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
 
 const createCourse = async (req, res) => {
     const courseData = req.body;
     try {
         const newCourse = new CourseModel(courseData);
         await newCourse.save();
+        await invalidatePrefix('cache:course');
         res.status(201).json({ message: 'Course created successfully', course: newCourse });
     } catch (err) {
         console.error(err);
@@ -37,6 +39,7 @@ const updateCourse = async (req, res) => {
         if (!updatedCourse) {
             return res.status(404).json({ message: 'Course not found' });
         }
+        await invalidatePrefix('cache:course');
         res.status(200).json({ message: 'Course updated successfully', course: updatedCourse });
     } catch (err) {
         console.error(err);
@@ -100,6 +103,8 @@ const enrollCourse = async (req, res) => {
         }
         course.enrolledStudents.push(userId);
         await course.save();
+        await invalidatePrefix('cache:course');
+        await invalidatePrefix('cache:course-enrolled');
         res.status(200).json({ message: 'User enrolled in course successfully' });
     } catch (err) {
         console.error(err);
@@ -168,6 +173,8 @@ const deleteCourse = async (req, res) => {
         }
         // Remove lesson references from the course and clean up
         await CourseModel.findByIdAndDelete(courseId);
+        await invalidatePrefix('cache:course');
+        await invalidatePrefix('cache:course-enrolled');
         res.status(200).json({ message: 'Course deleted successfully' });
     } catch (err) {
         console.error(err);

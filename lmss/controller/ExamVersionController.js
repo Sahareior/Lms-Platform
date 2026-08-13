@@ -1,4 +1,5 @@
 import ExamVersion from "../models/ExamVersionModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
 
 
 
@@ -7,6 +8,7 @@ export const addExamVersion = async (req, res) => {
     const data = req.body;
     const exam = new ExamVersion(data);
     await exam.save();
+    await invalidatePrefix('cache:exam-version');
     res.status(201).json(exam);
   } catch (err) {
     console.error(err);
@@ -44,6 +46,7 @@ export const updateExamVersion = async (req, res) => {
     if (!updated) {
       return res.status(404).json({ message: 'Exam version not found' });
     }
+    await invalidatePrefix('cache:exam-version');
     res.status(200).json(updated);
   } catch (err) {
     console.error(err);
@@ -58,6 +61,7 @@ export const deleteExamVersion = async (req, res) => {
     if (!deleted) {
       return res.status(404).json({ message: 'Exam version not found' });
     }
+    await invalidatePrefix('cache:exam-version');
     res.status(200).json({ message: 'Exam version deleted successfully' });
   } catch (err) {
     console.error(err);

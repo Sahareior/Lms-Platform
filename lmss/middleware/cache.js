@@ -56,7 +56,7 @@ export function cacheMiddleware({ ttl = 300, keyPrefix = 'cache' } = {}) {
 }
 
 /**
- * Helper to invalidate a cached key (or a prefix pattern via scan).
+ * Helper to invalidate a single cached key.
  * Call this after mutations (create/update/delete) on cached collections.
  */
 export async function invalidateCache(key) {
@@ -65,5 +65,31 @@ export async function invalidateCache(key) {
     await redis.del(key);
   } catch (err) {
     console.error('Redis cache invalidate error:', err);
+  }
+}
+
+/**
+ * Helper to invalidate every cached key under a prefix (e.g. 'cache:exam').
+ * Uses SCAN + DEL so admin edits (create/update/delete) are reflected
+ * immediately instead of waiting for the TTL to expire.
+ */
+export async function invalidatePrefix(prefix) {
+  if (!isRedisAvailable()) return;
+  try {
+    let cursor = 0;
+    do {
+      // Note: @upstash/redis returns the scan cursor as a string,
+      // so coerce it to a number before comparing.
+      const [nextCursor, keys] = await redis.scan(cursor, {
+        match: `${prefix}:*`,
+        count: 100,
+      });
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+      cursor = Number(nextCursor);
+    } while (cursor !== 0);
+  } catch (err) {
+    console.error('Redis cache prefix invalidate error:', err);
   }
 }
