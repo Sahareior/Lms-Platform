@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Lesson from "../models/Lesson.js";
 import CourseModel from "../models/Courses.js";
 import UserData from "../models/UserDataModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
 
 export const createLesson = async (req, res) => {
     const lessonData = req.body;
@@ -18,6 +19,9 @@ export const createLesson = async (req, res) => {
             course.lessons.push(newLesson._id);
             await course.save();
         }
+
+        await invalidatePrefix('cache:lesson');
+        await invalidatePrefix('cache:course');
 
         res.status(201).json({ message: 'Lesson created successfully', lesson: newLesson });
     } catch (err) {
@@ -67,6 +71,7 @@ export const updateLesson = async (req, res) => {
         if (!updatedLesson) {
             return res.status(404).json({ message: 'Lesson not found' });
         }
+        await invalidatePrefix('cache:lesson');
         res.status(200).json({ message: 'Lesson updated successfully', lesson: updatedLesson });
     } catch (err) {
         console.error(err);
@@ -118,6 +123,9 @@ export const markLessonComplete = async (req, res) => {
 
         await userData.save();
 
+        await invalidatePrefix('cache:lesson');
+        await invalidatePrefix('cache:course-enrolled');
+
         res.status(200).json({
             message: 'Lesson marked as complete',
             courseId,
@@ -144,6 +152,9 @@ export const deleteLesson = async (req, res) => {
         });
 
         await Lesson.findByIdAndDelete(lessonId);
+
+        await invalidatePrefix('cache:lesson');
+        await invalidatePrefix('cache:course');
 
         res.status(200).json({ message: 'Lesson deleted successfully' });
     } catch (err) {

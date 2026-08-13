@@ -14,7 +14,7 @@ course.get('/:examId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:course' }),
 // Protected: authentication required
 course.post('/create', authenticate, createCourse)
 course.post('/enroll/:courseId', authenticate, enrollCourse)
-course.get('/enrolled/:userId', authenticate, getEnrolledCourses)
+course.get('/enrolled/:userId', authenticate, cacheMiddleware({ ttl: 60, keyPrefix: 'cache:course-enrolled' }), getEnrolledCourses)
 course.put('/update/:courseId', authenticate, updateCourse)
 course.delete('/delete/:courseId', authenticate, deleteCourse)
 
