@@ -373,7 +373,7 @@ const Performance = () => {
         ))}
           <div className="ml-auto flex items-center gap-1 text-[10px] text-[#00E5B3]">
             <div className="w-1.5 h-1.5 rounded-full bg-[#00E5B3] animate-pulse"></div>
-            Live data • Synced
+          
           </div>
         </div>
 

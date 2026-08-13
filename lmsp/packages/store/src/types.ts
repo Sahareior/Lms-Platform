@@ -32,12 +32,15 @@ export interface AuthState {
   isLoading: boolean;
 }
 
+export type ExamCategory = 'academic' | 'job_preparation';
+
 export interface Exam {
    _id: string;
    name: string;
    image?: string;
    description?: string;
    applicants?: string;
+   category?: ExamCategory;
 }
 
 

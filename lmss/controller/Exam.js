@@ -3,8 +3,8 @@ import User from '../models/User.js';
 
 export const createExam = async (req, res) => {
   try {
-    const { name, image, applicants,description } = req.body;
-    const exam = new Exam({ name, image, applicants, description });
+    const { name, image, applicants, description, category } = req.body;
+    const exam = new Exam({ name, image, applicants, description, category });
     await exam.save();
     res.status(201).json(exam);
   } catch (err) {
@@ -15,7 +15,18 @@ export const createExam = async (req, res) => {
 
 export const listExams = async (req, res) => {
   try {
-    const exams = await Exam.find();
+    const { category } = req.query;
+    const filter = {};
+    if (category === 'academic' || category === 'job_preparation') {
+      filter.category = category;
+    }
+    const exams = await Exam.find(filter);
+
+    // Existing exams created before categories existed get the job_preparation default
+    for (const exam of exams) {
+      if (!exam.category) exam.category = 'job_preparation';
+    }
+
     res.status(200).json(exams);
   } catch (err) {
     console.error(err);
@@ -126,9 +137,22 @@ export const selectExamForUser = async (req, res) => {
 
 export const updateExam = async (req, res) => {
   const { examId } = req.params;
-  const updateData = req.body;
+  const { name, image, applicants, description, category } = req.body;
+  console.log(req.body,'yjos')
+
+  // Explicitly whitelist updatable fields (keeps category safe to persist)
+  const updateData = {};
+  if (name !== undefined) updateData.name = name;
+  if (image !== undefined) updateData.image = image;
+  if (applicants !== undefined) updateData.applicants = applicants;
+  if (description !== undefined) updateData.description = description;
+  if (category !== undefined) updateData.category = category;
+
   try {
-    const updatedExam = await Exam.findByIdAndUpdate(examId, updateData, { new: true });
+    const updatedExam = await Exam.findByIdAndUpdate(examId, updateData, {
+      new: true,
+      runValidators: true,
+    });
     if (!updatedExam) {
       return res.status(404).json({ message: 'Exam not found' });
     }

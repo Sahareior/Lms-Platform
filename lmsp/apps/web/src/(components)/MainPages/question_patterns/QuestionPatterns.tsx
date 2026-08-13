@@ -152,7 +152,7 @@ function ExamSelectionScreen({ onSelectExam }: { onSelectExam: (examId: string) 
 const QuestionPatterns = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const examId = searchParams.get("examId");
-
+  
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [cachedAnalysis, setCachedAnalysis] = useState<any[] | null>(null);

@@ -13,7 +13,12 @@ const examSchema = new mongoose.Schema({
   },
     applicants: {
       type: String
-    }
+    },
+  category: {
+    type: String,
+    enum: ['academic', 'job_preparation'],
+    default: 'job_preparation',
+  }
 });
 
 const Exam = mongoose.model('Exam', examSchema);

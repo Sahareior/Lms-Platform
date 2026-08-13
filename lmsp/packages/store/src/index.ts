@@ -283,5 +283,6 @@ export type {
   CourseState,
   Theme,
   UIState,
+  ExamCategory,
   RootState as AppRootState,
 } from './types';
