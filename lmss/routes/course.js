@@ -1,14 +1,15 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 
 const course = express.Router()
 
 import { createCourse, enrollCourse, getCourseById, getCoursesByExamId, getEnrolledCourses, listCourses, updateCourse, deleteCourse } from '../controller/CourseController.js';
 
 // Public: anyone can browse courses
-course.get('/', listCourses)
-course.get('/by-course/:courseId', getCourseById)
-course.get('/:examId', getCoursesByExamId)
+course.get('/', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:course' }), listCourses)
+course.get('/by-course/:courseId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:course' }), getCourseById)
+course.get('/:examId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:course' }), getCoursesByExamId)
 
 // Protected: authentication required
 course.post('/create', authenticate, createCourse)

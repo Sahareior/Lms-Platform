@@ -11,6 +11,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.2",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.6",

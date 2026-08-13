@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 import {
   getSubjects,
   getSubjectsByExam,
@@ -11,8 +12,8 @@ import {
 const router = express.Router();
 
 // Public: view subjects
-router.get('/', getSubjects);
-router.get('/exam/:examId', getSubjectsByExam);
+router.get('/', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:subject' }), getSubjects);
+router.get('/exam/:examId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:subject' }), getSubjectsByExam);
 
 // Protected: create, update, delete
 router.post('/', authenticate, createSubject);

@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 import {
   listScheduleExams,
   getScheduleExamsByExam,
@@ -14,10 +15,10 @@ import {
 const router = express.Router();
 
 // Public: view scheduled exams
-router.get('/', listScheduleExams);
-router.get('/featured', getFeaturedScheduleExam);
-router.get('/exam/:examId', getScheduleExamsByExam);
-router.get('/:examId', getScheduleExamById);
+router.get('/', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:schedule-exam' }), listScheduleExams);
+router.get('/featured', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:schedule-exam' }), getFeaturedScheduleExam);
+router.get('/exam/:examId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:schedule-exam' }), getScheduleExamsByExam);
+router.get('/:examId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:schedule-exam' }), getScheduleExamById);
 
 // Protected: create, update, delete
 router.post('/', authenticate, createScheduleExam);
