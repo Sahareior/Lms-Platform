@@ -52,6 +52,7 @@ const App: React.FC = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { user } = useAppSelector((state) => state.user);
   const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
   const lastSentKey = useRef<string | null>(null);
@@ -107,6 +108,8 @@ useEffect(() => {
   sendData();
 }, [user?._id, getOrGenerateAiPerformance, dispatch]);
 
+console.log(isMobile,'this is mobile')
+
   return (
     <ConfigProvider
       theme={{
@@ -132,10 +135,9 @@ useEffect(() => {
           collapsible
           collapsed={collapsed}
           onCollapse={(value) => setCollapsed(value)}
-          // When `collapsedWidth` is 0, Antd renders a small trigger button —
-          // `zeroWidthTriggerStyle` lets us position it. Center vertically
-          // and nudge it slightly into the content area.
-          zeroWidthTriggerStyle={{ top: '50%', transform: 'translateY(-50%)',  }}
+          // Track breakpoint; only show zero-width trigger and auto-collapse on mobile
+          onBreakpoint={(broken) => setIsMobile(broken)}
+          zeroWidthTriggerStyle={isMobile ? { top: '50%', transform: 'translateY(-50%)' } : undefined}
           style={{ background: '#111318', borderRight: '1px solid #23262D' }}
         >
           <aside className="w-full h-full bg-[#111318] text-[#F5F7FA] p-6 flex flex-col justify-between">
@@ -158,8 +160,8 @@ useEffect(() => {
                       key={index}
                       onClick={() => {
                         navigate(item.path);
-                        // collapse the sider after navigation (good for small screens)
-                        setCollapsed(true);
+                        // collapse only on mobile/small screens
+                        if (isMobile) setCollapsed(true);
                       }}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${
                         active
