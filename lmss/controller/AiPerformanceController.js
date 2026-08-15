@@ -6,8 +6,9 @@ import { resolveSubmittedQuestions } from "./quizPerformController.js";
 // URL of the external (expensive) AI analysis service. The frontend used to hit
 // this directly on every refetch; the backend now proxies it and caches the
 // result so the AI is called at most once per day per user.
-const AI_PERFORMANCE_URL =
-  process.env.AI_PERFORMANCE_URL || "http://127.0.0.1:5000/user-performance";
+const AI_PERFORMANCE_URL = (
+  process.env.AI_PERFORMANCE_URL || "http://127.0.0.1:5000/user-performance"
+).trim();
 // AI analysis can take a while – give it a generous timeout.
 const AI_TIMEOUT_MS = 120000;
 
@@ -398,11 +399,19 @@ function generateAndSaveReport(userId, examId = null, authHeader) {
       return { empty: true };
     }
 
-    // Per-exam: one AI call. All exams: one AI call per exam, then merged, so
-    // the combined report is built from the same rich per-exam analyses.
-    const data = examId
-      ? await generateSingleReport(resolved, authHeader)
-      : await generateCombinedReport(userId, resolved, authHeader);
+    let data;
+    const sanitized = sanitizeForAiService(resolved);
+    if (sanitized.length > 0) {
+      try {
+        data = await callAiService(sanitized, authHeader);
+      } catch (err) {
+        console.error("AI performance service unavailable – using local fallback:", err.message, err.cause || "");
+        data = buildLocalReport(resolved);
+      }
+    } else {
+      // No question could be resolved to a full object the AI service accepts.
+      data = buildLocalReport(resolved);
+    }
 
     const report = await AiPerformanceReport.create({
       user: userId,
