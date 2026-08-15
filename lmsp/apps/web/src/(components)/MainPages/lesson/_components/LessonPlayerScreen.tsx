@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ArrowLeft, BookOpen, MessageSquare, Layout, PenTool, ChevronLeft, ChevronRight,
+  ArrowLeft, BookOpen, MessageSquare, Layout, PenTool, ChevronLeft, ChevronRight, Award,
 } from 'lucide-react';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { useCompleteLessonMutation, useGetCourseLessonsWithProgressQuery } from '@my-monorepo/store';
@@ -11,6 +11,7 @@ import AskAiTab from './AskAiTab';
 import ResourcesTab from './ResourcesTab';
 import CourseCurriculum from './CourseCurriculum';
 import ProgressCard from './ProgressCard';
+import CertificateModal from './CertificateModal';
 
 interface CourseInfo {
   _id?: string;
@@ -32,6 +33,7 @@ interface LessonPlayerScreenProps {
 
 export default function LessonPlayerScreen({ courseId, course, userId, onBack }: LessonPlayerScreenProps) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [certificateOpen, setCertificateOpen] = useState(false);
 
   const { data: courseLessons, isLoading: isLoadingCourseLessons } = useGetCourseLessonsWithProgressQuery(
     courseId && courseId !== 'undefined' ? { courseId, userId } : skipToken
@@ -270,8 +272,27 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
             isCompleting={isCompleting}
             onMarkComplete={() => markLessonComplete(currentLessonId)}
           />
+
+          {/* ── Certificate (unlocked at 100%) ── */}
+          {progressPercent === 100 && lessonsData.length > 0 && (
+            <button
+              onClick={() => setCertificateOpen(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#00E5B3] to-[#2F80ED] text-black hover:opacity-90 transition-all active:scale-[0.98] shadow-lg shadow-[#00E5B3]/20"
+            >
+              <Award size={17} />
+              Get Your Certificate
+            </button>
+          )}
         </div>
       </div>
+
+      <CertificateModal
+        open={certificateOpen}
+        onClose={() => setCertificateOpen(false)}
+        userId={userId}
+        courseId={courseId}
+        courseTitle={course?.title || 'Course'}
+      />
     </div>
   );
 }

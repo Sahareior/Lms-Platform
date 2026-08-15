@@ -50,10 +50,6 @@ const lessonSchema = new mongoose.Schema({
       enum: ['PDF', 'DOC', 'PPT', 'VIDEO', 'AUDIO', 'OTHER']
     }
   }],
-  quiz: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Quiz',
-  },
   completionCriteria: {
     type: String,
     enum: ['WATCH', 'QUIZ', 'MANUAL'],
@@ -62,6 +58,9 @@ const lessonSchema = new mongoose.Schema({
 }, {
   timestamps: true, // Adds createdAt and updatedAt
 });
+
+// Fast lookups of a course's lessons (and their display order).
+lessonSchema.index({ course: 1, order: 1, createdAt: 1 });
 
 const Lesson = mongoose.model('Lesson', lessonSchema);
 export default Lesson;

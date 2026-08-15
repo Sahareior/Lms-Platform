@@ -1,39 +1,44 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Outlet } from 'react-router-dom';
 import ScrollToTop from './ScrollToTop';
 import App from './App';
-import Dashboard from './(components)/Dashboard';
-import LessonPage from './(components)/MainPages/lesson/LessonPage';
-import ExamUI from './(components)/Quiz';
-import MockExamInterface from './(components)/MockExamInterface';
-import AIChatInterface from './(components)/MainPages/chat_interface/AIChatInterface';
-import QuestionPatterns from './(components)/MainPages/question_patterns/QuestionPatterns';
-import Perfomence from './(components)/MainPages/performence/Perfomence';
-import Settings from './(components)/Settings';
-import AvailableCourses from './(components)/AvailableCourses';
-import CourseDetails from './(components)/CourseDetails';
-
-import { Login, SignUp } from './auth/AuthPages';
+import { Login, SignUp, ForgotPassword, ResetPassword } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
-import Onboarding from './(components)/onBoarding/Onboarding';
-import ExamOptions from './exam/ExamOptions';
-import QuizPreatise from './(components)/QuizPreatise/QuizPreatise';
-import SelectedExam from './exam/routes/SelectedExam';
-import Exampage from './exam/routes/StartExam';
-import QuestionMaster from './(components)/MainPages/Question_Master/component/QuestionMaster';
-import ExamDin from './(components)/MainPages/Question_Master/component/ExamDin';
-import ExamCategorySelection from './(components)/MainPages/Question_Master/ExamCategorySelection';
-import AdminDashboard from './AdminDashboard/AdminDashboard';
-import DashboardOverview from './AdminDashboard/pages/DashboardOverview';
-import UserManagement from './AdminDashboard/pages/UserManagement';
-import ExamManagement from './AdminDashboard/pages/ExamManagement';
-import CourseManagement from './AdminDashboard/pages/CourseManagement';
-import LessonManagement from './AdminDashboard/pages/LessonManagement';
-import QuestionManagement from './AdminDashboard/pages/QuestionManagement';
-import QuestionBank from './AdminDashboard/pages/QuestionBank';
-import SubjectManagement from './AdminDashboard/pages/SubjectManagement';
-import ExamControl from './AdminDashboard/pages/ExamControl';
-import FeaturedExamControl from './AdminDashboard/pages/FeaturedExamControl';
-import UserPerformance from './AdminDashboard/pages/UserPerformance';
+
+// ─── Lazy page imports (route-level code splitting) ─────────
+// Each page ships in its own chunk, loaded on first visit, so the
+// initial bundle stays small instead of pulling in the whole admin
+// panel, recharts, antd, etc. up front.
+const Dashboard = lazy(() => import('./(components)/Dashboard'));
+const LessonPage = lazy(() => import('./(components)/MainPages/lesson/LessonPage'));
+const QuizPreatise = lazy(() => import('./(components)/QuizPreatise/QuizPreatise'));
+const MockExamInterface = lazy(() => import('./(components)/MockExamInterface'));
+const AIChatInterface = lazy(() => import('./(components)/MainPages/chat_interface/AIChatInterface'));
+const QuestionPatterns = lazy(() => import('./(components)/MainPages/question_patterns/QuestionPatterns'));
+const Perfomence = lazy(() => import('./(components)/MainPages/performence/Perfomence'));
+const SearchPage = lazy(() => import('./(components)/MainPages/search/SearchPage'));
+const Settings = lazy(() => import('./(components)/Settings'));
+const AvailableCourses = lazy(() => import('./(components)/AvailableCourses'));
+const CourseDetails = lazy(() => import('./(components)/CourseDetails'));
+const Onboarding = lazy(() => import('./(components)/onBoarding/Onboarding'));
+const ExamOptions = lazy(() => import('./exam/ExamOptions'));
+const SelectedExam = lazy(() => import('./exam/routes/SelectedExam'));
+const Exampage = lazy(() => import('./exam/routes/StartExam'));
+const QuestionMaster = lazy(() => import('./(components)/MainPages/Question_Master/component/QuestionMaster'));
+const ExamDin = lazy(() => import('./(components)/MainPages/Question_Master/component/ExamDin'));
+const ExamCategorySelection = lazy(() => import('./(components)/MainPages/Question_Master/ExamCategorySelection'));
+const AdminDashboard = lazy(() => import('./AdminDashboard/AdminDashboard'));
+const DashboardOverview = lazy(() => import('./AdminDashboard/pages/DashboardOverview'));
+const UserManagement = lazy(() => import('./AdminDashboard/pages/UserManagement'));
+const ExamManagement = lazy(() => import('./AdminDashboard/pages/ExamManagement'));
+const CourseManagement = lazy(() => import('./AdminDashboard/pages/CourseManagement'));
+const LessonManagement = lazy(() => import('./AdminDashboard/pages/LessonManagement'));
+const QuestionManagement = lazy(() => import('./AdminDashboard/pages/QuestionManagement'));
+const QuestionBank = lazy(() => import('./AdminDashboard/pages/QuestionBank'));
+const SubjectManagement = lazy(() => import('./AdminDashboard/pages/SubjectManagement'));
+const ExamControl = lazy(() => import('./AdminDashboard/pages/ExamControl'));
+const FeaturedExamControl = lazy(() => import('./AdminDashboard/pages/FeaturedExamControl'));
+const UserPerformance = lazy(() => import('./AdminDashboard/pages/UserPerformance'));
 
 const router = createBrowserRouter([
   // ── Root layout: reset scroll to top on every route change ──
@@ -53,6 +58,14 @@ const router = createBrowserRouter([
       {
         path: 'register',
         element: <SignUp />,
+      },
+      {
+        path: 'forgot-password',
+        element: <ForgotPassword />,
+      },
+      {
+        path: 'reset-password',
+        element: <ResetPassword />,
       },
 
       // ── Onboarding (auth required, first-time exam selection) ──
@@ -103,6 +116,7 @@ const router = createBrowserRouter([
       { path: 'ai-assistant', element: <AIChatInterface /> },
       { path: 'question-bank', element: <QuestionPatterns /> },
       { path: 'performance', element: <Perfomence /> },
+      { path: 'search', element: <SearchPage /> },
       { path: 'question-center', element: <ExamCategorySelection /> },
       {
         path: 'question-center/:examType',

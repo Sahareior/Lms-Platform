@@ -37,7 +37,6 @@ export const listExams = async (req, res) => {
 };
 
 export const selectExamForUser = async (req, res) => {
-  console.log('Request body:', req.body); // Log the request body for debugging
   try {
     const {
       userId,
@@ -140,7 +139,6 @@ export const selectExamForUser = async (req, res) => {
 export const updateExam = async (req, res) => {
   const { examId } = req.params;
   const { name, image, applicants, description, category } = req.body;
-  console.log(req.body,'yjos')
 
   // Explicitly whitelist updatable fields (keeps category safe to persist)
   const updateData = {};

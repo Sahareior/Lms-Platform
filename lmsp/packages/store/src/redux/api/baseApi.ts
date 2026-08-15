@@ -10,7 +10,8 @@ import {
 // These are read on every request via closure, so they can be
 // updated at any time without rebuilding the API slice.
 // let _baseUrl = 'https://lms-platform-fjwv.onrender.com/';
-let _baseUrl = 'http://localhost:3000/';
+// let _baseUrl = 'http://localhost:3000/';
+let _baseUrl = 'https://lmss-livid.vercel.app/';
 let _token: string | null = null;
 
 /**
@@ -61,11 +62,14 @@ export const tagTypes = [
   'Performance',
   'Question',
   'Lesson',
+  'Note',
   'ExamVersion',
   'Subject',
   'QuizAttempt',
   'ScheduleExam',
   'AiChat',
+  'Notification',
+  'Certificate',
 ] as const;
 
 // ─── Base API Slice ─────────────────────────────────────────

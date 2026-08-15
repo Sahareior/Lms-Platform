@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
 import { cacheMiddleware } from '../middleware/cache.js';
 import {
   getSubjects,
@@ -15,9 +15,9 @@ const router = express.Router();
 router.get('/', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:subject' }), getSubjects);
 router.get('/exam/:examId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:subject' }), getSubjectsByExam);
 
-// Protected: create, update, delete
-router.post('/', authenticate, createSubject);
-router.put('/:subjectId', authenticate, updateSubject);
-router.delete('/:subjectId', authenticate, deleteSubject);
+// Admin only: create, update, delete
+router.post('/', authenticate, requireRole('admin'), createSubject);
+router.put('/:subjectId', authenticate, requireRole('admin'), updateSubject);
+router.delete('/:subjectId', authenticate, requireRole('admin'), deleteSubject);
 
 export default router;

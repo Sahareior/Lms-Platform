@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -28,9 +28,28 @@ import {
   useGetMeQuery,
   useGetCoursesQuery,
   useAppSelector,
+  useAppDispatch,
   useGetFeaturedScheduleExamQuery,
+  useGetWeeklyActivityQuery,
+  useGetQuizOverviewQuery,
+  setAiReport,
+  setAiReportLoading,
+  setAiReportError,
+  clearCurrentReport,
+  useGetOrGenerateAiPerformanceMutation,
 } from "@my-monorepo/store";
+import type { WeeklyAttempt } from "@my-monorepo/store";
 import { useGetEnrolledCourseQuery } from "@my-monorepo/store/src/redux/api/courseApi";
+import { skipToken } from "@reduxjs/toolkit/query/react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 // ─── Countdown hook for the featured mock exam ────────────
 function useCountdown(targetIso?: string | null) {
@@ -49,6 +68,77 @@ function useCountdown(targetIso?: string | null) {
   const secs = Math.floor((diff % 60_000) / 1000);
   const pad = (n: number) => String(n).padStart(2, "0");
   return { diff, hours: pad(hours), mins: pad(mins), secs: pad(secs) };
+}
+
+// ─── Weekly Study Activity helpers ──────────────────────────
+const WEEK_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+interface Stats {
+  total_questions: number;
+  correct_answers: number;
+  incorrect_answers: number;
+  score_percentage: number;
+  exam: string;
+}
+
+interface WeeklyDay {
+  label: string;
+  key: string;
+  attempts: number;
+  questions: number;
+  correct: number;
+}
+
+// Bucket completed attempts into the user's local Mon–Sun week.
+function buildWeeklyActivity(attempts: WeeklyAttempt[]): WeeklyDay[] {
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+
+  const days: WeeklyDay[] = WEEK_LABELS.map((label, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return { label, key: d.toDateString(), attempts: 0, questions: 0, correct: 0 };
+  });
+
+  for (const a of attempts) {
+    const t = new Date(a.createdAt).getTime();
+    if (Number.isNaN(t)) continue;
+    for (let i = 0; i < days.length; i++) {
+      const start = new Date(monday);
+      start.setDate(monday.getDate() + i);
+      start.setHours(0, 0, 0, 0);
+      const end = start.getTime() + 86_399_999; // 23:59:59.999
+      if (t >= start.getTime() && t <= end) {
+        days[i].attempts += 1;
+        days[i].questions += a.totalQuestions || 0;
+        days[i].correct += a.correctCount || 0;
+        break;
+      }
+    }
+  }
+
+  return days;
+}
+
+function WeeklyTooltip({ active, payload }: any) {
+  if (!active || !payload || payload.length === 0) return null;
+  const day = payload[0].payload as WeeklyDay;
+  return (
+    <div className="bg-[#1C1F26] border border-[#323742] rounded-lg px-3 py-2 text-xs shadow-xl">
+      <p className="font-bold text-[#F5F7FA] mb-1">{day.label}</p>
+      <p className="text-[#A1A8B3]">
+        Attempts: <span className="text-[#F5F7FA] font-semibold">{day.attempts}</span>
+      </p>
+      <p className="text-[#A1A8B3]">
+        Questions: <span className="text-[#F5F7FA] font-semibold">{day.questions}</span>
+      </p>
+      <p className="text-[#A1A8B3]">
+        Correct: <span className="text-[#00E5B3] font-semibold">{day.correct}</span>
+      </p>
+    </div>
+  );
 }
 
 // ─── Progress Ring ─────────────────────────────────────────
@@ -196,8 +286,6 @@ function AvailableCard({
       : course.instructors;
 
       const isEnrolled = enrolledCourse.some((items:any) => items._id === course._id)
-
-      console.log(isEnrolled,'is enrolled')
 
   return (
     <div
@@ -455,30 +543,99 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("All");
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
+  const [stats,setStats] = useState<Stats>({})
   const user = useAppSelector((state) => state.user.user);
   const userId = user?._id || "";
-  const aiReport = useAppSelector((state) => state.aiPerformance.report);
-  const aiReportLoading = useAppSelector((state) => state.aiPerformance.isLoading);
-  const aiReportError = useAppSelector((state) => state.aiPerformance.error);
+  const dispatch = useAppDispatch();
+  const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
+ 
+
+  // The Dashboard follows the active exam tab, so the AI panel and subject
+  // chart always show the report for the exam the user is currently viewing:
+  //   'all'  → combined report (loaded by the app shell into its own scope)
+  //   <examId> → that exam's report (same scope the Performance page uses)
+  const scope = activeTab === "All" ? "all" : activeTab;
+  const aiEntry = useAppSelector((state) => state.aiPerformance.reports[scope]);
+  const aiReport = aiEntry?.report ?? null;
+  const aiReportLoading = aiEntry?.isLoading ?? false;
+  const aiReportError = aiEntry?.error ?? null;
+
   const { data: userData } = useGetMeQuery();
   const { data: featuredExam, isLoading: isFeaturedLoading } = useGetFeaturedScheduleExamQuery();
   const [enrollCourse] = useEnrollCourseMutation();
   const { data: enrolledCourses, isLoading: isLoadingEnrolledCourses } =
     useGetEnrolledCourseQuery(userId, { skip: !userId });
+  const { data: weeklyData, isLoading: isLoadingWeekly } = useGetWeeklyActivityQuery(
+    userId ? { userId } : skipToken
+  );
+  // Real performance overview computed from the user's completed quiz attempts,
+  // aggregated across ALL their exams – this is the source of truth for the
+  // at-a-glance sections below (the AI report is only a daily-cached enrichment).
+  const { data: quizOverview } = useGetQuizOverviewQuery(userId ? { userId } : skipToken);
+  const weeklyDays = weeklyData ? buildWeeklyActivity(weeklyData.attempts || []) : [];
+  const weeklyTotalAttempts = weeklyDays.reduce((sum, d) => sum + d.attempts, 0);
+  const todayIndex = (new Date().getDay() + 6) % 7; // Mon=0 … Sun=6
 
   // Backend populates selectedExams with full exam objects (see Settings.tsx / Perfomence.tsx)
   const selectedExams = (userData?.selectedExams as any[]) || [];
 
-  // Set first exam as active tab if "All" is selected and exams exist
+  // Set first exam as active tab if "All" is selected and exams exist (only
+  // once – the user can then switch back to the combined "All Exams" view).
+  const initialTabSet = useRef(false);
   useEffect(() => {
-    if (activeTab === "All" && selectedExams && selectedExams.length > 0) {
+    if (!initialTabSet.current && activeTab === "All" && selectedExams && selectedExams.length > 0) {
+      initialTabSet.current = true;
       setActiveTab(selectedExams[0]._id);
     }
   }, [activeTab, selectedExams]);
 
+  // Load the per-exam AI report whenever the user switches exam tabs. The
+  // combined 'all' report is already loaded by the app shell on mount.
+  useEffect(() => {
+    if (!userId || scope === "all") return;
+    if (aiEntry?.report) return; // already loaded for this exam
+    let cancelled = false;
+    (async () => {
+      try {
+        dispatch(setAiReportLoading({ scope, isLoading: true }));
+        const res = await getOrGenerateAiPerformance({
+          userId,
+          examId: scope,
+        }).unwrap();
+        setStats(res?.stats)
+        if (cancelled) return;
+        if (res.empty || !res.stats || !res.ai_report) {
+          dispatch(clearCurrentReport({ scope }));
+          return;
+        }
+        dispatch(
+          setAiReport({
+            scope,
+            report: {
+              success: res.success,
+              stats: res.stats,
+              ai_report: res.ai_report,
+            },
+            previous: res.previous,
+            isCached: res.cached,
+            generatedAt: res.generatedAt,
+          })
+        );
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err);
+          dispatch(setAiReportError({ scope, error: "Failed to load AI performance report" }));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, scope, aiEntry?.report, getOrGenerateAiPerformance, dispatch]);
+
   const { data: courseData, isLoading: isLoadingCourses } = useGetCoursesQuery();
 
-
+ console.log(stats,'tyjs')
 
   const handleEnroll = async (courseId: string) => {
     if (!userId) return;
@@ -507,49 +664,67 @@ export default function Dashboard() {
 
   
 
-  // ─── AI Report derived data ──────────────────────────────
+  // ─── Derived data (overview first, AI report as enrichment) ──
   const aiStats = aiReport?.stats;
   const aiInsights = aiReport?.ai_report;
-  const subjectData = aiInsights?.subject_breakdown ?? [];
+  const overviewOverall = quizOverview?.overall;
+  const examOverview = quizOverview?.byExam ?? [];
+  const subjectOverview = quizOverview?.bySubject ?? [];
+  // When a specific exam tab is active, prefer that exam's real overview so
+  // the stats row reflects what the user is actually viewing.
+  const activeExamOverview = examOverview.find((e) => e.examId === scope) ?? null;
+  const activeOverall = activeExamOverview ?? overviewOverall;
+  const hasQuizData = !!activeOverall && activeOverall.questions > 0;
+
+
+console.log(quizOverview,'this is q overview')
+console.log(examOverview,'this is exam overview')
+console.log(activeExamOverview,'thsi is active exam')
+  // Per-subject accuracy: for a specific exam use the AI report's breakdown
+  // (it has the richest subject names); for 'all' use the real attempt-based
+  // overview.
+  const aiSubjectData = aiInsights?.subject_breakdown ?? [];
+  const subjectData =
+    scope !== "all" && aiSubjectData.length > 0
+      ? aiSubjectData
+      : subjectOverview.length > 0
+      ? subjectOverview
+      : aiSubjectData;
+
+  // Verdict – prefer the AI report, otherwise derive it from real accuracy.
+  const activeVerdict =
+    aiInsights?.score_analysis?.verdict ??
+    (hasQuizData
+      ? activeOverall!.accuracy >= 80
+        ? "Excellent"
+        : activeOverall!.accuracy >= 60
+        ? "Good"
+        : activeOverall!.accuracy >= 40
+        ? "Needs Improvement"
+        : "Critical"
+      : null);
   const verdictColor =
-    aiInsights?.score_analysis.verdict === "Excellent"
+    activeVerdict === "Excellent"
       ? "#00E5B3"
-      : aiInsights?.score_analysis.verdict === "Good"
+      : activeVerdict === "Good"
       ? "#2F80ED"
-      : aiInsights?.score_analysis.verdict === "Needs Improvement"
+      : activeVerdict === "Needs Improvement"
       ? "#F2C94C"
       : "#EB5757";
+  const verdictMessage =
+    aiInsights?.score_analysis?.message ??
+    (hasQuizData
+      ? `You scored ${activeOverall!.accuracy}% across ${activeOverall!.questions} questions in ${activeOverall!.attempts} quiz attempt${activeOverall!.attempts !== 1 ? "s" : ""}.`
+      : "");
 
-  const statsCards = [
-    {
-      title: "Courses Enrolled",
-      value: enrolledCoursesList.length,
-      icon: BookOpen,
-      color: "text-[#2F80ED]",
-      bg: "bg-[#2F80ED]/10 border-[#2F80ED]/20",
-    },
-    {
-      title: "Questions Attempted",
-      value: aiStats?.total_questions ?? "—",
-      icon: ClipboardCheck,
-      color: "text-[#00E5B3]",
-      bg: "bg-[#00E5B3]/10 border-[#00E5B3]/20",
-    },
-    {
-      title: "Correct Answers",
-      value: aiStats?.correct_answers ?? "—",
-      icon: Trophy,
-      color: "text-[#9B51E0]",
-      bg: "bg-[#9B51E0]/10 border-[#9B51E0]/20",
-    },
-    {
-      title: "AI Score",
-      value: aiStats ? `${aiStats.score_percentage}%` : "N/A",
-      icon: BarChart3,
-      color: "text-[#F2C94C]",
-      bg: "bg-[#F2C94C]/10 border-[#F2C94C]/20",
-    },
-  ];
+  // Weakest / strongest subjects (real data) for the recommendations card.
+  const weakSubjects = subjectData
+    .filter((s) => s.accuracy < 60 && s.attempted > 0)
+    .sort((a, b) => a.accuracy - b.accuracy)
+    .slice(0, 3);
+  const strongSubjects = subjectData
+    .filter((s) => s.accuracy >= 70 && s.attempted > 0)
+    .slice(0, 3);
 
   const aiRecommendations = [
     ...(aiInsights?.weak_areas ?? []).map((w: any) => ({
@@ -563,6 +738,54 @@ export default function Dashboard() {
       color: "border-l-[#00E5B3]",
     })),
   ].slice(0, 4);
+
+  const overviewRecommendations = [
+    ...weakSubjects.map((w) => ({
+      title: w.subject,
+      desc: `Accuracy ${w.accuracy}% — below the 60% target. Spend focused revision time on ${w.subject}.`,
+      color: "border-l-[#EB5757]",
+    })),
+    ...strongSubjects.map((s) => ({
+      title: s.subject,
+      desc: `Strong performance in ${s.subject} with ${s.accuracy}% accuracy.`,
+      color: "border-l-[#00E5B3]",
+    })),
+  ].slice(0, 4);
+
+  const showAiContent = !!aiInsights;
+  const recommendations = showAiContent ? aiRecommendations : overviewRecommendations;
+  const hasRecommendationContent = showAiContent || hasQuizData;
+
+  const statsCards = [
+    {
+      title: "Courses Enrolled",
+      value: enrolledCoursesList.length,
+      icon: BookOpen,
+      color: "text-[#2F80ED]",
+      bg: "bg-[#2F80ED]/10 border-[#2F80ED]/20",
+    },
+    {
+      title: "Questions Attempted",
+      value: stats?.total_questions ?? "—",
+      icon: ClipboardCheck,
+      color: "text-[#00E5B3]",
+      bg: "bg-[#00E5B3]/10 border-[#00E5B3]/20",
+    },
+    {
+      title: "Correct Answers",
+      value: stats?.correct_answers ?? "—",
+      icon: Trophy,
+      color: "text-[#9B51E0]",
+      bg: "bg-[#9B51E0]/10 border-[#9B51E0]/20",
+    },
+    {
+      title: "Overall Accuracy",
+      value: stats?.score_percentage ? `${stats.score_percentage}%` : "N/A",
+      icon: BarChart3,
+      color: "text-[#F2C94C]",
+      bg: "bg-[#F2C94C]/10 border-[#F2C94C]/20",
+    },
+  ];
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", {
@@ -660,6 +883,65 @@ export default function Dashboard() {
         })}
       </div>
 
+      {/* ────── EXAMS AT A GLANCE (per selected exam accuracy) ────── */}
+      {examOverview.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-[#9B51E0]/10 border border-[#9B51E0]/30">
+              <BarChart3 size={18} className="text-[#9B51E0]" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-[#F5F7FA] tracking-tight">
+                Your Exams at a Glance
+              </h2>
+              <p className="text-xs text-[#A1A8B3]">
+                Accuracy across all your selected exams
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {examOverview.map((exam) => {
+              const accColor =
+                exam.accuracy >= 70
+                  ? "text-[#00E5B3]"
+                  : exam.accuracy >= 40
+                  ? "text-[#2F80ED]"
+                  : "text-[#EB5757]";
+              const barColor =
+                exam.accuracy >= 70
+                  ? "bg-gradient-to-r from-[#00E5B3] to-[#2F80ED]"
+                  : exam.accuracy >= 40
+                  ? "bg-[#2F80ED]"
+                  : "bg-[#EB5757]";
+              return (
+                <div
+                  key={exam.examId}
+                  className="bg-[#111318] rounded-2xl p-5 border border-[#23262D] hover:border-[#323742] transition-all"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <h4 className="text-sm font-bold text-[#F5F7FA] truncate">
+                      {exam.examName}
+                    </h4>
+                    <span className={`text-base font-extrabold flex-shrink-0 ${accColor}`}>
+                      {exam.accuracy}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full bg-[#1C1F26] rounded-full overflow-hidden mb-3">
+                    <div
+                      className={`h-full rounded-full ${barColor}`}
+                      style={{ width: `${Math.max(4, exam.accuracy)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-[#A1A8B3]">
+                    {exam.questions} questions • {exam.attempts} attempt{exam.attempts !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ────── QUICK ACTIONS ────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <QuickAction
@@ -752,7 +1034,7 @@ export default function Dashboard() {
 
       {/* ────── CATEGORY/EXAM TABS ────── */}
       <div className="flex flex-wrap gap-2 border-b border-[#23262D] pb-3 mt-6">
-      
+       
         {selectedExams?.map((tab: any) => {
           const active = activeTab === tab._id;
           return (
@@ -862,6 +1144,11 @@ export default function Dashboard() {
               <Brain size={16} />
             </div>
             <h2 className="font-bold text-base text-[#F5F7FA]">AI Recommended</h2>
+            {scope !== "all" && aiStats?.exam && (
+              <span className="ml-auto text-[10px] text-[#A1A8B3] bg-[#161920] px-2 py-0.5 rounded-lg border border-[#23262D]">
+                {aiStats.exam}
+              </span>
+            )}
             {aiReportLoading && (
               <span className="ml-auto text-[10px] text-[#A1A8B3] animate-pulse">
                 Analyzing…
@@ -871,21 +1158,42 @@ export default function Dashboard() {
               <span className="ml-auto text-[10px] text-[#EB5757]">Unavailable</span>
             )}
           </div>
-          {aiInsights ? (
+          {hasRecommendationContent ? (
             <div className="h-[310px] overflow-y-auto space-y-3">
               <div
                 className="rounded-xl p-3 border text-center"
                 style={{ borderColor: `${verdictColor}40`, background: `${verdictColor}14` }}
               >
                 <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: verdictColor }}>
-                  {aiInsights.score_analysis.verdict}
+                  {activeVerdict}
                 </div>
                 <p className="text-[10px] text-[#A1A8B3] mt-1 leading-relaxed">
-                  {aiInsights.score_analysis.message}
+                  {verdictMessage}
                 </p>
               </div>
-              {aiRecommendations.length > 0 ? (
-                aiRecommendations.map((item, index) => (
+              {(aiInsights?.study_plan?.length ?? 0) > 0 && (
+                <div className="rounded-xl p-3 border border-[#2F80ED]/30 bg-[#2F80ED]/10">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Calendar size={12} className="text-[#2F80ED]" />
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-[#2F80ED]">
+                      Study Plan
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {aiInsights!.study_plan.slice(0, 3).map((plan, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-[10px]">
+                        <span className="font-bold text-[#F5F7FA] flex-shrink-0">{plan.day}</span>
+                        <span className="text-[#A1A8B3] leading-snug">
+                          {plan.title}
+                          <span className="text-[#6B7280] block">{plan.duration_minutes} min</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {recommendations.length > 0 ? (
+                recommendations.map((item, index) => (
                   <div
                     key={index}
                     className={`bg-[#161920] border border-[#23262D] border-l-4 ${item.color} rounded-xl p-3 hover:border-[#323742] transition-all`}
@@ -898,7 +1206,7 @@ export default function Dashboard() {
                 <div className="flex flex-col items-center justify-center text-center gap-2 py-8">
                   <Sparkles size={20} className="text-[#00E5B3]" />
                   <p className="text-[10px] text-[#A1A8B3]">
-                    No focus areas yet — keep practicing and the AI will suggest them here.
+                    No focus areas yet — keep practicing and we'll surface them here.
                   </p>
                 </div>
               )}
@@ -909,7 +1217,7 @@ export default function Dashboard() {
                 <Brain size={20} className="text-[#00E5B3]" />
               </div>
               <p className="text-xs text-[#A1A8B3] max-w-[220px]">
-                No AI insights yet. Complete a few quizzes to unlock your personalized performance analysis.
+                No performance data yet. Complete a few quizzes to unlock your personalized analysis.
               </p>
             </div>
           )}
@@ -924,7 +1232,7 @@ export default function Dashboard() {
 
       {/* ────── BOTTOM CHARTS ROW ────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {/* Weekly Quiz Activity */}
+        {/* Weekly Study Activity */}
         <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-6">
           <div className="flex justify-between items-start mb-6">
             <div>
@@ -932,15 +1240,56 @@ export default function Dashboard() {
               <p className="text-xs text-[#A1A8B3] mt-0.5">Your daily quiz activity this week</p>
             </div>
             <span className="text-[11px] text-[#A1A8B3] bg-[#161920] px-2.5 py-1 rounded-lg border border-[#23262D]">
-              This Week
+              {isLoadingWeekly
+                ? "This Week"
+                : `${weeklyTotalAttempts} attempt${weeklyTotalAttempts !== 1 ? "s" : ""} this week`}
             </span>
           </div>
-          <div className="flex flex-col items-center justify-center h-44 text-center gap-2">
-            <BarChart3 size={22} className="text-[#2F80ED]" />
-            <p className="text-xs text-[#A1A8B3]">
-              No study activity yet — complete quizzes to see your weekly progress here.
-            </p>
-          </div>
+          {isLoadingWeekly ? (
+            <div className="flex items-center justify-center h-44">
+              <Loader2 size={22} className="animate-spin text-[#2F80ED]" />
+            </div>
+          ) : weeklyTotalAttempts > 0 ? (
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyDays} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: "#A1A8B3", fontSize: 11 }}
+                    axisLine={{ stroke: "#23262D" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    width={32}
+                    allowDecimals={false}
+                    tick={{ fill: "#6B7280", fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    content={<WeeklyTooltip />}
+                    cursor={{ fill: "rgba(47,128,237,0.08)" }}
+                  />
+                  <Bar dataKey="attempts" radius={[6, 6, 0, 0]} maxBarSize={28}>
+                    {weeklyDays.map((d, i) => (
+                      <Cell
+                        key={d.key}
+                        fill={i === todayIndex ? "#00E5B3" : "#2F80ED"}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-44 text-center gap-2">
+              <BarChart3 size={22} className="text-[#2F80ED]" />
+              <p className="text-xs text-[#A1A8B3] max-w-[260px]">
+                No study activity yet this week — complete quizzes to see your weekly progress
+                here.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Subject Strength */}
@@ -949,9 +1298,17 @@ export default function Dashboard() {
             <div>
               <h3 className="text-base font-bold text-[#F5F7FA]">Subject-wise Accuracy</h3>
               <p className="text-xs text-[#A1A8B3] mt-0.5">
-                {aiInsights
-                  ? `Based on ${aiStats?.exam || "latest"} exam analysis`
-                  : "No AI analysis yet"}
+                {subjectData.length > 0
+                  ? scope !== "all"
+                    ? aiStats?.exam
+                      ? `Based on ${aiStats.exam} exam analysis`
+                      : "Based on your quiz activity"
+                    : selectedExams.length > 1
+                    ? `Across all ${selectedExams.length} selected exams`
+                    : aiStats?.exam
+                    ? `Based on ${aiStats.exam} exam analysis`
+                    : "Based on your quiz activity"
+                  : "No analysis yet"}
               </p>
             </div>
           </div>
@@ -1047,7 +1404,7 @@ export default function Dashboard() {
             <div className="flex flex-col items-center justify-center h-44 text-center gap-2">
               <Target size={22} className="text-[#2F80ED]" />
               <p className="text-xs text-[#A1A8B3]">
-                No subject data yet — generate an AI report to see your accuracy per subject.
+                No subject data yet — complete quizzes to see your accuracy per subject.
               </p>
             </div>
           )}
