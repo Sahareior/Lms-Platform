@@ -6,9 +6,10 @@ import {
 } from 'lucide-react';
 import {
   useAppDispatch, useLoginMutation, useRegisterMutation,
+  useForgotPasswordMutation, useResetPasswordMutation,
   loginSuccess, setAuthToken,
 } from '@my-monorepo/store';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { persistAuth } from './AuthInitializer';
 
 // ---------- BrainForge Dark Themed Auth Layout ----------
@@ -234,9 +235,9 @@ export const Login: React.FC = () => {
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <label className="block text-xs font-bold text-[#A1A8B3] uppercase tracking-wider">Password</label>
-            <a href="#" className="text-[11px] font-bold text-[#00E5B3] hover:text-[#00C298] transition-colors">
+            <Link to="/forgot-password" className="text-[11px] font-bold text-[#00E5B3] hover:text-[#00C298] transition-colors">
               Forgot password?
-            </a>
+            </Link>
           </div>
           <FormInput
             name="password"
@@ -403,4 +404,170 @@ export const SignUp: React.FC = () => {
   );
 };
 
-export default { Login, SignUp };
+// ---------- FORGOT PASSWORD COMPONENT ----------
+export const ForgotPassword: React.FC = () => {
+  const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    if (!email.trim()) {
+      setErrorMessage('Please enter your email address');
+      return;
+    }
+    try {
+      await forgotPassword({ email }).unwrap();
+      setSent(true);
+    } catch (error) {
+      setErrorMessage(
+        (error as any)?.data?.message || 'Something went wrong. Please try again.'
+      );
+    }
+  };
+
+  return (
+    <AuthLayout
+      title="Forgot password?"
+      subtitle="Enter your email and we'll send you a reset link."
+    >
+      {sent ? (
+        <div className="flex items-start gap-3 bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-xl p-4">
+          <CheckCircle2 size={18} className="text-[#00E5B3] mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-[#00E5B3] mb-0.5">Check your inbox</p>
+            <p className="text-xs text-[#A1A8B3] leading-relaxed">
+              If an account exists for that email, a password reset link has been sent.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <form className="space-y-5" onSubmit={handleSubmit}>
+          {errorMessage && (
+            <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+              <AlertTriangle size={18} className="text-red-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-red-300/80 leading-relaxed flex-1">{errorMessage}</p>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-bold text-[#A1A8B3] mb-1.5 uppercase tracking-wider">Email Address</label>
+            <FormInput
+              type="email"
+              placeholder="rahim@example.com"
+              icon={<Mail size={18} />}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <PrimaryButton type="submit" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                Send Reset Link <ArrowRight size={18} />
+              </>
+            )}
+          </PrimaryButton>
+        </form>
+      )}
+    </AuthLayout>
+  );
+};
+
+// ---------- RESET PASSWORD COMPONENT ----------
+export const ResetPassword: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token') || '';
+  const email = searchParams.get('email') || '';
+  const [resetPassword, { isLoading }] = useResetPasswordMutation();
+  const [showPassword, setShowPassword] = useState(false);
+  const [done, setDone] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    const form = e.target as HTMLFormElement;
+    const newPassword = form.password.value;
+    if (newPassword.length < 6) {
+      setErrorMessage('Password must be at least 6 characters');
+      return;
+    }
+    if (!token) {
+      setErrorMessage('This reset link is invalid. Please request a new one.');
+      return;
+    }
+    try {
+      await resetPassword({ token, email, newPassword }).unwrap();
+      setDone(true);
+    } catch (error) {
+      setErrorMessage(
+        (error as any)?.data?.message || 'Unable to reset password. Please try again.'
+      );
+    }
+  };
+
+  return (
+    <AuthLayout
+      title="Set a new password"
+      subtitle="Choose a strong password for your account."
+    >
+      {done ? (
+        <div className="flex items-start gap-3 bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-xl p-4">
+          <CheckCircle2 size={18} className="text-[#00E5B3] mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-[#00E5B3] mb-0.5">Password updated</p>
+            <p className="text-xs text-[#A1A8B3] leading-relaxed">You can now sign in with your new password.</p>
+          </div>
+        </div>
+      ) : (
+        <form className="space-y-5" onSubmit={handleSubmit}>
+          {errorMessage && (
+            <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+              <AlertTriangle size={18} className="text-red-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-red-300/80 leading-relaxed flex-1">{errorMessage}</p>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-bold text-[#A1A8B3] mb-1.5 uppercase tracking-wider">New Password</label>
+            <FormInput
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="At least 6 characters"
+              icon={<Lock size={18} />}
+              rightElement={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[#A1A8B3] hover:text-[#F5F7FA] transition-colors"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              }
+            />
+          </div>
+          <PrimaryButton type="submit" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Updating...
+              </>
+            ) : (
+              <>
+                Update Password <ArrowRight size={18} />
+              </>
+            )}
+          </PrimaryButton>
+        </form>
+      )}
+    </AuthLayout>
+  );
+};
+
+export default { Login, SignUp, ForgotPassword, ResetPassword };

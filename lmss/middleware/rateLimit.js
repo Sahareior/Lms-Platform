@@ -54,3 +54,14 @@ export const aiChatRateLimit = createLimiter({
   windowSeconds: 60,
   message: 'AI chat rate limit exceeded. Please slow down and try again.',
 });
+
+/**
+ * Dedicated limiter for authentication endpoints to slow down brute-force
+ * password guessing: e.g. 10 attempts / minute per IP.
+ */
+export const authRateLimit = createLimiter({
+  prefix: 'rl:auth',
+  limit: 10,
+  windowSeconds: 60,
+  message: 'Too many login attempts. Please wait a minute and try again.',
+});

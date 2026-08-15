@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   ShieldCheck,
+  Search,
 } from 'lucide-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -25,6 +26,7 @@ import {
 } from '@my-monorepo/store';
 import { clearPersistedAuth } from './auth/AuthInitializer';
 import { useGetOrGenerateAiPerformanceMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
+import NotificationBell from './(components)/MainPages/notifications/NotificationBell';
 
 const { Content, Sider } = Layout;
 
@@ -52,6 +54,7 @@ const App: React.FC = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { user } = useAppSelector((state) => state.user);
   const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
   const lastSentKey = useRef<string | null>(null);
@@ -78,15 +81,19 @@ useEffect(() => {
 
   const sendData = async () => {
     try {
-      dispatch(setAiReportLoading(true));
+      // The shell always loads the combined 'all exams' report. Per-exam
+      // reports are owned by the Performance page under their own scope, so
+      // drilling into one exam there never overwrites what the Dashboard shows.
+      dispatch(setAiReportLoading({ scope: 'all', isLoading: true }));
       const res = await getOrGenerateAiPerformance({ userId: user._id }).unwrap();
       // No performance data yet → clear any stale report (keep saved history)
       if (res.empty || !res.stats || !res.ai_report) {
-        dispatch(clearCurrentReport());
+        dispatch(clearCurrentReport({ scope: 'all' }));
         return;
       }
       dispatch(
         setAiReport({
+          scope: 'all',
           report: {
             success: res.success,
             stats: res.stats,
@@ -101,7 +108,7 @@ useEffect(() => {
       console.error(err);
       // Allow a retry on the next mount / user change if loading failed
       lastSentKey.current = null;
-      dispatch(setAiReportError('Failed to load AI performance report'));
+      dispatch(setAiReportError({ scope: 'all', error: 'Failed to load AI performance report' }));
     }
   };
   sendData();
@@ -132,10 +139,9 @@ useEffect(() => {
           collapsible
           collapsed={collapsed}
           onCollapse={(value) => setCollapsed(value)}
-          // When `collapsedWidth` is 0, Antd renders a small trigger button —
-          // `zeroWidthTriggerStyle` lets us position it. Center vertically
-          // and nudge it slightly into the content area.
-          zeroWidthTriggerStyle={{ top: '50%', transform: 'translateY(-50%)',  }}
+          // Track breakpoint; only show zero-width trigger and auto-collapse on mobile
+          onBreakpoint={(broken) => setIsMobile(broken)}
+          zeroWidthTriggerStyle={isMobile ? { top: '50%', transform: 'translateY(-50%)' } : undefined}
           style={{ background: '#111318', borderRight: '1px solid #23262D' }}
         >
           <aside className="w-full h-full bg-[#111318] text-[#F5F7FA] p-6 flex flex-col justify-between">
@@ -158,8 +164,8 @@ useEffect(() => {
                       key={index}
                       onClick={() => {
                         navigate(item.path);
-                        // collapse the sider after navigation (good for small screens)
-                        setCollapsed(true);
+                        // collapse only on mobile/small screens
+                        if (isMobile) setCollapsed(true);
                       }}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${
                         active
@@ -219,6 +225,23 @@ useEffect(() => {
                 background: '#0B0D12',
               }}
             >
+              {/* ── Global top bar: search + notifications ── */}
+              <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#23262D] sticky top-0 z-40 bg-[#0B0D12]">
+                <div className="relative flex-1 max-w-sm ml-auto">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280]" />
+                  <input
+                    placeholder="Search courses, exams..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim().length >= 2) {
+                        navigate(`/search?q=${encodeURIComponent((e.target as HTMLInputElement).value.trim())}`);
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#111318] border border-[#23262D] text-xs text-[#F5F7FA] placeholder-[#6B7280] focus:outline-none focus:border-[#00C8FF]/50 focus:ring-1 focus:ring-[#00C8FF]/30 transition-all"
+                  />
+                </div>
+                <NotificationBell />
+              </div>
               <Outlet />
             </div>
           </Content>

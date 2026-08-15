@@ -380,12 +380,14 @@ const adminApi = api.injectEndpoints({
 
     // ── Course Management ────────────────────────────────────
     getAdminCourses: build.query<AdminCourse[], void>({
-      query: () => ({ url: '/course' }),
+      // withStudents=true asks the backend to populate the enrolled-student
+      // list (public course listings skip it for performance).
+      query: () => ({ url: '/course?withStudents=true' }),
       providesTags: ['Course'],
     }),
 
     getAdminCourseById: build.query<AdminCourse, string>({
-      query: (courseId) => ({ url: `/course/by-course/${courseId}` }),
+      query: (courseId) => ({ url: `/course/by-course/${courseId}?withStudents=true` }),
       providesTags: (_result, _error, id) => [{ type: 'Course', id }],
     }),
 
@@ -425,7 +427,7 @@ const adminApi = api.injectEndpoints({
 
     // ── Lesson Management ────────────────────────────────────
     getCourseLessons: build.query<{ lessons: AdminLesson[] }, { courseId: string }>({
-      query: ({ courseId }) => `/lesson/${courseId}`,
+      query: ({ courseId }) => ({ url: `/lesson/${courseId}` }),
       providesTags: ['Lesson'],
     }),
 

@@ -72,9 +72,9 @@ function matchLabel(index: number): string {
 
 export default function ExamCategorySelection() {
   const navigate = useNavigate();
-  const { data: exams, isLoading, isError } = useGetExamsQuery();
-  const {data:user} = useGetMeQuery()
-  console.log(exams)
+
+  const {data:user,isLoading,isError} = useGetMeQuery()
+
 
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">

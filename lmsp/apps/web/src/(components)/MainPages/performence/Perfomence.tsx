@@ -76,24 +76,30 @@ const Performance = () => {
   // ─── AI Performance Report from store ──────────────────────
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.user);
-  const aiReport = useAppSelector((state) => state.aiPerformance.report);
-  const aiReportLoading = useAppSelector((state) => state.aiPerformance.isLoading);
-  const previous = useAppSelector((state) => state.aiPerformance.previous);
-  const isCached = useAppSelector((state) => state.aiPerformance.isCached);
-  const generatedAt = useAppSelector((state) => state.aiPerformance.generatedAt);
+
+  // ─── Exam selection (per-exam AI report) ──────────────────
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+  const [savedReportsOpen, setSavedReportsOpen] = useState(false);
+  const initialLoadDone = useRef(false);
+
+  // Read the report scoped to the selected exam ('all' = combined across every
+  // selected exam). Each scope lives in its own Redux slot, so switching exams
+  // here never overwrites the Dashboard's combined 'all' report.
+  const scope = selectedExamId ?? 'all';
+  const aiEntry = useAppSelector((state) => state.aiPerformance.reports[scope]);
+  const aiReport = aiEntry?.report ?? null;
+  const aiReportLoading = aiEntry?.isLoading ?? false;
+  const previous = aiEntry?.previous ?? null;
+  const isCached = aiEntry?.isCached ?? false;
+  const generatedAt = aiEntry?.generatedAt ?? null;
+  const aiError = aiEntry?.error ?? null;
   const history = useAppSelector((state) => state.aiPerformance.history);
   const aiStats = aiReport?.stats;
   const aiInsights = aiReport?.ai_report;
   const [getOrGenerateAiPerformance, { isLoading: isRegenerating }] =
     useGetOrGenerateAiPerformanceMutation();
-  
-    const { data: userData } = useGetMeQuery();
 
-  // ─── Exam selection (per-exam AI report) ──────────────────
-  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
-  const [savedReportsOpen, setSavedReportsOpen] = useState(false);
-  const aiError = useAppSelector((state) => state.aiPerformance.error);
-  const initialLoadDone = useRef(false);
+  const { data: userData } = useGetMeQuery();
 
   // Fetch the AI report whenever the exam selection changes (null = all exams).
   // Relies on App.tsx loading the overall report on mount, so the initial
@@ -107,18 +113,19 @@ const Performance = () => {
     let cancelled = false;
     (async () => {
       try {
-        dispatch(setAiReportLoading(true));
+        dispatch(setAiReportLoading({ scope, isLoading: true }));
         const res = await getOrGenerateAiPerformance({
           userId: user._id,
           examId: selectedExamId || undefined,
         }).unwrap();
         if (cancelled) return;
         if (res.empty || !res.stats || !res.ai_report) {
-          dispatch(clearCurrentReport());
+          dispatch(clearCurrentReport({ scope }));
           return;
         }
         dispatch(
           setAiReport({
+            scope,
             report: {
               success: res.success,
               stats: res.stats,
@@ -132,7 +139,7 @@ const Performance = () => {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          dispatch(setAiReportError('Failed to load AI performance report'));
+          dispatch(setAiReportError({ scope, error: 'Failed to load AI performance report' }));
         }
       }
     })();
@@ -167,18 +174,19 @@ const Performance = () => {
   const handleRegenerate = async () => {
     if (!user?._id) return;
     try {
-      dispatch(setAiReportLoading(true));
+      dispatch(setAiReportLoading({ scope, isLoading: true }));
       const res = await getOrGenerateAiPerformance({
         userId: user._id,
         examId: selectedExamId || undefined,
         force: true,
       }).unwrap();
       if (res.empty || !res.stats || !res.ai_report) {
-        dispatch(clearCurrentReport());
+        dispatch(clearCurrentReport({ scope }));
         return;
       }
       dispatch(
         setAiReport({
+          scope,
           report: {
             success: res.success,
             stats: res.stats,
@@ -191,7 +199,7 @@ const Performance = () => {
       );
     } catch (err) {
       console.error(err);
-      dispatch(setAiReportError('Failed to regenerate AI performance report'));
+      dispatch(setAiReportError({ scope, error: 'Failed to regenerate AI performance report' }));
     }
   };
 
@@ -232,10 +240,14 @@ const Performance = () => {
 
   const overallAccuracy = aiStats?.score_percentage;
   const strongest = radarData.length >= 2 ? radarData.reduce((a, b) => (a.value > b.value ? a : b)) : null;
-  const weakest = radarData.length >= 2 ? radarData.reduce((a, b) => (a.value < b.value ? a : b)) : null;
-
-  // userData.selectedExams is populated with exam objects by the backend
+  const weakest = radarData.length >= 2 ? radarData.reduce((a, b) => (a.value < b.value ? a : b)) : null;  // userData.selectedExams is populated with exam objects by the backend
   const selectedExams = (userData?.selectedExams as any[]) || [];
+
+  useEffect(()=>{
+    setSelectedExamId(selectedExams.length > 0 ? selectedExams[0]._id : null)
+  },[selectedExams])
+
+
 
   // ─── Saved reports summary (progress-over-time) ─────────────
   const reportHistory = history ?? [];

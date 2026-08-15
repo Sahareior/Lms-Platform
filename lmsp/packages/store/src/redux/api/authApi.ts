@@ -85,6 +85,23 @@ const authApi = api.injectEndpoints({
       providesTags: ['User'],
     }),
 
+    // ── Password reset ───────────────────────────────────────
+    forgotPassword: build.mutation<{ message: string }, { email: string }>({
+      query: (data) => ({
+        url: '/auth/forgot-password',
+        method: 'POST',
+        body: data,
+      }),
+    }),
+
+    resetPassword: build.mutation<{ message: string }, { token: string; email?: string; newPassword: string }>({
+      query: (data) => ({
+        url: '/auth/reset-password',
+        method: 'POST',
+        body: data,
+      }),
+    }),
+
     // ── Update Profile ───────────────────────────────────────
     updateProfile: build.mutation<User, Partial<User>>({
       query: (data) => ({
@@ -105,5 +122,7 @@ export const {
   useGetProfileQuery,
   useGetMeQuery,
   useUpdateProfileMutation,
-  useAddUserInfoMutation
+  useAddUserInfoMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
 } = authApi;

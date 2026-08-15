@@ -1,6 +1,7 @@
 import CourseModel from "../models/Courses.js";
 import UserData from "../models/UserDataModel.js";
 import { invalidatePrefix } from "../middleware/cache.js";
+import { createNotification } from "./NotificationController.js";
 
 const createCourse = async (req, res) => {
     const courseData = req.body;
@@ -15,13 +16,21 @@ const createCourse = async (req, res) => {
     }
 }
 
+// Populate the enrolled-student list only when explicitly requested
+// (admin views). Public/student course listings don't need thousands of
+// user documents dragged along with every course.
+const withEnrolledStudents = (req) => req.query?.withStudents === 'true';
+
 const listCourses = async (req, res) => {
     try {
-        const courses = await CourseModel.find()
+        let query = CourseModel.find()
             .populate('lessons')
             .populate('exam')
-            .populate('subjects')
-            .populate('enrolledStudents', '-password -__v');
+            .populate('subjects');
+        if (withEnrolledStudents(req)) {
+            query = query.populate('enrolledStudents', '-password -__v');
+        }
+        const courses = await query;
         res.status(200).json(courses);
     } catch (err) {
         console.error(err);
@@ -32,7 +41,6 @@ const listCourses = async (req, res) => {
 const updateCourse = async (req, res) => {
     const { courseId } = req.params;
     const courseData = req.body;
-   console.log(courseId, courseData)
 
     try {
         const updatedCourse = await CourseModel.findByIdAndUpdate(courseId, courseData, { new: true });
@@ -49,14 +57,16 @@ const updateCourse = async (req, res) => {
 
 const getCourseById = async (req, res) => {
     const { courseId } = req.params;
-    console.log('Fetching course with ID:', courseId); // Log the courseId for debugging
 
     try {
-        const course = await CourseModel.findById(courseId)
+        let query = CourseModel.findById(courseId)
             .populate('lessons')
             .populate('exam')
-            .populate('subjects')
-            .populate('enrolledStudents', '-password -__v');
+            .populate('subjects');
+        if (withEnrolledStudents(req)) {
+            query = query.populate('enrolledStudents', '-password -__v');
+        }
+        const course = await query;
         if (!course) {
             return res.status(404).json({ message: 'Course not found' });
         }
@@ -69,14 +79,16 @@ const getCourseById = async (req, res) => {
 
 const getCoursesByExamId = async (req, res) => {
     const { examId } = req.params;
-    console.log('Fetching courses for exam ID:', examId); // Log the examId for debugging
 
     try {
-        const courses = await CourseModel.find({ exam: examId })
+        let query = CourseModel.find({ exam: examId })
             .populate('lessons')
             .populate('exam')
-            .populate('subjects')
-            .populate('enrolledStudents', '-password -__v');
+            .populate('subjects');
+        if (withEnrolledStudents(req)) {
+            query = query.populate('enrolledStudents', '-password -__v');
+        }
+        const courses = await query;
         if (courses.length === 0) {
             return res.status(404).json({ message: 'No courses found for this exam' });
         }
@@ -91,8 +103,6 @@ const enrollCourse = async (req, res) => {
     const { courseId } = req.params;
     const { userId } = req.body;
 
-    console.log('Enrolling user:', userId, 'in course:', courseId); // Log the userId and courseId for debugging
-
     try{
         const course = await CourseModel.findById(courseId);
         if(!course){
@@ -105,6 +115,13 @@ const enrollCourse = async (req, res) => {
         await course.save();
         await invalidatePrefix('cache:course');
         await invalidatePrefix('cache:course-enrolled');
+        await createNotification({
+            userId,
+            title: 'Enrolled successfully',
+            message: `You are now enrolled in "${course.title}". Happy learning!`,
+            type: 'course',
+            link: `/courses/${courseId}`,
+        });
         res.status(200).json({ message: 'User enrolled in course successfully' });
     } catch (err) {
         console.error(err);
@@ -114,7 +131,6 @@ const enrollCourse = async (req, res) => {
 
 const getEnrolledCourses = async (req, res) => {
     const { userId } = req.params;
-    console.log('Fetching enrolled courses for user ID:', userId); 
     try{
         const [courses, userData] = await Promise.all([
             CourseModel.find({ enrolledStudents: userId }).populate('lessons').populate('exam').populate('subjects'),

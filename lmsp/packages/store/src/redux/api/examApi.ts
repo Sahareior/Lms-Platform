@@ -72,7 +72,7 @@ const examApi = api.injectEndpoints({
         }),
 
         getImportentTopics:builder.query({
-            query:(examId) => `/important-topics?exam=${examId}`
+            query:(examId) => ({ url: `/important-topics?exam=${examId}` })
         }),
 
         getQuestionsByExam: builder.query<any[], { examId: string; versionId?: string }>({
