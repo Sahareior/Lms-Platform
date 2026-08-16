@@ -226,7 +226,7 @@ useEffect(() => {
               }}
             >
               {/* ── Global top bar: search + notifications ── */}
-              <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#23262D] sticky top-0 z-40 bg-[#0B0D12]">
+              {/* <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#23262D] sticky top-0 z-40 bg-[#0B0D12]">
                 <div className="relative flex-1 max-w-sm ml-auto">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280]" />
                   <input
@@ -241,7 +241,7 @@ useEffect(() => {
                   />
                 </div>
                 <NotificationBell />
-              </div>
+              </div> */}
               <Outlet />
             </div>
           </Content>

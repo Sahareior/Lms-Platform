@@ -1,9 +1,11 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Outlet } from 'react-router-dom';
 import ScrollToTop from './ScrollToTop';
+import Seo from './seo/Seo';
 import App from './App';
 import { Login, SignUp, ForgotPassword, ResetPassword } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
+import LandingPage from './LandingPage/LandingPage';
 
 // ─── Lazy page imports (route-level code splitting) ─────────
 // Each page ships in its own chunk, loaded on first visit, so the
@@ -21,9 +23,10 @@ const Settings = lazy(() => import('./(components)/Settings'));
 const AvailableCourses = lazy(() => import('./(components)/AvailableCourses'));
 const CourseDetails = lazy(() => import('./(components)/CourseDetails'));
 const Onboarding = lazy(() => import('./(components)/onBoarding/Onboarding'));
-const ExamOptions = lazy(() => import('./exam/ExamOptions'));
-const SelectedExam = lazy(() => import('./exam/routes/SelectedExam'));
-const Exampage = lazy(() => import('./exam/routes/StartExam'));
+const ExamOptions = lazy(() => import('./(components)/MainPages/mock_exam/ExamOptions'));
+const SelectedExam = lazy(() => import('./(components)/MainPages/mock_exam/routes/SelectedExam'));
+const Exampage = lazy(() => import('./(components)/MainPages/mock_exam/routes/StartExam'));
+const ResultPage = lazy(() => import('./(components)/MainPages/mock_exam/routes/ResultPage'));
 const QuestionMaster = lazy(() => import('./(components)/MainPages/Question_Master/component/QuestionMaster'));
 const ExamDin = lazy(() => import('./(components)/MainPages/Question_Master/component/ExamDin'));
 const ExamCategorySelection = lazy(() => import('./(components)/MainPages/Question_Master/ExamCategorySelection'));
@@ -41,10 +44,22 @@ const FeaturedExamControl = lazy(() => import('./AdminDashboard/pages/FeaturedEx
 const UserPerformance = lazy(() => import('./AdminDashboard/pages/UserPerformance'));
 
 const router = createBrowserRouter([
-  // ── Root layout: reset scroll to top on every route change ──
+  // ── Landing page (public marketing page with its own per-route SEO) ──
+  {
+    path: '/',
+    element: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <Seo />
+        <ScrollToTop />
+        <LandingPage />
+      </Suspense>
+    ),
+  },
+
   {
     element: (
       <>
+        <Seo />
         <ScrollToTop />
         <Outlet />
       </>
@@ -80,7 +95,7 @@ const router = createBrowserRouter([
 
       // ── Main App Layout (auth required) ──────────────────
       {
-        path: '/',
+        path: '/dashboard',
         element: (
           <AuthGuard>
             <App />
@@ -110,6 +125,10 @@ const router = createBrowserRouter([
                 element: <Exampage />,
               },
             ],
+          },
+          {
+            path: 'result',
+            element: <ResultPage />,
           },
         ],
       },

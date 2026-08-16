@@ -52,6 +52,7 @@ const SelectedExam = () => {
 
   const currentExam = exams?.find((e: any) => e._id === examId);
 
+  console.log("Current Exam:", scheduleExams);
   // Only upcoming/active exams for students
   const availableExams =
     scheduleExams?.filter(
@@ -116,7 +117,7 @@ const SelectedExam = () => {
                             ? scheduled.examVersion._id
                             : scheduled.examVersion;
                         navigate(
-                          `/mock-exam/selected-exam/exam-page?examId=${examId}&versionId=${versionId}`
+                          `/mock-exam/selected-exam/exam-page?examId=${examId}&versionId=${versionId}&scheduleId=${scheduled._id}`
                         );
                       }}
                       className="bg-[#111318] rounded-2xl border border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.25)] transition cursor-pointer group"

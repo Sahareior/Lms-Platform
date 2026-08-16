@@ -1,0 +1,14 @@
+# Geneseon LMS – robots.txt
+# Allow all search engines to crawl and index the site.
+User-agent: *
+Allow: /
+
+# Private / authenticated areas – no reason to crawl these.
+Disallow: /admin
+Disallow: /settings
+Disallow: /performance
+Disallow: /onboarding
+Disallow: /question-center
+
+# Where the crawler can find the full list of indexable pages.
+Sitemap: https://geneseon.netlify.app/sitemap.xml

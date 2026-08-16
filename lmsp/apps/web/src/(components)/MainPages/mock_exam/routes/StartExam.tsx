@@ -1,6 +1,6 @@
 import React from 'react'
 import { useSearchParams } from 'react-router-dom'
-import QuizPreatise from '../../(components)/QuizPreatise/QuizPreatise'
+import QuizPreatise from '../../../QuizPreatise/QuizPreatise'
 
 const Exampage = () => {
   const [searchParams] = useSearchParams();
