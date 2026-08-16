@@ -884,7 +884,7 @@ console.log(activeExamOverview,'thsi is active exam')
       </div>
 
       {/* ────── EXAMS AT A GLANCE (per selected exam accuracy) ────── */}
-      {examOverview.length > 0 && (
+      {/* {examOverview.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-[#9B51E0]/10 border border-[#9B51E0]/30">
@@ -940,7 +940,7 @@ console.log(activeExamOverview,'thsi is active exam')
             })}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* ────── QUICK ACTIONS ────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

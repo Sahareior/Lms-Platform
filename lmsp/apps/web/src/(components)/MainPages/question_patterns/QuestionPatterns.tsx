@@ -72,7 +72,7 @@ function ExamSelectionScreen({ onSelectExam }: { onSelectExam: (examId: string) 
             You haven't selected any exams yet. Start by enrolling in a course from your dashboard.
           </p>
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/dashboard")}
             className="inline-flex items-center gap-2 bg-[#2F80ED] text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#256BCE] transition-all active:scale-95"
           >
             <ArrowRight size={15} />
@@ -134,7 +134,7 @@ function ExamSelectionScreen({ onSelectExam }: { onSelectExam: (examId: string) 
         {/* Footer link back to dashboard */}
         <div className="text-center">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/dashboard")}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#6B7280] hover:text-[#F5F7FA] transition-colors"
           >
             <ArrowRight size={14} className="rotate-180" />

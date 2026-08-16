@@ -136,8 +136,7 @@ const Onboarding: React.FC = () => {
       await refetchUser();
     } catch (err) {
       console.warn('Could not refresh user data after saving exams:', err);
-    }
-    navigate('/');
+    }    navigate('/dashboard');
   };
 
   const activeCategory = CATEGORIES.find((c) => c.id === selectedCategory);
@@ -233,7 +232,7 @@ const Onboarding: React.FC = () => {
                 Please check back soon — exams are being added.
               </p>
               <button
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/dashboard')}
                 className="inline-flex items-center gap-2 bg-[#2F80ED] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#256BCE] transition-all active:scale-[0.98]"
               >
                 Go to Dashboard <ArrowRight size={15} />

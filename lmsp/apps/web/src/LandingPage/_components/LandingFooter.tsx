@@ -1,13 +1,5 @@
-import {
-  FacebookFilled,
-  InstagramOutlined,
-  LinkedinOutlined,
-  TwitterOutlined,
-  GithubOutlined,
-} from "@ant-design/icons";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { footerLinks } from "../landingTools/landingTools";
 
 const LandingFooter = () => {
   return (
@@ -15,7 +7,7 @@ const LandingFooter = () => {
       aria-label="Site footer"
       className="
         bg-[#020409]
-        px-6
+        px-2
         lg:px-14
         pt-16
         pb-8
@@ -29,21 +21,21 @@ const LandingFooter = () => {
 
         <div
           className="
-            grid
-            grid-cols-2
-            md:grid-cols-4
-            lg:grid-cols-[1.6fr_0.9fr_0.9fr_0.9fr_1.2fr]
-            gap-x-10
-            gap-y-12
+            flex
+            flex-col
+            md:flex-row
+            md:items-start
+            md:justify-between
+            gap-10
             pb-10
           "
         >
 
           {/* Brand */}
-          <div className="col-span-2 md:col-span-4 lg:col-span-1">
+          <div className="max-w-[300px]">
 
             <Link
-              to="/landing"
+              to="/"
               aria-label="Geneseon home"
               className="
                 inline-flex
@@ -53,31 +45,7 @@ const LandingFooter = () => {
               "
             >
               {/* Logo */}
-              <div className="relative w-6 h-6">
-
-                <div
-                  className="
-                    absolute
-                    inset-0
-                    rounded-full
-                    border-[2px]
-                    border-transparent
-                    border-t-[#a78bfa]
-                    border-l-[#38bdf8]
-                    rotate-[-35deg]
-                  "
-                />
-
-                <div
-                  className="
-                    absolute
-                    inset-[4px]
-                    rounded-full
-                    bg-[#020409]
-                  "
-                />
-
-              </div>
+               <img className='w-9' src="/logo1.png" alt="" />
 
               <span
                 className="
@@ -103,83 +71,11 @@ const LandingFooter = () => {
               innovative and impactful education.
             </p>
 
-            {/* Social */}
-            <div
-              className="
-                flex
-                items-center
-                gap-4
-                mt-5
-                text-base
-                text-gray-500
-              "
-            >
-              <a
-                href="#"
-                aria-label="Geneseon on X (Twitter)"
-                className="hover:text-white transition-colors"
-              >
-                <TwitterOutlined />
-              </a>
-
-              <a
-                href="#"
-                aria-label="Geneseon on LinkedIn"
-                className="hover:text-white transition-colors"
-              >
-                <LinkedinOutlined />
-              </a>
-
-              <a
-                href="#"
-                aria-label="Geneseon on YouTube"
-                className="hover:text-white transition-colors"
-              >
-                <YoutubeIcon />
-              </a>
-
-              <a
-                href="#"
-                aria-label="Geneseon on Instagram"
-                className="hover:text-white transition-colors"
-              >
-                <InstagramOutlined />
-              </a>
-
-              <a
-                href="#"
-                aria-label="Geneseon on GitHub"
-                className="hover:text-white transition-colors"
-              >
-                <GithubOutlined />
-              </a>
-            </div>
           </div>
 
 
-          {/* Platform */}
-          <FooterColumn
-            title="Platform"
-            links={footerLinks.platform}
-          />
-
-
-          {/* Resources */}
-          <FooterColumn
-            title="Resources"
-            links={footerLinks.resources}
-          />
-
-
-          {/* Company */}
-          <FooterColumn
-            title="Company"
-            links={footerLinks.company}
-          />
-
-
           {/* Newsletter */}
-          <div>
+          <div className="w-full md:w-auto md:max-w-[320px]">
 
             <h4
               className="
@@ -275,61 +171,6 @@ const LandingFooter = () => {
 
       </div>
     </footer>
-  );
-};
-
-
-/* =========================================================
-   FOOTER COLUMN
-========================================================= */
-
-const FooterColumn = ({ title, links }) => {
-  return (
-    <div>            <h4
-              className="
-                text-sm
-                font-medium
-                text-gray-300
-                mb-4
-              "
-            >
-              {title}
-            </h4>
-
-            <ul className="space-y-2.5">
-              {links.map((link) => (
-                <li key={link}>
-                  <a
-                    href="#"
-                    className="
-                      text-[13px]
-                      text-gray-500
-                      hover:text-white
-                      transition-colors
-                    "
-                  >
-                    {link}
-                  </a>
-                </li>
-              ))}
-            </ul>
-    </div>
-  );
-};
-
-
-/* Simple YouTube icon so we don't need another package */
-const YoutubeIcon = () => {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.9V8.1l6.8 3.9-6.8 3.9Z" />
-    </svg>
   );
 };
 

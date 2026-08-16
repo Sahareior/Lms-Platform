@@ -15,15 +15,10 @@ const DEFAULT_CONFIG: SeoConfig = {
 };
 
 const ROUTE_CONFIG: Record<string, SeoConfig> = {
-  '/landing': {
+  '/': {
     title: 'Geneseon – AI-Powered Exam Preparation & Mock Tests',
     description:
       'Geneseon is an AI-powered learning platform for competitive exams. Practice mock tests, quizzes, and past questions, and get personalized AI performance reports to master your dream exam.',
-  },
-  '/': {
-    title: 'Geneseon LMS – AI-Powered Exam Preparation & Mock Tests',
-    description:
-      'Practice mock tests, quizzes, and past questions with AI-powered performance analysis. Master your dream exam today.',
   },
   '/login': {
     title: 'Login – Geneseon LMS',
@@ -128,7 +123,7 @@ export default function Seo() {
     // the marketing landing page. Removed on every other route.
     setJsonLd(
       'landing-organization',
-      pathname === '/landing'
+      pathname === '/'
         ? {
             '@context': 'https://schema.org',
             '@type': 'Organization',

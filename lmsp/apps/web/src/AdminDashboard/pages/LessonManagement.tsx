@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Table, Card, Button, Modal, Form, Input, InputNumber, Switch, Space,
   Spin, Alert, Tag, message, Popconfirm, Typography, Empty, Divider, Select,
@@ -9,7 +9,8 @@ import {
   ReloadOutlined, VideoCameraOutlined, EyeOutlined, LinkOutlined,
   FileTextOutlined, SearchOutlined, FilterOutlined, ClockCircleOutlined,
   BookOutlined, CheckCircleOutlined, CloseCircleOutlined, PlayCircleOutlined,
-  LoadingOutlined
+  LoadingOutlined, FolderOpenOutlined, FolderAddOutlined, SaveOutlined,
+  CloseOutlined, HolderOutlined
 } from '@ant-design/icons';
 import MediaUpload from '../../reusable/MediaUpload';
 import type { ColumnsType } from 'antd/es/table';
@@ -19,8 +20,11 @@ import {
   useGetCourseLessonsQuery, useGetAdminCourseByIdQuery,
   useCreateAdminLessonMutation, useUpdateAdminLessonMutation,
   useDeleteAdminLessonMutation,
-  type AdminLesson
+  useGetCourseModulesQuery, useCreateAdminModuleMutation,
+  useUpdateAdminModuleMutation, useDeleteAdminModuleMutation,
+  type AdminLesson, type AdminModule, type AdminModuleWithLessons
 } from '@my-monorepo/store';
+import { ChevronDownIcon, Plus } from 'lucide-react';
 
 const { TextArea } = Input;
 const { Text, Title } = Typography;
@@ -54,10 +58,15 @@ const LessonManagement: React.FC = () => {
   const navigate = useNavigate();
   const { data: course, isLoading: courseLoading } = useGetAdminCourseByIdQuery(courseId ?? skipToken);
   const { data: lessonsData, isLoading: lessonsLoading, error, refetch } = useGetCourseLessonsQuery(courseId ? { courseId } : skipToken);
+  const { data: modulesData, isLoading: modulesLoading, refetch: refetchModules } =
+    useGetCourseModulesQuery(courseId ? { courseId } : skipToken);
 
   const [createLesson, { isLoading: isCreating }] = useCreateAdminLessonMutation();
   const [updateLesson, { isLoading: isUpdating }] = useUpdateAdminLessonMutation();
   const [deleteLesson] = useDeleteAdminLessonMutation();
+  const [createModule, { isLoading: isCreatingModule }] = useCreateAdminModuleMutation();
+  const [updateModule, { isLoading: isUpdatingModule }] = useUpdateAdminModuleMutation();
+  const [deleteModule] = useDeleteAdminModuleMutation();
 
   // Upload loading states
   const [isVideoUploading, setIsVideoUploading] = useState(false);
@@ -88,7 +97,146 @@ const LessonManagement: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all');
 
+  // Module management state
+  const [moduleModalOpen, setModuleModalOpen] = useState(false);
+  const [newModuleTitle, setNewModuleTitle] = useState('');
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+  const [editingModuleTitle, setEditingModuleTitle] = useState('');
+  const [deletingModuleId, setDeletingModuleId] = useState<string | null>(null);
+
+  const modules: AdminModule[] = modulesData?.modules ?? [];
   const lessons = lessonsData?.lessons ?? [];
+
+  // Resolve a lesson's module id whether the backend returned it as a
+  // string or as a populated object.
+  const getLessonModuleId = (lesson: AdminLesson): string | null => {
+    const ch = lesson.module as any;
+    if (!ch) return null;
+    return typeof ch === 'object' ? ch._id : ch;
+  };
+
+  // ── Drag & drop reordering (native HTML5 DnD, no extra deps) ──
+  // Local copies of the module structure so drag reorders render
+  // immediately, then we persist the new order to the backend.
+  const [localModules, setLocalModules] = useState<AdminModuleWithLessons[] | null>(null);
+  const [localUncategorized, setLocalUncategorized] = useState<AdminLesson[] | null>(null);
+  const [dragInfo, setDragInfo] = useState<{ key: string; groupId: string | null; rowType: 'module' | 'lesson' } | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (modulesData) {
+      setLocalModules(modulesData.modules);
+      setLocalUncategorized(modulesData.uncategorized);
+    }
+  }, [modulesData]);
+
+  const commitModuleOrder = async (next: AdminModuleWithLessons[]) => {
+    const changed = next
+      .map((m, i) => ({ moduleId: m._id, order: i + 1, prev: m.order }))
+      .filter(x => x.order !== x.prev);
+    if (changed.length === 0) return;
+    try {
+      await Promise.all(changed.map(c => updateModule({ moduleId: c.moduleId, data: { order: c.order } }).unwrap()));
+      message.success('Module order saved');
+    } catch {
+      message.error('Failed to save module order');
+      refetchModules();
+    }
+  };
+
+  const commitLessonOrder = async (modules: AdminModuleWithLessons[], uncategorized: AdminLesson[]) => {
+    // Renumber every lesson by its position across the whole course so the
+    // ordering stays consistent between modules and lessons.
+    const flat = [...modules.flatMap(m => m.lessons || []), ...uncategorized];
+    const changed = flat
+      .map((l, i) => ({ lessonId: l._id, order: i + 1, prev: l.order }))
+      .filter(x => x.order !== x.prev);
+    if (changed.length === 0) return;
+    try {
+      await Promise.all(changed.map(c => updateLesson({ lessonId: c.lessonId, data: { order: c.order } }).unwrap()));
+      message.success('Lesson order saved');
+      refetchModules(); // nested lessons are sourced from the modules query
+    } catch {
+      message.error('Failed to save lesson order');
+      refetch();
+      refetchModules();
+    }
+  };
+
+  const handleDrop = (record: any) => {
+    if (!dragInfo || dragInfo.key === record.key) return;
+
+    if (dragInfo.rowType === 'module' && record.rowType === 'module') {
+      const current = localModules ?? [];
+      const from = current.findIndex(m => `module-${m._id}` === dragInfo.key);
+      const to = current.findIndex(m => `module-${m._id}` === record.key);
+      if (from < 0 || to < 0) return;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      setLocalModules(next);
+      void commitModuleOrder(next);
+    } else if (
+      dragInfo.rowType === 'lesson' && record.rowType === 'lesson' &&
+      dragInfo.groupId === record.groupId
+    ) {
+      if (dragInfo.groupId) {
+        const current = localModules ?? [];
+        const modIdx = current.findIndex(m => m._id === dragInfo.groupId);
+        if (modIdx < 0) return;
+        const list = [...(current[modIdx].lessons || [])];
+        const from = list.findIndex(l => l._id === dragInfo.key);
+        const to = list.findIndex(l => l._id === record.key);
+        if (from < 0 || to < 0) return;
+        const [moved] = list.splice(from, 1);
+        list.splice(to, 0, moved);
+        const next = current.map((m, i) => i === modIdx ? { ...m, lessons: list } : m);
+        setLocalModules(next);
+        void commitLessonOrder(next, localUncategorized ?? []);
+      } else {
+        const current = localUncategorized ?? [];
+        const from = current.findIndex(l => l._id === dragInfo.key);
+        const to = current.findIndex(l => l._id === record.key);
+        if (from < 0 || to < 0) return;
+        const next = [...current];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        setLocalUncategorized(next);
+        void commitLessonOrder(localModules ?? [], next);
+      }
+    }
+    setDragInfo(null);
+    setDragOverKey(null);
+  };
+
+  const rowDragProps = (record: any) => {
+    if (record.rowType !== 'module' && record.rowType !== 'lesson') return {};
+    return {
+      draggable: true,
+      onDragStart: (e: React.DragEvent) => {
+        setDragInfo({ key: record.key, groupId: record.groupId ?? null, rowType: record.rowType });
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', record.key);
+      },
+      onDragOver: (e: React.DragEvent) => {
+        if (!dragInfo || dragInfo.key === record.key) return;
+        if (dragInfo.rowType !== record.rowType) return;
+        if (dragInfo.rowType === 'lesson' && dragInfo.groupId !== record.groupId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverKey !== record.key) setDragOverKey(record.key);
+      },
+      onDrop: (e: React.DragEvent) => {
+        e.preventDefault();
+        handleDrop(record);
+      },
+      onDragEnd: () => {
+        setDragInfo(null);
+        setDragOverKey(null);
+      },
+      style: { cursor: 'grab' },
+    };
+  };
 
   // ── Video upload handler ─────
   const handleVideoUpload = (form: any) => (url: string, meta?: { duration?: number }) => {
@@ -151,6 +299,7 @@ const LessonManagement: React.FC = () => {
       const payload = {
         ...values,
         course: courseId,
+        module: values.module && values.module !== '__none__' ? values.module : null,
         material: parseMaterial(values.material),
         resources: createResources.length > 0 ? createResources : undefined,
       };
@@ -170,6 +319,7 @@ const LessonManagement: React.FC = () => {
     try {
       const payload = {
         ...values,
+        module: values.module && values.module !== '__none__' ? values.module : null,
         material: parseMaterial(values.material),
         resources: editResources.length > 0 ? editResources : undefined,
       };
@@ -195,13 +345,64 @@ const LessonManagement: React.FC = () => {
     }
   };
 
+  // ── Module CRUD handlers ────────────────────────────
+  const handleCreateModule = async () => {
+    const title = newModuleTitle.trim();
+    if (!title) return;
+    if (!courseId) return;
+    try {
+      await createModule({ title, course: courseId }).unwrap();
+      message.success('Module created!');
+      setNewModuleTitle('');
+      refetchModules();
+      refetch();
+    } catch (err: any) {
+      message.error(err?.data?.message || 'Failed to create module');
+    }
+  };
+
+  const startEditModule = (module: AdminModule) => {
+    setEditingModuleId(module._id);
+    setEditingModuleTitle(module.title);
+  };
+
+  const handleSaveModule = async () => {
+    const title = editingModuleTitle.trim();
+    if (!editingModuleId || !title) return;
+    try {
+      await updateModule({ moduleId: editingModuleId, data: { title } }).unwrap();
+      message.success('Module updated!');
+      setEditingModuleId(null);
+      refetchModules();
+      refetch();
+    } catch (err: any) {
+      message.error(err?.data?.message || 'Failed to update module');
+    }
+  };
+
+  const handleDeleteModule = async (moduleId: string) => {
+    try {
+      setDeletingModuleId(moduleId);
+      await deleteModule(moduleId).unwrap();
+      message.success('Module deleted. Its lessons moved to Uncategorized.');
+      refetchModules();
+      refetch();
+    } catch (err: any) {
+      message.error(err?.data?.message || 'Failed to delete module');
+    } finally {
+      setDeletingModuleId(null);
+    }
+  };
+
   const openEditModal = (lesson: AdminLesson) => {
     setEditingLesson(lesson);
     setEditResources(lesson.resources || []);
+    const moduleId = getLessonModuleId(lesson);
     editForm.setFieldsValue({
       title: lesson.title,
       description: lesson.description,
       videoUri: lesson.videoUri,
+      module: moduleId || '__none__',
       order: lesson.order,
       duration: lesson.duration,
       isPreview: lesson.isPreview,
@@ -217,8 +418,8 @@ const LessonManagement: React.FC = () => {
     const published = lessons.filter(l => l.isPublished).length;
     const draft = total - published;
     const totalResources = lessons.reduce((acc, l) => acc + (l.resources?.length || 0) + (l.material?.length || 0), 0);
-    return { total, published, draft, totalResources };
-  }, [lessons]);
+    return { total, published, draft, totalResources, modules: modules.length };
+  }, [lessons, modules]);
 
   // ── Filtered lessons ────────────────────────────
   const filteredLessons = useMemo(() => {
@@ -232,82 +433,183 @@ const LessonManagement: React.FC = () => {
     });
   }, [lessons, searchText, statusFilter]);
 
+  // ── Grouped rows: each module is a collapsible row with its lessons ──
+  type LessonRow = AdminLesson & { key: string; rowType: 'lesson'; groupId: string | null };
+  type ModuleRow = {
+    key: string;
+    rowType: 'module';
+    moduleId: string;
+    title: string;
+    order?: number;
+    children?: LessonRow[];
+  };
+
+  const isFiltering = !!searchText || statusFilter !== 'all';
+  const groupedData = useMemo(() => {
+    const rows: ModuleRow[] = [];
+    const sourceModules = localModules ?? [];
+    const sourceUncategorized = localUncategorized ?? [];
+
+    const filterLesson = (l: AdminLesson) => {
+      const matchSearch = !searchText || l.title.toLowerCase().includes(searchText.toLowerCase());
+      const matchStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'published' && l.isPublished) ||
+        (statusFilter === 'draft' && !l.isPublished);
+      return matchSearch && matchStatus;
+    };
+
+    for (const module of sourceModules) {
+      const children = (module.lessons || [])
+        .filter(filterLesson)
+        .map(l => ({ ...l, key: l._id, rowType: 'lesson' as const, groupId: module._id }));
+      // When filtering, drop empty modules to reduce noise.
+      if (isFiltering && children.length === 0) continue;
+      rows.push({
+        key: `module-${module._id}`,
+        rowType: 'module',
+        moduleId: module._id,
+        title: module.title,
+        order: module.order,
+        children,
+      });
+    }
+
+    // Lessons created before modules existed (or assigned to none).
+    const uncategorized = sourceUncategorized
+      .filter(filterLesson)
+      .map(l => ({ ...l, key: l._id, rowType: 'lesson' as const, groupId: null }));
+    if (uncategorized.length > 0) {
+      rows.push({
+        key: 'module-uncategorized',
+        rowType: 'module',
+        moduleId: '',
+        title: 'Uncategorized',
+        children: uncategorized,
+      });
+    }
+    return rows;
+  }, [localModules, localUncategorized, searchText, statusFilter, isFiltering]);
+
   // ── Columns ─────────────────────────────────────
-  const columns: ColumnsType<AdminLesson> = [
+  const isModuleRow = (record: any) => record?.rowType === 'module';
+
+  const columns: ColumnsType<any> = [
     {
       title: '#',
       key: 'index',
-      width: 52,
-      render: (_: any, __: AdminLesson, index: number) => (
-        <span className="text-emerald-400/70 font-mono text-xs font-medium">{index + 1}</span>
-      ),
+      width: 64,
+      render: (_: any, record: any) =>
+        isModuleRow(record) ? (
+          <Plus className="text-amber-400/80 text-base hidden" />
+        ) : (
+          <span className="flex items-center gap-1 text-emerald-400/70 font-mono text-xs font-medium">
+            <HolderOutlined className="text-[#4A564E] text-[10px]" />
+            {record.order ?? 0}
+          </span>
+        ),
     },
     {
       title: 'Lesson',
       dataIndex: 'title',
       key: 'title',
-      render: (title: string, record: AdminLesson) => (
-        <div className="flex items-center gap-3">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${record.isPublished
-            ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/25'
-            : 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25'
-            }`}>
-            <VideoCameraOutlined className="text-base" />
+      render: (title: string, record: any) =>
+        isModuleRow(record) ? (
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25">
+              <BookOutlined />
+            </div>
+            <div>
+              <Text strong className="block leading-tight text-[#E8F5EC]">{record.title}</Text>
+              <span className="text-xs text-[#7A8A80]">
+                {record.children?.length ?? 0} lesson{(record.children?.length ?? 0) === 1 ? '' : 's'}
+              </span>
+            </div>
           </div>
-          <div>
-            <Text strong className="block leading-tight text-[#E8F5EC]">{title}</Text>
-            <span className="text-xs text-[#7A8A80]">
-              {record.duration ? `${record.duration} min` : 'No duration'}
-              {record.isPreview && (
-                <span className="text-emerald-400 font-medium"> · Free preview</span>
-              )}
-            </span>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${record.isPublished
+              ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/25'
+              : 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25'
+              }`}>
+              <VideoCameraOutlined className="text-base" />
+            </div>
+            <div>
+              <Text strong className="block leading-tight text-[#E8F5EC]">{title}</Text>
+              <span className="text-xs text-[#7A8A80]">
+                {record.duration ? `${record.duration} min` : 'No duration'}
+                {record.isPreview && (
+                  <span className="text-emerald-400 font-medium"> · Free preview</span>
+                )}
+              </span>
+            </div>
           </div>
-        </div>
-      ),
-      sorter: (a, b) => a.title.localeCompare(b.title),
+        ),
     },
     {
       title: 'Duration',
       dataIndex: 'duration',
       key: 'duration',
       width: 110,
-      render: (mins: number) => mins ? (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25">
-          <ClockCircleOutlined className="text-[10px]" />
-          {mins} min
-        </span>
-      ) : (
-        <span className="text-[#4A564E]">—</span>
-      ),
+      render: (mins: number, record: any) => {
+        if (isModuleRow(record)) {
+          const total = (record.children || []).reduce((acc: number, l: any) => acc + (l.duration || 0), 0);
+          return total > 0 ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/25">
+              <ClockCircleOutlined className="text-[10px]" />
+              {total} min
+            </span>
+          ) : (
+            <span className="text-[#4A564E]">—</span>
+          );
+        }
+        return mins ? (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25">
+            <ClockCircleOutlined className="text-[10px]" />
+            {mins} min
+          </span>
+        ) : (
+          <span className="text-[#4A564E]">—</span>
+        );
+      },
     },
     {
       title: 'Status',
       key: 'status',
       width: 110,
-      render: (_: any, record: AdminLesson) => (
-        <Tag
-          icon={record.isPublished ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-          className={`!rounded-full !px-2.5 !py-0.5 !border-0 !font-medium ${record.isPublished
-            ? '!bg-emerald-500/15 !text-emerald-300'
-            : '!bg-amber-500/15 !text-amber-300'
-            }`}
-        >
-          {record.isPublished ? 'Published' : 'Draft'}
-        </Tag>
-      ),
-      filters: [
-        { text: 'Published', value: 'published' },
-        { text: 'Draft', value: 'draft' },
-      ],
-      onFilter: (value, record) => (value === 'published' ? record.isPublished : !record.isPublished),
+      render: (_: any, record: any) => {
+        if (isModuleRow(record)) {
+          const published = (record.children || []).filter((l: any) => l.isPublished).length;
+          const total = (record.children || []).length;
+          return total > 0 ? (
+            <Tag className="!rounded-full !px-2.5 !py-0.5 !border-0 !font-medium !bg-sky-500/15 !text-sky-300">
+              {published}/{total} published
+            </Tag>
+          ) : (
+            <span className="text-[#4A564E]">—</span>
+          );
+        }
+        return (
+          <Tag
+            icon={record.isPublished ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+            className={`!rounded-full !px-2.5 !py-0.5 !border-0 !font-medium ${record.isPublished
+              ? '!bg-emerald-500/15 !text-emerald-300'
+              : '!bg-amber-500/15 !text-amber-300'
+              }`}
+          >
+            {record.isPublished ? 'Published' : 'Draft'}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Preview',
       dataIndex: 'isPreview',
       key: 'isPreview',
       width: 90,
-      render: (val: boolean) => val ? (
+      render: (val: boolean, record: any) => isModuleRow(record) ? (
+        <span className="text-[#4A564E]">—</span>
+      ) : val ? (
         <Tag icon={<EyeOutlined />} className="!rounded-full !bg-teal-500/15 !text-teal-300 !border-0 !font-medium">
           Free
         </Tag>
@@ -319,7 +621,20 @@ const LessonManagement: React.FC = () => {
       title: 'Resources',
       key: 'resources',
       width: 100,
-      render: (_: any, record: AdminLesson) => {
+      render: (_: any, record: any) => {
+        if (isModuleRow(record)) {
+          const count = (record.children || []).reduce(
+            (acc: number, l: any) => acc + (l.resources?.length || 0) + (l.material?.length || 0), 0
+          );
+          return count > 0 ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/25">
+              <LinkOutlined className="text-[10px]" />
+              {count}
+            </span>
+          ) : (
+            <span className="text-[#4A564E]">—</span>
+          );
+        }
         const count = (record.resources?.length || 0) + (record.material?.length || 0);
         return count > 0 ? (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25">
@@ -336,18 +651,59 @@ const LessonManagement: React.FC = () => {
       dataIndex: 'order',
       key: 'order',
       width: 70,
-      render: (order: number) => (
+      render: (order: number, record: any) => isModuleRow(record) ? (
+        <span className="font-mono text-xs bg-amber-500/15 text-amber-300 px-2.5 py-1 rounded-lg ring-1 ring-amber-500/25">
+          {order ?? 0}
+        </span>
+      ) : (
         <span className="font-mono text-xs bg-emerald-500/15 text-emerald-300 px-2.5 py-1 rounded-lg ring-1 ring-emerald-500/25">
           {order ?? 0}
         </span>
       ),
-      sorter: (a, b) => (a.order ?? 0) - (b.order ?? 0),
     },
     {
       title: 'Actions',
       key: 'actions',
       width: 120,
-      render: (_: any, record: AdminLesson) => (
+      render: (_: any, record: any) => isModuleRow(record) ? (
+        <Space size={4}>
+          <Tooltip title="Rename module">
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => {
+                startEditModule({
+                  _id: record.moduleId,
+                  title: record.title,
+                  course: courseId as string,
+                  order: record.order ?? 0,
+                });
+                setModuleModalOpen(true);
+              }}
+              className="!text-amber-400 hover:!bg-amber-500/10 hover:!text-amber-300"
+            />
+          </Tooltip>
+          <Popconfirm
+            title="Delete this module?"
+            description="Lessons inside it move to Uncategorized. Lessons are not deleted."
+            onConfirm={() => handleDeleteModule(record.moduleId)}
+            okText="Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Tooltip title="Delete module">
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                className="hover:!bg-red-500/10"
+              />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
+      ) : (
         <Space size={4}>
           <Tooltip title="Edit lesson">
             <Button
@@ -418,6 +774,24 @@ const LessonManagement: React.FC = () => {
 
     return (
       <>
+        <Form.Item
+          name="module"
+          label={<span className="text-[#C9DCCE] font-medium">Module</span>}
+          extra={<span className="text-xs text-[#7A8A80]">Group this lesson under a module — click the folder icon next to it in the list to see it grouped.</span>}
+        >
+          <Select
+            placeholder="Select a module (optional)"
+            loading={modulesLoading}
+            suffixIcon={<FolderOpenOutlined className="text-amber-400" />}
+            options={[
+              { value: '__none__', label: '— No module (Uncategorized) —' },
+              ...modules.map(ch => ({ value: ch._id, label: ch.title })),
+            ]}
+            onChange={(val) => form.setFieldValue('module', val === '__none__' ? null : val)}
+            className="!rounded-lg"
+          />
+        </Form.Item>
+
         <Form.Item
           name="title"
           label={<span className="text-[#C9DCCE] font-medium">Title</span>}
@@ -662,10 +1036,20 @@ const LessonManagement: React.FC = () => {
           <Space wrap size={10}>
             <Button
               icon={<ReloadOutlined />}
-              onClick={refetch}
+              onClick={() => { refetch(); refetchModules(); }}
               className="!rounded-lg !border-emerald-500/30 !text-emerald-400 hover:!border-emerald-500/60 hover:!text-emerald-300"
             >
               Refresh
+            </Button>
+            <Button
+              icon={<FolderAddOutlined />}
+              onClick={() => {
+                setEditingModuleId(null);
+                setModuleModalOpen(true);
+              }}
+              className="!rounded-lg !border-amber-500/40 !text-amber-400 hover:!border-amber-500/70 hover:!text-amber-300"
+            >
+              Manage Modules
             </Button>
             <Button
               type="primary"
@@ -680,7 +1064,16 @@ const LessonManagement: React.FC = () => {
 
         {/* Stats */}
         <Divider dashed className="!my-5 !border-emerald-500/20" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="stat-card">
+            <div className="stat-icon bg-amber-500/15 text-amber-400">
+              <FolderOpenOutlined />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-[#E8F5EC] tracking-tight">{stats.modules}</div>
+              <div className="text-xs text-[#7A8A80] font-medium">Modules</div>
+            </div>
+          </div>
           <div className="stat-card">
             <div className="stat-icon bg-emerald-500/15 text-emerald-400">
               <PlayCircleOutlined />
@@ -745,7 +1138,11 @@ const LessonManagement: React.FC = () => {
             ]}
             suffixIcon={<FilterOutlined className="text-emerald-400" />}
           />
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-4">
+            <Text className="text-[#7A8A80] text-xs hidden lg:inline">
+              <HolderOutlined className="mr-1.5 text-[#4A564E]" />
+              Drag rows to reorder
+            </Text>
             <Text className="text-[#7A8A80] text-sm">
               <span className="font-semibold text-emerald-400">{filteredLessons.length}</span>
               {' '}of {lessons.length} lessons
@@ -759,34 +1156,70 @@ const LessonManagement: React.FC = () => {
         className="!rounded-2xl !shadow-sm !border-emerald-500/15 overflow-hidden"
         bodyStyle={{ padding: 0 }}
       >
-        {filteredLessons.length === 0 ? (
+        {groupedData.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={<span className="text-[#7A8A80]">No lessons match your criteria</span>}
             className="!py-16"
           >
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setCreateModalOpen(true)}
-              className="!rounded-lg !bg-emerald-600 hover:!bg-emerald-500 !border-emerald-600"
-            >
-              Create First Lesson
-            </Button>
+            <Space wrap size={8}>
+              <Button
+                icon={<FolderAddOutlined />}
+                onClick={() => {
+                  setEditingModuleId(null);
+                  setModuleModalOpen(true);
+                }}
+                className="!rounded-lg !border-amber-500/40 !text-amber-400 hover:!border-amber-500/70 hover:!text-amber-300"
+              >
+                Create Module
+              </Button>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setCreateModalOpen(true)}
+                className="!rounded-lg !bg-emerald-600 hover:!bg-emerald-500 !border-emerald-600"
+              >
+                Create First Lesson
+              </Button>
+            </Space>
           </Empty>
         ) : (
           <Table
             columns={columns}
-            dataSource={filteredLessons}
-            rowKey="_id"
+            dataSource={groupedData}
+            rowKey="key"
             pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
-              className: '!px-4 !py-3',
+              pageSize: 50,
+              hideOnSinglePage: true,
             }}
             scroll={{ x: 800 }}
-            rowClassName="hover:!bg-emerald-500/5 transition-colors"
+            onRow={rowDragProps}
+            rowClassName={(record: any) => {
+              const isDragging = dragInfo?.key === record.key;
+              const isDragTarget = dragOverKey === record.key;
+              const base = record?.rowType === 'module'
+                ? 'hover:!bg-amber-500/5 !bg-[#101510]'
+                : 'hover:!bg-emerald-500/5';
+              return `transition-colors ${base} ${isDragging ? '!opacity-40' : ''} ${
+                isDragTarget
+                  ? record?.rowType === 'module' ? '!bg-amber-500/20' : '!bg-emerald-500/15'
+                  : ''
+              }`;
+            }}
+            expandable={{
+              defaultExpandAllRows: false,
+              indentSize: 18,
+              expandIcon: ({ expanded, onExpand, record }: any) => (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<ChevronDownIcon rotate={expanded ? -90 : 0} className="text-amber-400 !text-lg transition-transform" />}
+                  onClick={(e) => onExpand(record, e)}
+                  disabled={!record.children?.length}
+                  className="!p-0 !h-7 !w-7"
+                />
+              ),
+            }}
             className="emerald-table"
           />
         )}
@@ -880,6 +1313,144 @@ const LessonManagement: React.FC = () => {
             </Button>
           </div>
         </Form>
+      </Modal>
+
+      {/* Manage Modules Modal */}
+      <Modal
+        title={
+          <Space className="text-amber-400">
+            <FolderOpenOutlined />
+            <span className="font-semibold">Manage Modules</span>
+          </Space>
+        }
+        open={moduleModalOpen}
+        onCancel={() => {
+          setModuleModalOpen(false);
+          setEditingModuleId(null);
+          setNewModuleTitle('');
+        }}
+        footer={null}
+        width={560}
+        destroyOnClose
+        className="emerald-modal"
+      >
+        <div className="mt-4 space-y-4">
+          {/* Create module */}
+          <div className="flex gap-2">
+            <Input
+              placeholder="New module name, e.g. Module 1 – Fundamentals"
+              value={newModuleTitle}
+              onChange={(e) => setNewModuleTitle(e.target.value)}
+              onPressEnter={handleCreateModule}
+              prefix={<FolderAddOutlined className="text-amber-400" />}
+              className="!rounded-lg hover:!border-amber-500/60 focus:!border-amber-500"
+            />
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              loading={isCreatingModule}
+              onClick={handleCreateModule}
+              className="!rounded-lg !bg-amber-600 hover:!bg-amber-500 !border-amber-600"
+            >
+              Add
+            </Button>
+          </div>
+
+          {/* Module list */}
+          {modules.length === 0 ? (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={
+                <span className="text-[#7A8A80] text-sm">
+                  No modules yet. Create one, then assign lessons to it from the lesson form.
+                </span>
+              }
+              className="!py-6"
+            />
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {modules.map((module, idx) => {
+                const lessonCount = lessons.filter((l) => getLessonModuleId(l) === module._id).length;
+                const isEditing = editingModuleId === module._id;
+                return (
+                  <div
+                    key={module._id}
+                    className="flex items-center gap-3 bg-amber-500/5 p-3 rounded-xl border border-amber-500/15 hover:border-amber-500/30 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center flex-shrink-0">
+                      <FolderOpenOutlined className="text-sm" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <Input
+                          value={editingModuleTitle}
+                          onChange={(e) => setEditingModuleTitle(e.target.value)}
+                          onPressEnter={handleSaveModule}
+                          autoFocus
+                          size="small"
+                          className="!rounded-lg"
+                        />
+                      ) : (
+                        <>
+                          <div className="text-sm font-semibold text-[#E8F5EC] truncate">{module.title}</div>
+                          <div className="text-xs text-[#7A8A80]">
+                            #{idx + 1} · {lessonCount} lesson{lessonCount === 1 ? '' : 's'}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <Space size={2}>
+                      {isEditing ? (
+                        <>
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<SaveOutlined />}
+                            loading={isUpdatingModule}
+                            onClick={handleSaveModule}
+                            className="!text-emerald-400 hover:!bg-emerald-500/10"
+                          />
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<CloseOutlined />}
+                            onClick={() => setEditingModuleId(null)}
+                            className="!text-[#7A8A80] hover:!bg-white/5"
+                          />
+                        </>
+                      ) : (
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => startEditModule(module)}
+                          className="!text-amber-400 hover:!bg-amber-500/10"
+                        />
+                      )}
+                      <Popconfirm
+                        title="Delete this module?"
+                        description="Lessons inside it move to Uncategorized."
+                        onConfirm={() => handleDeleteModule(module._id)}
+                        okText="Delete"
+                        cancelText="Cancel"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <Button
+                          type="text"
+                          size="small"
+                          danger
+                          loading={deletingModuleId === module._id}
+                          icon={<DeleteOutlined />}
+                          className="hover:!bg-red-500/10"
+                        />
+                      </Popconfirm>
+                    </Space>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </Modal>
 
       {/* Resource Modal */}

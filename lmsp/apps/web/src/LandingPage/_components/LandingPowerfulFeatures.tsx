@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { cards } from "../landingTools/landingTools";
 
@@ -9,7 +10,7 @@ const cardImages = [
 
 const LandingPowerfulFeatures = () => {
   return (
-    <section className="py-24 px-6 lg:px-8 bg-[#0a0c14]">
+    <section className="py-24 px-2 lg:px-8 bg-[#0a0c14]">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Left Content */}
@@ -23,12 +24,12 @@ const LandingPowerfulFeatures = () => {
             <p className="text-gray-400 mb-8 text-[14px] leading-relaxed">
               Geneseon combines technology and education to deliver a seamless learning experience that adapts to you.
             </p>
-            <a
-              href="#"
+            <Link
+              to="/register"
               className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors text-sm font-medium"
             >
               Discover all features <ArrowRight size={14} />
-            </a>
+            </Link>
           </div>
 
           {/* Right Cards */}

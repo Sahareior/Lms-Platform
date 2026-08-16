@@ -1,11 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Outlet } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import ScrollToTop from './ScrollToTop';
 import Seo from './seo/Seo';
 import App from './App';
 import { Login, SignUp, ForgotPassword, ResetPassword } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
-import LandingPage from './LandingPage/LandingPage';
+import HomeRedirect from './auth/HomeRedirect';
 
 // ─── Lazy page imports (route-level code splitting) ─────────
 // Each page ships in its own chunk, loaded on first visit, so the
@@ -44,16 +44,21 @@ const FeaturedExamControl = lazy(() => import('./AdminDashboard/pages/FeaturedEx
 const UserPerformance = lazy(() => import('./AdminDashboard/pages/UserPerformance'));
 
 const router = createBrowserRouter([
-  // ── Landing page (public marketing page with its own per-route SEO) ──
+  // ── Landing page at / (public marketing page with its own per-route SEO) ──
   {
     path: '/',
     element: (
       <Suspense fallback={<div>Loading...</div>}>
         <Seo />
         <ScrollToTop />
-        <LandingPage />
+        <HomeRedirect />
       </Suspense>
     ),
+  },
+  // Old /landing URL → redirect to the new home
+  {
+    path: '/landing',
+    element: <Navigate to="/" replace />,
   },
 
   {
@@ -94,62 +99,63 @@ const router = createBrowserRouter([
       },
 
       // ── Main App Layout (auth required) ──────────────────
+      // Pathless layout so the app keeps its top-level URLs (/mock-exam,
+      // /performance, …) while / itself stays the public landing page.
       {
-        path: '/dashboard',
         element: (
           <AuthGuard>
             <App />
           </AuthGuard>
         ),
-    children: [
-      { index: true, element: <Dashboard /> },
-      { path: 'available-courses', element: <AvailableCourses /> },
-      { path: 'course/:courseId', element: <CourseDetails /> },
-      { path: 'courses', element: <LessonPage /> },
-      { path: 'courses/:courseId', element: <LessonPage /> },
-      {
-        path: 'quiz',
-        element: <QuizPreatise />,
-        children: [],
-      },
-      {
-        path: 'mock-exam',
-        element: <ExamOptions />,
         children: [
+          { path: 'dashboard', element: <Dashboard /> },
+          { path: 'available-courses', element: <AvailableCourses /> },
+          { path: 'course/:courseId', element: <CourseDetails /> },
+          { path: 'courses', element: <LessonPage /> },
+          { path: 'courses/:courseId', element: <LessonPage /> },
           {
-            path: 'selected-exam',
-            element: <SelectedExam />,
+            path: 'quiz',
+            element: <QuizPreatise />,
+            children: [],
+          },
+          {
+            path: 'mock-exam',
+            element: <ExamOptions />,
             children: [
               {
-                path: 'exam-page',
-                element: <Exampage />,
+                path: 'selected-exam',
+                element: <SelectedExam />,
+                children: [
+                  {
+                    path: 'exam-page',
+                    element: <Exampage />,
+                  },
+                ],
+              },
+              {
+                path: 'result',
+                element: <ResultPage />,
               },
             ],
           },
+          { path: 'ai-assistant', element: <AIChatInterface /> },
+          { path: 'question-bank', element: <QuestionPatterns /> },
+          { path: 'performance', element: <Perfomence /> },
+          { path: 'search', element: <SearchPage /> },
+          { path: 'question-center', element: <ExamCategorySelection /> },
           {
-            path: 'result',
-            element: <ResultPage />,
+            path: 'question-center/:examType',
+            element: <QuestionMaster />,
+            children: [
+              {
+                path: 'exam-din',
+                element: <ExamDin />,
+              },
+            ],
           },
+          { path: 'settings', element: <Settings /> },
         ],
       },
-      { path: 'ai-assistant', element: <AIChatInterface /> },
-      { path: 'question-bank', element: <QuestionPatterns /> },
-      { path: 'performance', element: <Perfomence /> },
-      { path: 'search', element: <SearchPage /> },
-      { path: 'question-center', element: <ExamCategorySelection /> },
-      {
-        path: 'question-center/:examType',
-        element: <QuestionMaster />,
-        children: [
-          {
-            path: 'exam-din',
-            element: <ExamDin />,
-          },
-        ],
-      },
-      { path: 'settings', element: <Settings /> },
-    ],
-  },
 
       // ── Admin Routes (auth + admin role required) ────────
       {

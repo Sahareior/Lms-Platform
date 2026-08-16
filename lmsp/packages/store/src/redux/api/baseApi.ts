@@ -9,8 +9,8 @@ import {
 // ─── Configuration State ───────────────────────────────────
 // These are read on every request via closure, so they can be
 // updated at any time without rebuilding the API slice.
-let _baseUrl = 'https://lms-platform-fjwv.onrender.com/';
-// let _baseUrl = 'http://localhost:3000/';
+// let _baseUrl = 'https://lms-platform-fjwv.onrender.com/';
+let _baseUrl = 'http://localhost:3000/';
 let _token: string | null = null;
 
 /**
@@ -61,6 +61,7 @@ export const tagTypes = [
   'Performance',
   'Question',
   'Lesson',
+  'Module',
   'Note',
   'ExamVersion',
   'Subject',

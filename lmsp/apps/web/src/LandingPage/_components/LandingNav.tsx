@@ -3,22 +3,20 @@ import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { gradientBtn } from "../landingTools/landingTools";
 
-const navLinks = ["Home", "Features", "Courses", "Pricing", "About", "Contact"];
+// Only sections that exist on the page — keeps the nav honest and minimal.
+const navLinks = ["Home", "Features"];
 
 const LandingNav = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <nav aria-label="Main navigation" className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#03050a]/70 backdrop-blur-md border-b border-white/[0.05]">
-      <div className="max-w-[1400px] mx-auto h-full px-6 lg:px-14">
+      <div className="max-w-[1400px] mx-auto h-full px-2 lg:px-14">
         <div className="h-full flex items-center justify-between">
 
           {/* Logo */}
-          <Link to="/landing" aria-label="Geneseon home" className="flex items-center gap-2.5 group">
-            <div className="relative w-[22px] h-[22px]">
-              <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#a78bfa] border-l-[#38bdf8] rotate-[-35deg]" />
-              <div className="absolute inset-[4px] rounded-full bg-[#03050a]" />
-            </div>
+          <Link to="/" aria-label="Geneseon home" className="flex items-center gap-2.5 group">
+          <img className='w-9' src="/logo2.png" alt="" />
 
             <span className="text-sm font-medium tracking-[0.35em] text-white">
               GENESEON

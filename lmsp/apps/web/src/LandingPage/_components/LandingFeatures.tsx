@@ -32,7 +32,7 @@ const LandingFeatures = () => {
         relative
         overflow-hidden
         bg-[#020409]
-        px-6
+        px-2
         lg:px-14
         py-24
         lg:py-28
@@ -301,26 +301,6 @@ const LandingFeatures = () => {
                 that adapts to you.
               </p>
 
-              <a
-                href="#features"
-                className="
-                  mt-8
-                  inline-flex
-                  items-center
-                  gap-2
-                  text-sm
-                  font-medium
-                  text-[#7894ff]
-                  hover:text-white
-                  transition-colors
-                "
-              >
-                Discover all features
-
-                <span className="text-[12px]">
-                  →
-                </span>
-              </a>
             </div>
 
 

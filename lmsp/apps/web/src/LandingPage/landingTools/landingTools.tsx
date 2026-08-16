@@ -23,9 +23,3 @@ export const cards = [
   { title: "Advanced Analytics", desc: "Data-driven insights that help you focus on what matters." },
   { title: "Seamless Experience", desc: "Beautiful, fast and intuitive across all your devices." },
 ];
-
-export const footerLinks = {
-  platform: ["Courses", "Instructors", "Pricing", "Become an Instructor"],
-  resources: ["Blog", "Help Center", "Guides", "Community"],
-  company: ["About Us", "Careers", "Contact", "Privacy Policy"],
-};

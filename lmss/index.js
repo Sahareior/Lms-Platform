@@ -9,6 +9,7 @@ import user from './routes/auth.js';
 import examRoutes from './routes/exam.js';
 import course from './routes/course.js';
 import lesson from './routes/lesson.js';
+import module from './routes/module.js';
 import questions from './routes/questions.js';
 import examVer from './routes/examVersion.js';
 import subjectRoutes from './routes/subject.js';
@@ -78,6 +79,7 @@ app.use('/auth', user)
 app.use('/exams', examRoutes)
 app.use('/course', course);
 app.use('/lesson', lesson);
+app.use('/module', module);
 app.use('/questions', questions)
 app.use('/exam-version',examVer)
 app.use('/subjects', subjectRoutes)

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { gradientBtn } from "../landingTools/landingTools";
 
 const LandingHero = () => {
@@ -88,7 +88,7 @@ const LandingHero = () => {
         min-h-screen
         max-w-[1400px]
         mx-auto
-        px-6 lg:px-14
+        px-2 lg:px-14
         pt-16
       "
       >
@@ -195,31 +195,6 @@ const LandingHero = () => {
                   "
                 />
               </Link>
-
-              <button
-                className="
-                group
-                flex items-center gap-3
-                text-sm
-                text-gray-400
-                hover:text-white
-                transition-colors
-              "
-              >
-                <span
-                  className="
-                  flex items-center justify-center
-                  w-9 h-9
-                  rounded-full
-                  border border-white/20
-                  group-hover:border-white/50
-                  transition-colors
-                "
-                >
-                  <Play size={11} fill="currentColor" />
-                </span>
-                Watch Intro
-              </button>
             </div>
           </div>
         </div>
@@ -379,76 +354,6 @@ const LandingHero = () => {
             Trusted by learners & educators
           </p>
 
-          <div
-            className="
-            flex
-            items-center
-            gap-8
-            sm:gap-12
-            lg:gap-16
-            opacity-60
-          "
-          >
-            <span
-              className="
-              text-base
-              font-medium
-              text-gray-300
-            "
-            >
-              Google
-            </span>
-
-            <span
-              className="
-              text-base
-              font-medium
-              text-gray-300
-            "
-            >
-              Microsoft
-            </span>
-
-            <span
-              className="
-              text-base
-              font-medium
-              text-gray-300
-            "
-            >
-              Notion
-            </span>
-
-            <span
-              className="
-              text-base
-              font-medium
-              text-gray-300
-            "
-            >
-              ▲ vercel
-            </span>
-
-            <span
-              className="
-              text-base
-              font-medium
-              text-gray-300
-            "
-            >
-              aws
-            </span>
-
-            <span
-              className="
-              text-base
-              font-medium
-              text-gray-300
-            "
-            >
-              stripe
-            </span>
-          </div>
         </div>
       </div>
     </section>

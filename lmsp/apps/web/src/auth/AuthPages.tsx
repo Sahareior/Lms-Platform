@@ -175,7 +175,7 @@ export const Login: React.FC = () => {
       persistAuth(data.token, userInfo);
       dispatch(loginSuccess(userInfo));
 
-      const from = (location.state as any)?.from || '/';
+      const from = (location.state as any)?.from || '/dashboard';
       navigate(from, { replace: true });
     } catch (error) {
       console.error('Login failed:', error);
@@ -299,7 +299,7 @@ export const SignUp: React.FC = () => {
       dispatch(loginSuccess(userInfo));
 
       // First-time users land on the onboarding page (AuthGuard redirects them there)
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error('Registration failed:', error);
       // You could add an error state here if desired

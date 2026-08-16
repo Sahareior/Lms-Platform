@@ -51,7 +51,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
 
   // Admin check
   if (requireAdmin && user?.role !== 'admin') {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   // First-time onboarding: students with no selected exams are sent to /onboarding.

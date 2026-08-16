@@ -8,9 +8,10 @@ const LandingCTA = () => {
       className="
         relative
         bg-[#020409]
-        px-6
+        px-2
         lg:px-14
-        py-36
+        md:py-36
+        py-12
         lg:py-24
       "
     >
@@ -20,7 +21,7 @@ const LandingCTA = () => {
         <div
           className="
             relative
-            h-[290px]
+            h-[390px]
             lg:h-[390px]
             overflow-hidden
             rounded-xl
@@ -142,7 +143,7 @@ const LandingCTA = () => {
                 shadow-[0_0_25px_rgba(99,102,241,0.25)]
               `}
             >
-              Get Started for Free
+              Get Started 
 
               <ArrowRight
                 size={12}
