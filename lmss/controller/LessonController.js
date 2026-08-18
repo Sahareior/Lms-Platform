@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Lesson from "../models/Lesson.js";
 import CourseModel from "../models/Courses.js";
+import Module from "../models/Module.js";
 import UserData from "../models/UserDataModel.js";
 import { invalidatePrefix } from "../middleware/cache.js";
 
@@ -10,6 +11,14 @@ export const createLesson = async (req, res) => {
         const course = await CourseModel.findById(lessonData.course);
         if (!course) {
             return res.status(404).json({ message: 'Course not found' });
+        }
+
+        // If a module is provided, make sure it belongs to the same course.
+        if (lessonData.module) {
+            const module = await Module.findById(lessonData.module);
+            if (!module || module.course.toString() !== lessonData.course) {
+                return res.status(400).json({ message: 'Module does not belong to this course' });
+            }
         }
 
         const newLesson = new Lesson(lessonData);
@@ -38,7 +47,9 @@ export const getLessonsByCourseId = async (req, res) => {
         return res.status(400).json({ message: 'Invalid course id' });
     }
     try {
-        const lessons = await Lesson.find({ course: courseId }).sort({ order: 1, createdAt: 1 });
+        const lessons = await Lesson.find({ course: courseId })
+            .populate('module')
+            .sort({ order: 1, createdAt: 1 });
 
         // Determine which lessons this user has completed (if logged in)
         let completedLessonIds = new Set();

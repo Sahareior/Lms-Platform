@@ -2,6 +2,16 @@ import QuestionModel from "../models/QuestionModel.js";
 import QuestionPatternModel from "../models/QuestionPatternModel.js";
 import { invalidatePrefix } from "../middleware/cache.js";
 
+// Mark every stored question document matching exam/version/subject as
+// analyzed so the Question Bank can show a Yes/No analyzed badge and let
+// admins retry a failed analysis from the stored set.
+const markQuestionsAnalyzed = async (exam, versionLabel, subjectRef) => {
+    const filter = { exam };
+    if (versionLabel) filter.examVersion = versionLabel;
+    if (subjectRef) filter.subject = subjectRef;
+    await QuestionModel.updateMany(filter, { $set: { analyzed: true } });
+};
+
 export const saveQuestionsInDb = async (req, res) => {
     try {
         const { exam, examVersion, subject, data } = req.body;
@@ -112,6 +122,8 @@ export const postQuestionPattern = async(req, res) => {
         const existingPattern = await QuestionPatternModel.findOne(queryFilter);
 
         if (existingPattern) {
+            // The pattern already exists — the set is effectively analyzed.
+            await markQuestionsAnalyzed(exam, versionLabel, subjectRef);
             return res.status(409).json({
                 status: 'DUPLICATE',
                 message: `Question pattern for exam "${exam}"${versionLabel ? ` version "${versionLabel}"` : ''}${subjectRef ? ` subject "${subjectRef}"` : ''} already exists.`,
@@ -132,6 +144,9 @@ export const postQuestionPattern = async(req, res) => {
         if (subjectRef) questionPattern.subject = subjectRef;
 
         await questionPattern.save();
+
+        // The analysis succeeded and was stored — reflect that on the question set.
+        await markQuestionsAnalyzed(exam, versionLabel, subjectRef);
 
         await invalidatePrefix('cache:question-pattern');
 
@@ -158,6 +173,7 @@ export const postQuestionPattern = async(req, res) => {
         
         // Handle duplicate key error
         if (err.code === 11000) {
+            await markQuestionsAnalyzed(req.body.exam, req.body.examVersion || '', req.body.subject || '');
             return res.status(409).json({
                 status: 'DUPLICATE_ERROR',
                 message: `Question pattern for "${req.body.exam}" already exists.`,

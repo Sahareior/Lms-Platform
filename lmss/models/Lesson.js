@@ -23,6 +23,14 @@ const lessonSchema = new mongoose.Schema({
     ref: 'Course',
     required: true,
   },
+
+  // Module this lesson belongs to (optional for backward compatibility
+  // with existing lessons created before modules existed).
+  module: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Module',
+    default: null,
+  },
   
   // NEW FIELDS:
   order: {

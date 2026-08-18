@@ -39,7 +39,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/', glowClass: 'glow-primary', activeColorClass: 'bg-[#2F80ED] text-white' },
+  { label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/dashboard', glowClass: 'glow-primary', activeColorClass: 'bg-[#2F80ED] text-white' },
   { label: 'My Courses', icon: <BookOpen size={18} />, path: '/courses', glowClass: 'glow-primary', activeColorClass: 'bg-[#2F80ED] text-white' },
   { label: 'AI Assistant', icon: <Bot size={18} />, path: '/ai-assistant', glowClass: 'glow-ai', activeColorClass: 'bg-[#00E5B3] text-black font-semibold' },
   { label: 'Mock Exam', icon: <FileCheck size={18} />, path: '/mock-exam', glowClass: 'glow-purple', activeColorClass: 'bg-[#9B51E0] text-white' },
@@ -146,7 +146,7 @@ useEffect(() => {
         >
           <aside className="w-full h-full bg-[#111318] text-[#F5F7FA] p-6 flex flex-col justify-between">
             <div>
-              <div className="flex items-center gap-3 mb-8">
+              <div className="flex items-center gap-1 mb-8">
               
                 <img className='w-24' src="/a.png" alt="" />
              
@@ -226,7 +226,7 @@ useEffect(() => {
               }}
             >
               {/* ── Global top bar: search + notifications ── */}
-              <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#23262D] sticky top-0 z-40 bg-[#0B0D12]">
+              {/* <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#23262D] sticky top-0 z-40 bg-[#0B0D12]">
                 <div className="relative flex-1 max-w-sm ml-auto">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280]" />
                   <input
@@ -241,7 +241,7 @@ useEffect(() => {
                   />
                 </div>
                 <NotificationBell />
-              </div>
+              </div> */}
               <Outlet />
             </div>
           </Content>
