@@ -37,15 +37,18 @@ app.use(helmet());
 // ─── CORS: allow only known origins (falls back to local dev origins) ──
 const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/$/, ''))
   .filter(Boolean);
-const devOrigins = ['http://localhost:5173', 'https://geneseon.netlify.app/', 'http://localhost:8081'];
-const corsOrigins = allowedOrigins.length > 0 ? allowedOrigins : devOrigins;
+const defaultOrigins = ['http://localhost:5173', 'https://geneseon.netlify.app', 'http://localhost:8081'];
+const corsOrigins = Array.from(new Set([...allowedOrigins, ...defaultOrigins])).map((o) => o.replace(/\/$/, ''));
+
 app.use(
   cors({
     origin(origin, callback) {
       // Allow same-origin / server-to-server requests with no Origin header.
-      if (!origin || corsOrigins.includes(origin)) return callback(null, true);
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/$/, '');
+      if (corsOrigins.includes(cleanOrigin)) return callback(null, true);
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
