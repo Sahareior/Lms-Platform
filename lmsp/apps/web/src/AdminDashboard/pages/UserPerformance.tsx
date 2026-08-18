@@ -19,12 +19,15 @@ import {
   FileTextOutlined,
   CheckCircleOutlined,
   RiseOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
+import { message, Button } from "antd";
 import {
   useGetAllQuizAttemptsQuery,
   useGetAdminExamsQuery,
 } from "@my-monorepo/store";
 import type { AdminQuizAttempt } from "@my-monorepo/store";
+import { downloadCsv } from "../../reusable/downloadCsv";
 
 const { Text, Title } = Typography;
 
@@ -192,6 +195,19 @@ const UserPerformance: React.FC = () => {
             sessions
           </Text>
         </div>
+        <Button
+          icon={<DownloadOutlined />}
+          onClick={async () => {
+            try {
+              await downloadCsv("/quiz-attempts/export", "quiz-attempts.csv");
+              message.success("Attempts exported");
+            } catch (err: any) {
+              message.error(err?.message || "Failed to export attempts");
+            }
+          }}
+        >
+          Export CSV
+        </Button>
       </div>
 
       {/* ─── Stats Cards ──────────────────────────── */}

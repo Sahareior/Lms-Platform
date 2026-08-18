@@ -17,9 +17,6 @@ import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userP
 import { useGetMeQuery } from "@my-monorepo/store";
 
 // ── API → Component shape mapping ────────────────────────────
-const optionKeys = ["K", "L", "M", "N"] as const;
-const letterToIndex: Record<string, number> = { K: 0, L: 1, M: 2, N: 3 };
-
 interface ApiQuestion {
   _id: string;
   question_number: number;
@@ -37,6 +34,7 @@ interface Question {
   scenarioText: string;
   imageUrl: string;
   options: string[];
+  optionKeys: string[];
   correctAnswer: number;
   explanation: string;
   stats: {
@@ -55,25 +53,45 @@ interface ModalState {
 
 /** Convert API question data to the shape the component expects */
 function transformQuestions(apiQuestions: ApiQuestion[]): Question[] {
-  return apiQuestions.map((q) => ({
-    _id: q._id,                       // <-- store the real ID
-    id: q.question_number,
-    question: q.question_text,
-    scenarioText: q.scenario_text || "",
-    imageUrl: q.image_url || "",
-    options: optionKeys.map((key) => q.options[key] ?? ""),
-    correctAnswer: letterToIndex[q.correct_answer] ?? 0,
-    explanation: "",
-    stats: {
-      totalAttempts: 0,
-      correctPercentage: 0,
-      averageTime: "—",
-      difficulty: "Medium" as const,
-    },
-  }));
+  return apiQuestions.map((q) => {
+    const validEntries = q.options
+      ? (Object.entries(q.options).filter(([, v]) => v) as [string, string][])
+      : [];
+    
+    let correctIndex = 0;
+    if (q.correct_answer) {
+      const byKey = validEntries.findIndex(([k]) => k === q.correct_answer);
+      if (byKey >= 0) {
+        correctIndex = byKey;
+      } else {
+        const byText = validEntries.findIndex(([, v]) => v === q.correct_answer);
+        if (byText >= 0) {
+          correctIndex = byText;
+        }
+      }
+    }
+
+    return {
+      _id: q._id,                       // <-- store the real ID
+      id: q.question_number,
+      question: q.question_text,
+      scenarioText: q.scenario_text || "",
+      imageUrl: q.image_url || "",
+      options: validEntries.map(([, v]) => v),
+      optionKeys: validEntries.map(([k]) => k),
+      correctAnswer: correctIndex,
+      explanation: "",
+      stats: {
+        totalAttempts: 0,
+        correctPercentage: 0,
+        averageTime: "—",
+        difficulty: "Medium" as const,
+      },
+    };
+  });
 }
 
-const letters = ["ক", "খ", "গ", "ঘ"];
+const letters = ["ক", "খ", "গ", "ঘ", "ঙ", "চ", "ছ", "জ"];
 
 export default function ExamDin() {
   const navigate = useNavigate();
@@ -161,7 +179,7 @@ export default function ExamDin() {
   const handleSelectAnswer = useCallback(
     (qId: number, optionIndex: number) => {
       if (isSubmitted) return;
-
+      console.log(`Selected answer for question ${qId}: option index ${optionIndex}`);
       const qItem = questions.find((q) => q.id === qId);
       if (!qItem) return;
 
@@ -187,11 +205,13 @@ export default function ExamDin() {
         submittedQuestions: [
           {
             question: qItem._id,
-            // correct_answer is stored as an option key (K/L/M/N) – stay consistent
-            providedAnswer: optionKeys[optionIndex] ?? "",
+            // correct_answer is stored as an option key (K/L/M/N, or ক/খ/গ/ঘ) – stay consistent
+            providedAnswer: qItem.optionKeys[optionIndex] ?? "",
           },
         ],
       };
+
+      console.log("Persisting quiz performance:", payLoad);
 
       postUserQuizs(payLoad)
         .unwrap()

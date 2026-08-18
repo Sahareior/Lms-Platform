@@ -64,6 +64,7 @@ export interface AdminQuestion {
   exam: string;
   examVersion?: string;
   subject?: string;
+  analyzed?: boolean;
   data: Array<{
     question_number: number;
     question_text: string;
@@ -246,6 +247,34 @@ export interface AdminQuizAttemptResponse {
   summary: QuizAttemptSummary;
 }
 
+// ─── Module Types ────────────────────────────────────────────
+export interface AdminModule {
+  _id: string;
+  title: string;
+  description?: string;
+  course: string;
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminModuleWithLessons extends AdminModule {
+  lessons: AdminLesson[];
+}
+
+export interface CreateModuleRequest {
+  title: string;
+  description?: string;
+  course: string;
+  order?: number;
+}
+
+export interface UpdateModuleRequest {
+  title?: string;
+  description?: string;
+  order?: number;
+}
+
 // ─── Lesson Types ────────────────────────────────────────────
 export interface AdminLesson {
   _id: string;
@@ -254,6 +283,7 @@ export interface AdminLesson {
   videoUri: string;
   material?: string[];
   course: string;
+  module?: string | AdminModule | null;
   order: number;
   duration: number;
   isPreview: boolean;
@@ -273,6 +303,7 @@ export interface CreateLessonRequest {
   description: string;
   videoUri: string;
   course: string;
+  module?: string | null;
   order?: number;
   duration?: number;
   isPreview?: boolean;
@@ -284,6 +315,7 @@ export interface UpdateLessonRequest {
   title?: string;
   description?: string;
   videoUri?: string;
+  module?: string | null;
   order?: number;
   duration?: number;
   isPreview?: boolean;
@@ -380,12 +412,14 @@ const adminApi = api.injectEndpoints({
 
     // ── Course Management ────────────────────────────────────
     getAdminCourses: build.query<AdminCourse[], void>({
-      query: () => ({ url: '/course' }),
+      // withStudents=true asks the backend to populate the enrolled-student
+      // list (public course listings skip it for performance).
+      query: () => ({ url: '/course?withStudents=true' }),
       providesTags: ['Course'],
     }),
 
     getAdminCourseById: build.query<AdminCourse, string>({
-      query: (courseId) => ({ url: `/course/by-course/${courseId}` }),
+      query: (courseId) => ({ url: `/course/by-course/${courseId}?withStudents=true` }),
       providesTags: (_result, _error, id) => [{ type: 'Course', id }],
     }),
 
@@ -423,9 +457,44 @@ const adminApi = api.injectEndpoints({
       invalidatesTags: ['User'],
     }),
 
+    // ── Module Management ───────────────────────────────────
+    getCourseModules: build.query<
+      { modules: AdminModuleWithLessons[]; uncategorized: AdminLesson[] },
+      { courseId: string }
+    >({
+      query: ({ courseId }) => ({ url: `/module/${courseId}` }),
+      providesTags: ['Module'],
+    }),
+
+    createAdminModule: build.mutation<{ message: string; module: AdminModule }, CreateModuleRequest>({
+      query: (data) => ({
+        url: '/module/create',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Module', 'Lesson', 'Course'],
+    }),
+
+    updateAdminModule: build.mutation<{ message: string; module: AdminModule }, { moduleId: string; data: UpdateModuleRequest }>({
+      query: ({ moduleId, data }) => ({
+        url: `/module/update/${moduleId}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Module', 'Lesson'],
+    }),
+
+    deleteAdminModule: build.mutation<{ message: string }, string>({
+      query: (moduleId) => ({
+        url: `/module/delete/${moduleId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Module', 'Lesson', 'Course'],
+    }),
+
     // ── Lesson Management ────────────────────────────────────
     getCourseLessons: build.query<{ lessons: AdminLesson[] }, { courseId: string }>({
-      query: ({ courseId }) => `/lesson/${courseId}`,
+      query: ({ courseId }) => ({ url: `/lesson/${courseId}` }),
       providesTags: ['Lesson'],
     }),
 
@@ -435,7 +504,7 @@ const adminApi = api.injectEndpoints({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: ['Lesson', 'Course'],
+      invalidatesTags: ['Lesson', 'Module', 'Course'],
     }),
 
     updateAdminLesson: build.mutation<{ message: string; lesson: AdminLesson }, { lessonId: string; data: UpdateLessonRequest }>({
@@ -444,7 +513,7 @@ const adminApi = api.injectEndpoints({
         method: 'PUT',
         body: data,
       }),
-      invalidatesTags: ['Lesson'],
+      invalidatesTags: ['Lesson', 'Module'],
     }),
 
     deleteAdminLesson: build.mutation<{ message: string }, string>({
@@ -452,7 +521,7 @@ const adminApi = api.injectEndpoints({
         url: `/lesson/delete/${lessonId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Lesson', 'Course'],
+      invalidatesTags: ['Lesson', 'Module', 'Course'],
     }),
 
     // ── Subject Management ──────────────────────────────────
@@ -635,6 +704,10 @@ export const {
   useDeleteAdminSingleQuestionMutation,
   useGetAdminQuestionPatternsQuery,
   useGetCourseLessonsQuery,
+  useGetCourseModulesQuery,
+  useCreateAdminModuleMutation,
+  useUpdateAdminModuleMutation,
+  useDeleteAdminModuleMutation,
   useCreateAdminLessonMutation,
   useUpdateAdminLessonMutation,
   useDeleteAdminLessonMutation,

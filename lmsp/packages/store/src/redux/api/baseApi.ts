@@ -61,11 +61,15 @@ export const tagTypes = [
   'Performance',
   'Question',
   'Lesson',
+  'Module',
+  'Note',
   'ExamVersion',
   'Subject',
   'QuizAttempt',
   'ScheduleExam',
   'AiChat',
+  'Notification',
+  'Certificate',
 ] as const;
 
 // ─── Base API Slice ─────────────────────────────────────────

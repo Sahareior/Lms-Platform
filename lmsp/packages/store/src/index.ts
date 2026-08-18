@@ -42,7 +42,11 @@ export {
 } from './redux/slices/aiPerformanceSlice';
 export type {
   AiPerformanceState,
+  AiReportEntry,
   SetAiReportPayload,
+  SetAiReportLoadingPayload,
+  SetAiReportErrorPayload,
+  ClearCurrentReportPayload,
 } from './redux/slices/aiPerformanceSlice';
 
 // ─── RTK Query Base (config + auth token) ───────────────────
@@ -86,6 +90,8 @@ export {
   useGetProfileQuery,
   useGetMeQuery,
   useUpdateProfileMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
 } from './redux/api/authApi';
 export type {
   LoginRequest,
@@ -156,6 +162,8 @@ export {
   useGetActiveAttemptQuery,
   useGetUserAttemptsQuery,
   useGetAttemptByIdQuery,
+  useGetWeeklyActivityQuery,
+  useGetQuizOverviewQuery,
 } from './redux/api/quizAttemptApi';
 export type {
   StartAttemptRequest,
@@ -165,6 +173,12 @@ export type {
   QuestionResponse,
   AttemptSummary,
   Attempt,
+  WeeklyAttempt,
+  WeeklyActivityResponse,
+  QuizOverviewResponse,
+  OverallOverview,
+  ExamOverview,
+  SubjectOverview,
 } from './redux/api/quizAttemptApi';
 
 export {
@@ -193,6 +207,25 @@ export type {
   SaveAiChatMessageInput,
   SaveAiChatMessagesResponse,
 } from './redux/api/aiChatApi';
+
+// ─── RTK Query Notifications API ───────────────────────────
+export {
+  useGetMyNotificationsQuery,
+  useMarkNotificationReadMutation,
+  useMarkAllNotificationsReadMutation,
+} from './redux/api/notificationApi';
+export type { AppNotification } from './redux/api/notificationApi';
+
+// ─── RTK Query Certificates API ────────────────────────────
+export {
+  useIssueCertificateMutation,
+  useGetMyCertificatesQuery,
+} from './redux/api/certificateApi';
+export type { Certificate } from './redux/api/certificateApi';
+
+// ─── RTK Query Search API ──────────────────────────────────
+export { useSearchAllQuery } from './redux/api/searchApi';
+export type { SearchResults } from './redux/api/searchApi';
 
 // ─── RTK Query User Performance API ────────────────────────
 export {
@@ -236,6 +269,10 @@ export {
   useDeleteAdminSingleQuestionMutation,
   useGetAdminQuestionPatternsQuery,
   useGetCourseLessonsQuery,
+  useGetCourseModulesQuery,
+  useCreateAdminModuleMutation,
+  useUpdateAdminModuleMutation,
+  useDeleteAdminModuleMutation,
   useCreateAdminLessonMutation,
   useUpdateAdminLessonMutation,
   useDeleteAdminLessonMutation,
@@ -265,6 +302,10 @@ export type {
   AdminQuestion,
   AdminQuestionPattern,
   AdminLesson,
+  AdminModule,
+  AdminModuleWithLessons,
+  CreateModuleRequest,
+  UpdateModuleRequest,
   EnrolledStudent,
   CreateExamRequest,
   CreateExamVersionRequest,

@@ -136,8 +136,7 @@ const Onboarding: React.FC = () => {
       await refetchUser();
     } catch (err) {
       console.warn('Could not refresh user data after saving exams:', err);
-    }
-    navigate('/');
+    }    navigate('/dashboard');
   };
 
   const activeCategory = CATEGORIES.find((c) => c.id === selectedCategory);
@@ -153,13 +152,12 @@ const Onboarding: React.FC = () => {
 
       {/* Top nav */}
       <nav className="relative z-10 flex items-center justify-between w-full bg-[#111318]/80 backdrop-blur px-6 py-4 border-b border-[#23262D]">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-[#00E5B3]/10 border border-[#00E5B3]/30">
-            <img src="/logo.png" className="w-7 h-7 object-contain" alt="BrainForge" />
+        <div className="flex items-center gap-2">
+          <div className="">
+            <img src="/nav.png" className="w-14 h- object-contain" alt="BrainForge" />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="font-bold text-sm text-[#F5F7FA]">BrainForge</span>
-            <span className="text-[10px] text-[#A1A8B3]">Welcome aboard</span>
+            <span className="font-bold text-xl text-[#F5F7FA]">Geneseon</span>
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-[#A1A8B3]">
@@ -233,7 +231,7 @@ const Onboarding: React.FC = () => {
                 Please check back soon — exams are being added.
               </p>
               <button
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/dashboard')}
                 className="inline-flex items-center gap-2 bg-[#2F80ED] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#256BCE] transition-all active:scale-[0.98]"
               >
                 Go to Dashboard <ArrowRight size={15} />

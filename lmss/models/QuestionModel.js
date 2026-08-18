@@ -62,6 +62,12 @@ const questionSchema = new mongoose.Schema(
             required: true,
             default: [],
         },
+        // Set to true once the AI question-pattern analysis has been run and
+        // stored (see postQuestionPattern in QuestionController).
+        analyzed: {
+            type: Boolean,
+            default: false,
+        },
     },
     {
         timestamps: true,

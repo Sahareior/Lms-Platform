@@ -76,6 +76,55 @@ export interface Attempt {
   updatedAt: string;
 }
 
+/** Minimal completed-attempt record used by the weekly activity chart. */
+export interface WeeklyAttempt {
+  _id: string;
+  createdAt: string;
+  percentage: number;
+  totalQuestions: number;
+  correctCount: number;
+  type: string;
+  source: string;
+}
+
+export interface WeeklyActivityResponse {
+  attempts: WeeklyAttempt[];
+}
+
+/** Aggregated totals across every completed attempt. */
+export interface OverallOverview {
+  attempts: number;
+  questions: number;
+  correct: number;
+  incorrect: number;
+  accuracy: number;
+}
+
+export interface ExamOverview {
+  examId: string;
+  examName: string;
+  attempts: number;
+  questions: number;
+  correct: number;
+  incorrect: number;
+  accuracy: number;
+}
+
+export interface SubjectOverview {
+  subject: string;
+  attempted: number;
+  correct: number;
+  accuracy: number;
+  isWeak: boolean;
+  isCritical: boolean;
+}
+
+export interface QuizOverviewResponse {
+  overall: OverallOverview;
+  byExam: ExamOverview[];
+  bySubject: SubjectOverview[];
+}
+
 // ─── Injected Endpoints ─────────────────────────────────────
 const quizAttemptApi = api.injectEndpoints({
   endpoints: (build) => ({
@@ -158,6 +207,18 @@ const quizAttemptApi = api.injectEndpoints({
       query: (id) => ({ url: `/quiz-attempts/${id}` }),
       providesTags: (_result, _error, id) => [{ type: 'QuizAttempt', id }],
     }),
+
+    // ── Get weekly activity (last-8-days completed attempts) ──
+    getWeeklyActivity: build.query<WeeklyActivityResponse, { userId: string }>({
+      query: ({ userId }) => ({ url: `/quiz-attempts/activity/weekly?userId=${userId}` }),
+      providesTags: [{ type: 'QuizAttempt', id: 'LIST' }],
+    }),
+
+    // ── Get performance overview across all exams (dashboard) ──
+    getQuizOverview: build.query<QuizOverviewResponse, { userId: string }>({
+      query: ({ userId }) => ({ url: `/quiz-attempts/overview?userId=${userId}` }),
+      providesTags: [{ type: 'QuizAttempt', id: 'LIST' }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -171,4 +232,6 @@ export const {
   useGetActiveAttemptQuery,
   useGetUserAttemptsQuery,
   useGetAttemptByIdQuery,
+  useGetWeeklyActivityQuery,
+  useGetQuizOverviewQuery,
 } = quizAttemptApi;
