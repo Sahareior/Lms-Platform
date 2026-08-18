@@ -11,7 +11,7 @@ import HomeRedirect from './auth/HomeRedirect';
 // Each page ships in its own chunk, loaded on first visit, so the
 // initial bundle stays small instead of pulling in the whole admin
 // panel, recharts, antd, etc. up front.
-const Dashboard = lazy(() => import('./(components)/Dashboard'));
+const Dashboard = lazy(() => import('./(components)/dashboard/Dashboard'));
 const LessonPage = lazy(() => import('./(components)/MainPages/lesson/LessonPage'));
 const QuizPreatise = lazy(() => import('./(components)/QuizPreatise/QuizPreatise'));
 const MockExamInterface = lazy(() => import('./(components)/MockExamInterface'));
@@ -35,7 +35,7 @@ const DashboardOverview = lazy(() => import('./AdminDashboard/pages/DashboardOve
 const UserManagement = lazy(() => import('./AdminDashboard/pages/UserManagement'));
 const ExamManagement = lazy(() => import('./AdminDashboard/pages/ExamManagement'));
 const CourseManagement = lazy(() => import('./AdminDashboard/pages/CourseManagement'));
-const LessonManagement = lazy(() => import('./AdminDashboard/pages/LessonManagement'));
+const LessonManagement = lazy(() => import('./AdminDashboard/pages/LessonManagement/LessonManagement'));
 const QuestionManagement = lazy(() => import('./AdminDashboard/pages/QuestionManagement'));
 const QuestionBank = lazy(() => import('./AdminDashboard/pages/QuestionBank'));
 const SubjectManagement = lazy(() => import('./AdminDashboard/pages/SubjectManagement'));

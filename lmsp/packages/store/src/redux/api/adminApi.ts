@@ -64,6 +64,7 @@ export interface AdminQuestion {
   exam: string;
   examVersion?: string;
   subject?: string;
+  analyzed?: boolean;
   data: Array<{
     question_number: number;
     question_text: string;

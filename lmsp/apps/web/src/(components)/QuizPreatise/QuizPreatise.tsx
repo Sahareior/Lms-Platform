@@ -1,13 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import {
-  Clock,
-  CheckCircle,
-  X,
-  BookOpen,
-  ArrowLeft,
-  Loader2,
-  BarChart3,
-} from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   useGetExamsQuery,
@@ -22,272 +13,21 @@ import {
   useGetUserPerformanceQuery,
 } from "@my-monorepo/store";
 import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
-
-interface QuestionStats {
-  attempts: number;
-  failures: number;
-  successes: number;
-  successRate: number;
-}
-
-interface QuestionItem {
-  id?: string;
-  question: string;
-  scenarioText?: string;
-  imageUrl?: string;
-  options: string[];
-  /** Original option keys from the backend (e.g. ["K","L","M","N"]) */
-  optionKeys?: string[];
-  correctAnswer?: number;
-  questionNumber?: number;
-  stats?: QuestionStats;
-}
+import QuestionCard from "./_components/QuestionCard";
+import QuizHeader from "./_components/QuizHeader";
+import QuizProgressBar from "./_components/QuizProgressBar";
+import {
+  QuizLoading, NoExamSelected, NoQuestionsAvailable,
+} from "./_components/QuizStates";
+import {
+  computeLocalScore, buildLocalReview,
+} from "./_components/quizTypes";
+import type { QuestionItem, QuizResultData } from "./_components/quizTypes";
 
 interface QuizPreatiseProps {
   examId?: string;
   versionId?: string;
 }
-
-interface QuestionReviewItem {
-  question: string;
-  options: string[];
-  selectedIndex?: number;
-  correctIndex?: number;
-  isCorrect?: boolean;
-}
-
-interface QuizResultData {
-  examName: string;
-  versionName: string;
-  title: string;
-  correctCount: number;
-  incorrectCount: number;
-  unansweredCount: number;
-  totalQuestions: number;
-  percentage: number;
-  score: number;
-  timeTaken: number;
-  durationSeconds: number;
-  questions?: QuestionReviewItem[];
-}
-
-const BENGALI_LETTERS = ["ক", "খ", "গ", "ঘ", "ঙ", "চ", "ছ", "জ"];
-const getBengaliLetter = (index: number) =>
-  BENGALI_LETTERS[index] || String.fromCharCode(65 + index);
-
-/**
- * Computes the correct-count locally from the questions + selected answers.
- * This is the source of truth whenever the server doesn't return a
- * well-formed result (see the guard in handleSubmit below).
- */
-const computeLocalScore = (
-  allQuestions: QuestionItem[],
-  selectedAnswers: Record<number, number>
-) => {
-  let correct = 0;
-  allQuestions.forEach((q, idx) => {
-    const selected = selectedAnswers[idx];
-    if (
-      selected !== undefined &&
-      q.correctAnswer !== undefined &&
-      selected === q.correctAnswer
-    ) {
-      correct++;
-    }
-  });
-  return correct;
-};
-
-const buildLocalReview = (
-  allQuestions: QuestionItem[],
-  selectedAnswers: Record<number, number>
-): QuestionReviewItem[] =>
-  allQuestions.map((q, idx) => ({
-    question: q.question,
-    options: q.options,
-    selectedIndex: selectedAnswers[idx],
-    correctIndex: q.correctAnswer,
-    isCorrect:
-      selectedAnswers[idx] !== undefined &&
-      q.correctAnswer !== undefined &&
-      selectedAnswers[idx] === q.correctAnswer,
-  }));
-
-// ─────────────────────────────────────────────────────────────────────────
-// QuestionCard: extracted + memoized so that selecting an answer on one
-// question does NOT re-render every other question on the page. This only
-// works because the parent passes a referentially-stable `onSelect`
-// callback (see handleAnswerSelect below, which no longer depends on
-// `selectedAnswers`).
-// ─────────────────────────────────────────────────────────────────────────
-interface QuestionCardProps {
-  index: number;
-  item: QuestionItem;
-  selectedIndex: number | undefined;
-  isSubmitted: boolean;
-  onSelect: (qIndex: number, oIndex: number) => void;
-}
-
-const QuestionCard = React.memo(function QuestionCard({
-  index,
-  item: q,
-  selectedIndex: selected,
-  isSubmitted,
-  onSelect,
-}: QuestionCardProps) {
-  const isCorrect =
-    isSubmitted && q.correctAnswer !== undefined && selected === q.correctAnswer;
-  const isWrong =
-    isSubmitted &&
-    selected !== undefined &&
-    q.correctAnswer !== undefined &&
-    selected !== q.correctAnswer;
-  const showCorrect = isSubmitted && q.correctAnswer !== undefined;
-
-  return (
-    <div
-      className={`bg-[#111318] border rounded-2xl p-6 transition-shadow duration-300 ${
-        isSubmitted
-          ? isCorrect
-            ? "border-[#00E5B3]/50 bg-[#00E5B3]/5"
-            : isWrong
-            ? "border-[#EB5757]/50 bg-[#EB5757]/5"
-            : "border-[#23262D]"
-          : "border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_15px_-5px_rgba(155,81,224,0.2)]"
-      }`}
-    >
-      {/* Question number and status */}
-      <div className="flex items-center gap-2 mb-5">
-        <span
-          className={`flex-shrink-0 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center border ${
-            isSubmitted && isCorrect
-              ? "bg-[#00E5B3]/10 text-[#00E5B3] border-[#00E5B3]/30"
-              : isSubmitted && isWrong
-              ? "bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30"
-              : "bg-[#161920] text-[#A1A8B3] border-[#23262D]"
-          }`}
-        >
-          {index + 1}
-        </span>
-        <span className="text-[10px] font-medium text-[#6B7280] uppercase tracking-wider bg-[#161920] px-2 py-0.5 rounded border border-[#23262D]">
-          MCQ
-        </span>
-        {q.stats && q.stats.attempts > 0 && !isSubmitted && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border border-[#9B51E0]/30 bg-[#9B51E0]/10 text-[#9B51E0]">
-            <BarChart3 size={10} />
-            {q.stats.attempts}x &middot; {q.stats.successRate}%
-          </span>
-        )}
-        {showCorrect && (
-          <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-              isCorrect
-                ? "text-[#00E5B3] bg-[#00E5B3]/10 border-[#00E5B3]/30"
-                : "text-[#EB5757] bg-[#EB5757]/10 border-[#EB5757]/30"
-            }`}
-          >
-            {isCorrect ? "✓ Correct" : `✗ Correct: ${getBengaliLetter(q.correctAnswer!)}`}
-          </span>
-        )}
-      </div>
-
-      {/* Scenario / passage text */}
-      {q.scenarioText && (
-        <div className="mb-5 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#9B51E0] mb-2">
-            Scenario / Passage
-          </p>
-          <p className="text-sm leading-relaxed text-[#C9D0DA] whitespace-pre-line">
-            {q.scenarioText}
-          </p>
-        </div>
-      )}
-
-      {/* Question image */}
-      {q.imageUrl && (
-        <div className="mb-5">
-          <img
-            src={q.imageUrl}
-            alt="Question diagram"
-            className="max-w-full max-h-72 object-contain rounded-xl border border-[#23262D] bg-[#161920]"
-          />
-        </div>
-      )}
-
-      <h3 className="text-base font-medium leading-relaxed text-[#F5F7FA] mb-6">
-        {q.question}
-      </h3>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {q.options.map((opt, optIndex) => {
-          const isSelected = selected === optIndex;
-          const isRightAnswer = showCorrect && q.correctAnswer === optIndex;
-          let optionStyle = "border-[#23262D] hover:border-[#9B51E0]/50 hover:bg-[#161920]";
-
-          if (isSubmitted) {
-            if (isRightAnswer) optionStyle = "border-[#00E5B3] bg-[#00E5B3]/10";
-            else if (isSelected && !isRightAnswer) optionStyle = "border-[#EB5757] bg-[#EB5757]/10";
-            else optionStyle = "border-[#23262D] opacity-60";
-          } else if (isSelected) {
-            optionStyle = "border-[#9B51E0] bg-[#9B51E0]/10 shadow-[0_0_10px_-3px_rgba(155,81,224,0.3)]";
-          }
-
-          return (
-            <button
-              key={optIndex}
-              onClick={() => onSelect(index, optIndex)}
-              disabled={isSubmitted}
-              className={`group flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200 text-left ${optionStyle}`}
-            >
-              <div
-                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
-                  isSubmitted && isRightAnswer
-                    ? "bg-[#00E5B3] text-black border-[#00E5B3]"
-                    : isSubmitted && isSelected && !isRightAnswer
-                    ? "bg-[#EB5757] text-white border-[#EB5757]"
-                    : isSelected
-                    ? "bg-[#9B51E0] text-white border-[#9B51E0]"
-                    : "bg-[#161920] text-[#A1A8B3] border-[#23262D] group-hover:border-[#9B51E0]/50 group-hover:text-[#9B51E0]"
-                }`}
-              >
-                {getBengaliLetter(optIndex)}
-              </div>
-              <span
-                className={`text-[15px] ${
-                  isSubmitted && isRightAnswer
-                    ? "text-[#00E5B3] font-medium"
-                    : isSubmitted && isSelected && !isRightAnswer
-                    ? "text-[#EB5757] font-medium"
-                    : isSelected
-                    ? "text-[#F5F7FA] font-medium"
-                    : "text-[#A1A8B3]"
-                }`}
-              >
-                {opt}
-              </span>
-              {isSubmitted && isRightAnswer && (
-                <CheckCircle className="ml-auto text-[#00E5B3] flex-shrink-0" size={20} />
-              )}
-              {isSubmitted && isSelected && !isRightAnswer && (
-                <X className="ml-auto text-[#EB5757] flex-shrink-0" size={20} />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {selected !== undefined && !isSubmitted && (
-        <div className="mt-4 pt-3 border-t border-[#23262D] flex justify-end">
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#00E5B3] bg-[#00E5B3]/10 px-3 py-1 rounded-full border border-[#00E5B3]/30">
-            <CheckCircle size={12} /> উত্তর সংরক্ষিত
-          </span>
-        </div>
-      )}
-    </div>
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────────────
 
 const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   examId: propExamId,
@@ -298,7 +38,7 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   const examId = propExamId || searchParams.get("examId") || "";
   const versionId = propVersionId || searchParams.get("versionId") || "";
   const scheduleId = searchParams.get("scheduleId") || "";
- const [postUserQuizs] = usePostUserQuizsMutation()
+  const [postUserQuizs] = usePostUserQuizsMutation();
   const userId = useAppSelector((state) => state.user.user?._id) || "";
 
   const { data: userPerformance } = useGetUserPerformanceQuery(
@@ -325,8 +65,6 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   const [completeAttempt, { isLoading: isCompleting }] =
     useCompleteAttemptMutation();
 
-      console.log(scheduleExams,'sssssssss')
-
   const attemptIdRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(Date.now());
@@ -344,7 +82,6 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   // Scheduled-exam duration is in minutes; regular practice quizzes get a
   // 2-hour default.
   const durationSeconds = (schedule?.duration ?? 120) * 60;
-
 
   // Map correct_answer string value from backend to option index. The
   // question bank stores correct_answer as the option KEY (e.g. "L"), so we
@@ -486,13 +223,6 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId, versionId]);
 
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
   // ─── Answer selection ───
   // Uses a functional state update so this callback's identity only
   // depends on [isSubmitted, userId, allQuestions, saveAnswer] — NOT on
@@ -502,14 +232,12 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   const handleAnswerSelect = useCallback(
     (qIndex: number, oIndex: number) => {
       if (isSubmitted) return;
-      
+
       const qItem = allQuestions[qIndex];
       if (!qItem) return;
 
       const qId = qItem.id;
-      console.log(qId, "Selected Answer");
-      console.log(allQuestions, 'allQuestions');
-      
+
       if (!questionStartTimes.current[qIndex]) {
         questionStartTimes.current[qIndex] = Date.now();
       }
@@ -531,7 +259,7 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
           user: userId,
           exam: examId,
           examVersion: versionId || null,
-          subject: questionsData[0]?.subject?._id,
+          subject: questionsData?.[0]?.subject?._id,
           submittedQuestions: [
             {
               question: qId,
@@ -700,126 +428,41 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   }, [timeLeft, isSubmitted, totalQuestions, handleSubmit]);
 
   if (questionsLoading || isStarting) {
-    return (
-      <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="animate-spin text-3xl text-[#9B51E0] mx-auto mb-4" />
-          <p className="text-[#A1A8B3] font-medium">
-            {questionsLoading ? "Loading questions..." : "Starting quiz..."}
-          </p>
-        </div>
-      </div>
-    );
+    return <QuizLoading loadingQuestions={questionsLoading} />;
   }
 
   if (!examId) {
-    return (
-      <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center">
-        <div className="text-center max-w-md px-4">
-          <BookOpen className="mx-auto text-5xl text-[#6B7280] mb-4" />
-          <h2 className="text-xl font-bold text-[#F5F7FA] mb-2">No Exam Selected</h2>
-          <p className="text-[#A1A8B3] mb-4">
-            Please select an exam and version to start practicing.
-          </p>
-          <button
-            onClick={() => navigate("/mock-exam")}
-            className="inline-flex items-center gap-2 bg-[#9B51E0] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#7E3CC4] transition active:scale-95"
-          >
-            <ArrowLeft size={16} /> Back to Exams
-          </button>
-        </div>
-      </div>
-    );
+    return <NoExamSelected onBack={() => navigate("/mock-exam")} />;
   }
 
   if (totalQuestions === 0) {
     return (
-      <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center">
-        <div className="text-center max-w-md px-4">
-          <BookOpen className="mx-auto text-5xl text-[#6B7280] mb-4" />
-          <h2 className="text-xl font-bold text-[#F5F7FA] mb-2">No Questions Available</h2>
-          <p className="text-[#A1A8B3] mb-4">
-            Questions for {currentExam?.name || "this exam"} –{" "}
-            {currentVersion?.examVersion || "this version"} haven't been added yet.
-          </p>
-          <button
-            onClick={() => navigate("/mock-exam")}
-            className="inline-flex items-center gap-2 bg-[#9B51E0] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#7E3CC4] transition active:scale-95"
-          >
-            <ArrowLeft size={16} /> Back to Exams
-          </button>
-        </div>
-      </div>
+      <NoQuestionsAvailable
+        examName={currentExam?.name || ""}
+        versionName={currentVersion?.examVersion || ""}
+        onBack={() => navigate("/mock-exam")}
+      />
     );
   }
 
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] pb-12">
-      {/* ────── STICKY HEADER ────── */}
-      <header className="sticky top-0 z-40 bg-[#111318]/95 backdrop-blur-sm border-b border-[#23262D] px-4 md:px-8 py-3 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 hover:bg-[#161920] rounded-lg transition text-[#A1A8B3] hover:text-[#F5F7FA]"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div className="hidden sm:flex items-center gap-2">
-            <div className="bg-[#9B51E0] text-white p-1.5 rounded-lg">
-              <BookOpen size={20} />
-            </div>
-            <span className="font-bold text-lg tracking-tight">{currentExam?.name || "Quiz"}</span>
-          </div>
-        </div>
-        <div className="hidden md:block text-center">
-          <span className="text-xs font-semibold text-[#A1A8B3]">
-            {currentVersion?.examVersion || ""} &bull; {totalQuestions} Questions
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
-              timeLeft < 300
-                ? "bg-[#EB5757]/10 border-[#EB5757]/30 text-[#EB5757]"
-                : "bg-[#F2C94C]/10 border-[#F2C94C]/30 text-[#F2C94C]"
-            }`}
-          >
-            <Clock size={16} />
-            <span className="text-sm font-mono font-bold">{formatTime(timeLeft)}</span>
-          </div>
-          {!isSubmitted && (
-            <button
-              onClick={() => handleSubmit()}
-              className="bg-[#9B51E0] hover:bg-[#7E3CC4] text-white px-6 py-2 rounded-full font-bold text-sm transition-all shadow-[0_0_15px_-3px_rgba(155,81,224,0.4)] active:scale-95"
-            >
-              সাবমিট
-            </button>
-          )}
-        </div>
-      </header>
+      <QuizHeader
+        examName={currentExam?.name || ""}
+        versionName={currentVersion?.examVersion || ""}
+        totalQuestions={totalQuestions}
+        timeLeft={timeLeft}
+        isSubmitted={isSubmitted}
+        onBack={() => navigate(-1)}
+        onSubmit={() => handleSubmit()}
+      />
 
-      {/* ────── PROGRESS BAR ────── */}
-      <div className="sticky top-[68px] z-30 bg-[#111318]/80 backdrop-blur-sm px-4 md:px-8 py-2 border-b border-[#23262D] flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1">
-          <span className="text-xs font-medium text-[#A1A8B3] whitespace-nowrap">
-            অগ্রগতি: {answeredCount}/{totalQuestions}
-          </span>
-          <div className="h-2.5 bg-[#1C1F26] rounded-full flex-1 w-full overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#9B51E0] to-[#00E5B3] transition-all duration-700"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
-          <span className="text-xs font-bold text-[#9B51E0] whitespace-nowrap w-10 text-right">
-            {Math.round(progressPercentage)}%
-          </span>
-        </div>
-        {error && (
-          <span className="text-[10px] font-medium text-[#F2C94C] whitespace-nowrap hidden lg:inline">
-            {error}
-          </span>
-        )}
-      </div>
+      <QuizProgressBar
+        answeredCount={answeredCount}
+        totalQuestions={totalQuestions}
+        progressPercentage={progressPercentage}
+        error={error}
+      />
 
       {/* ────── QUESTIONS ────── */}
       <main className="max-w-3xl mx-auto px-4 md:px-6 mt-8 space-y-6 pb-16">

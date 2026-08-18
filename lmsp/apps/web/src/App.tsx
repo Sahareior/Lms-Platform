@@ -146,7 +146,7 @@ useEffect(() => {
         >
           <aside className="w-full h-full bg-[#111318] text-[#F5F7FA] p-6 flex flex-col justify-between">
             <div>
-              <div className="flex items-center gap-3 mb-8">
+              <div className="flex items-center gap-1 mb-8">
               
                 <img className='w-24' src="/a.png" alt="" />
              

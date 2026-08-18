@@ -317,15 +317,7 @@ const LandingHero = () => {
             creates destiny.
           </p>
 
-          <p
-            className="
-            mt-3
-            text-[10px]
-            text-gray-600
-          "
-          >
-            36.7783° N, 19.4179° E
-          </p>
+         
         </div>
 
         {/* =========================================
