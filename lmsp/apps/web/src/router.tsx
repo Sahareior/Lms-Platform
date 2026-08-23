@@ -13,7 +13,7 @@ import HomeRedirect from './auth/HomeRedirect';
 // panel, recharts, antd, etc. up front.
 const Dashboard = lazy(() => import('./(components)/dashboard/Dashboard'));
 const LessonPage = lazy(() => import('./(components)/MainPages/lesson/LessonPage'));
-const QuizPreatise = lazy(() => import('./(components)/QuizPreatise/QuizPreatise'));
+const QuizPreatise = lazy(() => import('./(components)/ExamPaper/ExamPaper'));
 const MockExamInterface = lazy(() => import('./(components)/MockExamInterface'));
 const AIChatInterface = lazy(() => import('./(components)/MainPages/chat_interface/AIChatInterface'));
 const QuestionPatterns = lazy(() => import('./(components)/MainPages/question_patterns/QuestionPatterns'));

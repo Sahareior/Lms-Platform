@@ -40,7 +40,7 @@ function createLimiter({ prefix, limit, windowSeconds, message }) {
  */
 export const generalRateLimit = createLimiter({
   prefix: 'rl:general',
-  limit: 60,
+  limit: 160,
   windowSeconds: 60,
   message: 'Too many requests. Please try again in a minute.',
 });

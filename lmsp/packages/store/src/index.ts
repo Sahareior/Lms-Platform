@@ -322,6 +322,7 @@ export type {
   UpdateScheduleExamRequest,
   AdminQuizAttemptResponse,
   AdminQuizAttempt,
+  AdminQuizAttemptQuestion,
   QuizAttemptSummary,
 } from './redux/api/adminApi';
 

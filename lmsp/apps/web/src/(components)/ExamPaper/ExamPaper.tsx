@@ -11,8 +11,9 @@ import {
   useBatchSaveAnswersMutation,
   useCompleteAttemptMutation,
   useGetUserPerformanceQuery,
+  useGetUserAttemptsQuery,
 } from "@my-monorepo/store";
-import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
+// postUserQuizs removed — performance is now computed from QuizAttempt on the backend
 import QuestionCard from "./_components/QuestionCard";
 import QuizHeader from "./_components/QuizHeader";
 import QuizProgressBar from "./_components/QuizProgressBar";
@@ -24,13 +25,13 @@ import {
 } from "./_components/quizTypes";
 import type { QuestionItem, QuizResultData } from "./_components/quizTypes";
 
-interface QuizPreatiseProps {
+interface ExamPaperProps {
   examId?: string;
   versionId?: string;
   board?:string
 }
 
-const QuizPreatise: React.FC<QuizPreatiseProps> = ({
+const ExamPaper: React.FC<ExamPaperProps> = ({
   examId: propExamId,
   versionId: propVersionId,
   board:propBoard
@@ -39,15 +40,29 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   const [searchParams] = useSearchParams();
   const examId = propExamId || searchParams.get("examId") || "";
   const versionId = propVersionId || searchParams.get("versionId") || "";
-  const board = propBoard || searchParams.get("board") || "";
+  const rawBoard = propBoard || searchParams.get("board") || "";
+  const board = rawBoard === "undefined" || rawBoard === "null" ? "" : rawBoard;
   const scheduleId = searchParams.get("scheduleId") || "";
-  const [postUserQuizs] = usePostUserQuizsMutation();
+
   const userId = useAppSelector((state) => state.user.user?._id) || "";
 
   const { data: userPerformance } = useGetUserPerformanceQuery(
     { userId, type: "mockExam" },
     { skip: !userId }
   );
+
+  // Pre-check: has this user already completed a mock_exam attempt for this exam?
+  const { data: userAttempts, isLoading: attemptsLoading } = useGetUserAttemptsQuery(
+    { userId, type: 'mock_exam', limit: 50 },
+    { skip: !userId || !examId }
+  );
+
+  const hasCompletedAttempt = useMemo(() => {
+    if (!userAttempts || !examId) return false;
+    return userAttempts.some(
+      (a: any) => a.isCompleted && (a.exam?._id === examId || a.exam === examId)
+    );
+  }, [userAttempts, examId]);
 
   const { data: exams } = useGetExamsQuery();
   const { data: examVersions } = useGetExamVersionsByExamQuery(examId, {
@@ -104,12 +119,20 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   const allQuestions = useMemo(() => {
     if (!questionsData || questionsData.length === 0) return [];
     const flattened: QuestionItem[] = [];
+    const seenQuestionNumbers = new Set<number>();
+
     questionsData.forEach((doc: any) => {
       if (doc.data && Array.isArray(doc.data)) {
         const sorted = [...doc.data].sort(
           (a: any, b: any) => (a.question_number || 0) - (b.question_number || 0)
         );
         sorted.forEach((q: any) => {
+          const qNum = q.question_number;
+          if (qNum !== undefined && qNum !== null) {
+            if (seenQuestionNumbers.has(qNum)) return;
+            seenQuestionNumbers.add(qNum);
+          }
+
           const validEntries = q.options
             ? (Object.entries(q.options).filter(([, v]) => v) as [string, string][])
             : [];
@@ -188,6 +211,16 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
 
   // ─── Start attempt when exam loads ───
   useEffect(() => {
+    // Pre-check: if already completed, redirect with alert
+    if (hasCompletedAttempt) {
+      sessionStorage.setItem('examAlreadyCompleted', '1');
+      navigate('/mock-exam', { replace: true });
+      return;
+    }
+
+    // Don't fire startAttempt until the pre-check query has loaded
+    if (attemptsLoading) return;
+
     if (!examId || !userId || allQuestions.length === 0) return;
 
     const initAttempt = async () => {
@@ -199,19 +232,26 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
           type: "practice",
           source: "mock_exam",
           totalQuestions: allQuestions.length,
+          board: board || undefined,
         }).unwrap();
         attemptIdRef.current = result._id;
         startTimeRef.current = Date.now();
         setError(null);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to start attempt";
-        console.error("Failed to start attempt:", msg);
-        setError("Could not save progress to server — scores shown locally only.");
+      } catch (err: any) {
+        // 409 = already completed this mock exam → redirect with alert
+        if (err?.status === 409 || err?.data?.message?.includes('already completed')) {
+          sessionStorage.setItem('examAlreadyCompleted', '1');
+          navigate('/mock-exam', { replace: true });
+        } else {
+          const msg = err instanceof Error ? err.message : "Failed to start attempt";
+          console.error("Failed to start attempt:", msg);
+          setError("Could not save progress to server — scores shown locally only.");
+        }
       }
     };
 
     initAttempt();
-  }, [examId, versionId, userId, allQuestions.length, startAttempt]);
+  }, [examId, versionId, userId, allQuestions.length, startAttempt, navigate, hasCompletedAttempt, attemptsLoading]);
 
   // ─── Reset state on exam change ───
   useEffect(() => {
@@ -246,39 +286,12 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
       }
 
       setSelectedAnswers((prev) => {
-        const isDeselect = prev[qIndex] === oIndex;
-        const updated = { ...prev };
-        if (isDeselect) {
-          delete updated[qIndex];
-        } else {
-          updated[qIndex] = oIndex;
-        }
+        // Once an answer is selected it cannot be withdrawn — ignore clicks
+        // on the already-selected option.
+        if (prev[qIndex] !== undefined) return prev;
+        const updated = { ...prev, [qIndex]: oIndex };
 
-        const optionKey = isDeselect
-          ? null
-          : (qItem.optionKeys?.[oIndex] ?? qItem.options[oIndex] ?? "");
-
-        const payload = {
-          user: userId,
-          exam: examId,
-          examVersion: versionId || null,
-          subject: questionsData?.[0]?.subject?._id,
-          submittedQuestions: [
-            {
-              question: qId,
-              providedAnswer: optionKey ?? "",
-            }
-          ]
-        };
-
-        postUserQuizs(payload)
-          .unwrap()
-          .then((res) => {
-            console.log("Quiz performance saved:", res);
-          })
-          .catch((err) => {
-            console.error("Failed to save quiz performance:", err);
-          });
+        const optionKey = qItem.optionKeys?.[oIndex] ?? qItem.options[oIndex] ?? "";
 
         // Auto-save to backend (fire-and-forget). The backend matches
         // against correct_answer, which is the option KEY ("K"/"L"/…), so
@@ -300,9 +313,7 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
         }
 
         return updated;
-      });
-    },
-    [isSubmitted, userId, allQuestions, saveAnswer, examId, versionId, searchParams, postUserQuizs]
+      });    }, [isSubmitted, userId, allQuestions, saveAnswer, examId, versionId, searchParams]
   );
 
   const handleSubmit = useCallback(
@@ -347,7 +358,7 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
       // awaited, and does not block navigation. Two reasons:
       //
       // 1. UX: navigation used to wait on this network round-trip, which
-      //    left QuizPreatise sitting in its `isSubmitted` state (showing
+      //    left ExamPaper sitting in its `isSubmitted` state (showing
       //    the full green/red answer review) for as long as the request
       //    took. That's the "report" flash you were seeing — the user
       //    should go straight to the result page, no in-between screen.
@@ -430,8 +441,9 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
     }
   }, [timeLeft, isSubmitted, totalQuestions, handleSubmit]);
 
-  if (questionsLoading || isStarting) {
-    return <QuizLoading loadingQuestions={questionsLoading} />;
+  // Show loading while checking if exam is already attempted
+  if (attemptsLoading || questionsLoading || isStarting) {
+    return <QuizLoading loadingQuestions={questionsLoading || attemptsLoading} />;
   }
 
   if (!examId) {
@@ -484,4 +496,4 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   );
 };
 
-export default QuizPreatise;
+export default ExamPaper;

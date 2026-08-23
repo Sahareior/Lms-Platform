@@ -94,8 +94,13 @@ const SelectedExam = () => {
         ? scheduled.examVersion._id
         : scheduled.examVersion;
     
+    const boardParam =
+      scheduled?.board && scheduled.board !== "undefined" && scheduled.board !== "null"
+        ? `&board=${encodeURIComponent(scheduled.board)}`
+        : "";
+
     navigate(
-      `/mock-exam/selected-exam/exam-page?examId=${examId}&versionId=${versionId}&scheduleId=${scheduled._id}&board=${scheduled?.board}`
+      `/mock-exam/selected-exam/exam-page?examId=${examId}&versionId=${versionId}&scheduleId=${scheduled._id}${boardParam}`
     );
   };
 

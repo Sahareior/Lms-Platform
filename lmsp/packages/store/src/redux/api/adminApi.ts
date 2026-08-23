@@ -217,6 +217,16 @@ export interface QuizAttemptSummary {
   completedAttempts: number;
 }
 
+export interface AdminQuizAttemptQuestion {
+  questionNumber: number;
+  questionText?: string;
+  options?: Record<string, string>;
+  selectedOption?: string | null;
+  correctAnswer?: string | null;
+  isCorrect?: boolean | null;
+  timeTaken?: number;
+}
+
 export interface AdminQuizAttempt {
   _id: string;
   user: {
@@ -243,6 +253,7 @@ export interface AdminQuizAttempt {
   isActive: boolean;
   isCompleted: boolean;
   timeTaken: number;
+  questions?: AdminQuizAttemptQuestion[];
   createdAt: string;
 }
 

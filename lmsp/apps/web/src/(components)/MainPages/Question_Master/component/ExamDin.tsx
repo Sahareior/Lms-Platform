@@ -183,10 +183,11 @@ export default function ExamDin() {
       const qItem = questions.find((q) => q.id === qId);
       if (!qItem) return;
 
-      setSelected((prev) => ({
-        ...prev,
-        [qId]: optionIndex,
-      }));
+      setSelected((prev) => {
+        // Once an answer is selected it cannot be withdrawn
+        if (prev[qId] !== undefined) return prev;
+        return { ...prev, [qId]: optionIndex };
+      });
 
       const userId = user?._id;
       if (!userId || !qItem._id || !examId || !examVersionId) return;
