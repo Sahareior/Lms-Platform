@@ -13,6 +13,7 @@ import {
   Empty,
   Avatar,
   Typography,
+  Tooltip,
 } from "antd";
 import {
   UserOutlined,
@@ -20,13 +21,18 @@ import {
   CheckCircleOutlined,
   RiseOutlined,
   DownloadOutlined,
+  ClockCircleOutlined,
+  CheckCircleFilled,
+  CloseCircleFilled,
+  MinusCircleFilled,
 } from "@ant-design/icons";
 import { message, Button } from "antd";
 import {
   useGetAllQuizAttemptsQuery,
   useGetAdminExamsQuery,
+  useGetAttemptByIdQuery,
 } from "@my-monorepo/store";
-import type { AdminQuizAttempt } from "@my-monorepo/store";
+import type { AdminQuizAttempt, AdminQuizAttemptQuestion } from "@my-monorepo/store";
 import { downloadCsv } from "../../reusable/downloadCsv";
 
 const { Text, Title } = Typography;
@@ -35,6 +41,7 @@ const UserPerformance: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [examFilter, setExamFilter] = useState<string>("");
   const [page, setPage] = useState(1);
+  const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
 
   const { data, isLoading, error } = useGetAllQuizAttemptsQuery({
     type: typeFilter || undefined,
@@ -44,6 +51,12 @@ const UserPerformance: React.FC = () => {
   });
 
   const { data: exams } = useGetAdminExamsQuery();
+
+  // Fetch full attempt details when a row is expanded
+  const { data: expandedAttempt, isLoading: detailLoading } = useGetAttemptByIdQuery(
+    expandedRowKey!,
+    { skip: !expandedRowKey }
+  );
 
   const attempts = data?.attempts || [];
   const summary = data?.summary || {
@@ -180,7 +193,157 @@ const UserPerformance: React.FC = () => {
         </Text>
       ),
     },
+    {
+      title: "Details",
+      key: "details",
+      width: 90,
+      render: (_: any, record: AdminQuizAttempt) => (
+        record.isCompleted ? (
+          <Button
+            type="link"
+            size="small"
+            style={{ fontSize: 12 }}
+            onClick={() => {
+              if (expandedRowKey === record._id) {
+                setExpandedRowKey(null);
+              } else {
+                setExpandedRowKey(record._id);
+              }
+            }}
+          >
+            {expandedRowKey === record._id ? 'Hide' : 'View'}
+          </Button>
+        ) : (
+          <span className="text-xs text-[#5F6B64]">—</span>
+        )
+      ),
+    },
   ];
+
+  // ─── Expanded row: per-question breakdown ─────────────────────
+  const renderExpandedRow = (record: AdminQuizAttempt) => {
+    const rawQuestions = expandedAttempt?.questions || [];
+    const seen = new Set<number>();
+    const questions = rawQuestions
+      .filter((q) => {
+        const num = Number(q.questionNumber);
+        if (seen.has(num)) return false;
+        seen.add(num);
+        return true;
+      })
+      .sort((a, b) => Number(a.questionNumber) - Number(b.questionNumber));
+
+    if (detailLoading) {
+      return (
+        <div className="py-6 flex items-center justify-center">
+          <Spin size="small" tip="Loading details..." />
+        </div>
+      );
+    }
+
+    if (questions.length === 0) {
+      return (
+        <div className="py-4 text-center text-sm text-[#5F6B64]">
+          No question-level data available for this attempt.
+        </div>
+      );
+    }
+
+    return (
+      <div className="px-4 py-3">
+        {/* Summary bar */}
+        <div className="flex items-center gap-4 mb-3">
+          <Tag color="green">Correct: {record.correctCount}</Tag>
+          <Tag color="red">Incorrect: {record.incorrectCount}</Tag>
+          <Tag color="default">Unanswered: {record.unansweredCount}</Tag>
+          <Tag color="blue">Score: {record.percentage}%</Tag>
+          {record.timeTaken > 0 && (
+            <span className="text-xs text-[#5F6B64] flex items-center gap-1">
+              <ClockCircleOutlined /> {formatDuration(record.timeTaken)}
+            </span>
+          )}
+        </div>
+
+        {/* Question table */}
+        <Table
+          dataSource={questions}
+          rowKey="questionNumber"
+          pagination={false}
+          size="small"
+          columns={[
+            {
+              title: "#",
+              dataIndex: "questionNumber",
+              key: "questionNumber",
+              width: 50,
+              render: (n: number) => (
+                <span className="font-mono text-xs font-bold text-[#A1A8B3]">{n}</span>
+              ),
+            },
+            {
+              title: "Question",
+              dataIndex: "questionText",
+              key: "questionText",
+              render: (text: string) => (
+                <span className="text-xs text-[#C9D0DA] line-clamp-2">
+                  {text || "—"}
+                </span>
+              ),
+            },
+            {
+              title: "Selected",
+              dataIndex: "selectedOption",
+              key: "selected",
+              width: 100,
+              render: (opt: string | null) =>
+                opt ? (
+                  <Tag color="purple" className="font-mono">{opt}</Tag>
+                ) : (
+                  <Tag color="default">—</Tag>
+                ),
+            },
+            {
+              title: "Correct",
+              dataIndex: "correctAnswer",
+              key: "correctAnswer",
+              width: 100,
+              render: (opt: string | null) =>
+                opt ? (
+                  <Tag color="green" className="font-mono">{opt}</Tag>
+                ) : (
+                  <span className="text-xs text-[#5F6B64]">—</span>
+                ),
+            },
+            {
+              title: "Result",
+              dataIndex: "isCorrect",
+              key: "isCorrect",
+              width: 80,
+              render: (val: boolean | null) => {
+                if (val === true)
+                  return <CheckCircleFilled className="text-[#00E5B3] text-lg" />;
+                if (val === false)
+                  return <CloseCircleFilled className="text-[#EB5757] text-lg" />;
+                return <MinusCircleFilled className="text-[#5F6B64] text-lg" />;
+              },
+            },
+            {
+              title: "Time",
+              dataIndex: "timeTaken",
+              key: "timeTaken",
+              width: 70,
+              render: (t: number) => (
+                <span className="text-xs text-[#5F6B64]">
+                  {t ? `${t}s` : "—"}
+                </span>
+              ),
+            },
+          ]}
+          scroll={{ x: 700 }}
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="">
@@ -387,6 +550,14 @@ const UserPerformance: React.FC = () => {
             dataSource={attempts}
             columns={columns}
             rowKey="_id"
+            expandable={{
+              expandedRowRender: renderExpandedRow,
+              expandedRowKeys: expandedRowKey ? [expandedRowKey] : [],
+              onExpand: (expanded, record) => {
+                setExpandedRowKey(expanded ? record._id : null);
+              },
+              rowExpandable: (record: AdminQuizAttempt) => record.isCompleted,
+            }}
             pagination={{
               current: page,
               pageSize: 20,

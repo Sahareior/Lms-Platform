@@ -13,6 +13,8 @@ import {
   type ScheduleExam,
   type CreateScheduleExamRequest,
   type UpdateScheduleExamRequest,
+  BANGLADESH_BOARDS,
+  type BangladeshBoard,
 } from '@my-monorepo/store';
 
 const { TextArea } = Input;
@@ -50,6 +52,7 @@ const ExamControl: React.FC = () => {
       const payload: CreateScheduleExamRequest = {
         exam: values.exam,
         examVersion: values.examVersion,
+        board: values.board || undefined,
         title: values.title,
         description: values.description,
         startDate: values.startDate.toISOString(),
@@ -72,6 +75,7 @@ const ExamControl: React.FC = () => {
       const payload: UpdateScheduleExamRequest = {
         exam: values.exam,
         examVersion: values.examVersion,
+        board: values.board || undefined,
         title: values.title,
         description: values.description,
         startDate: values.startDate.toISOString(),
@@ -107,6 +111,7 @@ const ExamControl: React.FC = () => {
     editForm.setFieldsValue({
       exam: examVal,
       examVersion: versionVal,
+      board: (exam as any).board || undefined,
       title: exam.title,
       description: exam.description,
       startDate: dayjs(exam.startDate),
@@ -140,6 +145,14 @@ const ExamControl: React.FC = () => {
       render: (_: unknown, record: ScheduleExam) => {
         const v = typeof record.examVersion === 'object' ? record.examVersion.examVersion : record.examVersion;
         return <Tag color="purple">{v || '—'}</Tag>;
+      },
+    },
+    {
+      title: 'Board',
+      key: 'board',
+      render: (_: unknown, record: ScheduleExam) => {
+        const b = (record as any).board;
+        return b ? <Tag color="orange" className="font-medium">{b}</Tag> : <span className="text-sm text-[#5F6B64]">—</span>;
       },
     },
     {
@@ -297,6 +310,16 @@ const ExamControl: React.FC = () => {
             />
           </Form.Item>
 
+          <Form.Item name="board" label="Board">
+            <Select
+              showSearch
+              placeholder="Select a board (optional)"
+              optionFilterProp="label"
+              allowClear
+              options={BANGLADESH_BOARDS.map((b) => ({ label: b, value: b }))}
+            />
+          </Form.Item>
+
           <Form.Item name="description" label="Description">
             <TextArea rows={2} placeholder="Brief description..." />
           </Form.Item>
@@ -377,6 +400,16 @@ const ExamControl: React.FC = () => {
               disabled={!editSelectedExamId}
               optionFilterProp="label"
               options={editFilteredVersions.map((v) => ({ label: v.examVersion, value: v._id }))}
+            />
+          </Form.Item>
+
+          <Form.Item name="board" label="Board">
+            <Select
+              showSearch
+              placeholder="Select a board (optional)"
+              optionFilterProp="label"
+              allowClear
+              options={BANGLADESH_BOARDS.map((b) => ({ label: b, value: b }))}
             />
           </Form.Item>
 

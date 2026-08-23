@@ -16,6 +16,15 @@ const questionPatternSchema = new mongoose.Schema({
         ref: 'Subject',
         required: false
     },
+    board: {
+        type: String,
+        enum: ['Barishal', 'Chattogram', 'Comilla', 'Dhaka', 'Dinajpur', 'Jessore', 'Rajshahi', 'Sylhet'],
+        default: null,
+    },
+    division: {
+        type: String,
+        default: null,
+    },
     topics: {
         type: Map,
         of: Number,
@@ -46,6 +55,7 @@ const questionPatternSchema = new mongoose.Schema({
 
 // Create indexes for faster queries
 questionPatternSchema.index({ exam: 1 });
+questionPatternSchema.index({ exam: 1, examVersion: 1, subject: 1, board: 1 });
 questionPatternSchema.index({ 'categorized_questions.topic': 1 });
 questionPatternSchema.index({ 'categorized_questions.subject': 1 });
 

@@ -113,7 +113,7 @@ export const getScheduleExamById = async (req, res) => {
 // ─── CREATE scheduled exam ─────────────────────────────────
 export const createScheduleExam = async (req, res) => {
   try {
-    const { exam, examVersion, title, description, startDate, endDate, duration, totalQuestions } = req.body;
+    const { exam, examVersion, title, description, startDate, endDate, duration, totalQuestions, board } = req.body;
 
     if (!exam || !examVersion || !title || !startDate || !endDate) {
       return res.status(400).json({ message: 'Exam, examVersion, title, startDate, and endDate are required' });
@@ -131,6 +131,7 @@ export const createScheduleExam = async (req, res) => {
       duration: duration || 120,
       totalQuestions: totalQuestions || 0,
       status,
+      board: board || null,
     });
 
     await newExam.save();

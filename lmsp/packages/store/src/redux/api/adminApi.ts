@@ -1,5 +1,5 @@
 import { api } from './baseApi';
-import type { ExamCategory } from '../../types';
+import type { ExamCategory, BangladeshBoard } from '../../types';
 
 // ─── Admin Types ──────────────────────────────────────────────
 export interface AdminUser {
@@ -56,6 +56,7 @@ export interface AdminExam {
   description?: string;
   applicants?: string;
   category?: ExamCategory;
+  board?: BangladeshBoard;
   createdAt?: string;
 }
 
@@ -64,6 +65,8 @@ export interface AdminQuestion {
   exam: string;
   examVersion?: string;
   subject?: string;
+  board?: BangladeshBoard;
+  division?: string;
   analyzed?: boolean;
   data: Array<{
     question_number: number;
@@ -80,6 +83,7 @@ export interface AdminQuestionPattern {
   exam: string;
   examVersion?: string;
   subject?: string;
+  board?: BangladeshBoard;
   topics: Record<string, number>;
   subjects: Record<string, number>;
   categorized_questions: Array<{
@@ -168,6 +172,7 @@ export interface ScheduleExam {
   _id: string;
   exam: { _id: string; name: string; image?: string } | string;
   examVersion: { _id: string; examVersion: string } | string;
+  board?: BangladeshBoard;
   title: string;
   description?: string;
   startDate: string;
@@ -183,6 +188,7 @@ export interface ScheduleExam {
 export interface CreateScheduleExamRequest {
   exam: string;
   examVersion: string;
+  board?: BangladeshBoard;
   title: string;
   description?: string;
   startDate: string;
@@ -194,6 +200,7 @@ export interface CreateScheduleExamRequest {
 export interface UpdateScheduleExamRequest {
   exam?: string;
   examVersion?: string;
+  board?: BangladeshBoard;
   title?: string;
   description?: string;
   startDate?: string;
@@ -208,6 +215,16 @@ export interface QuizAttemptSummary {
   totalAttempts: number;
   avgPercentage: number;
   completedAttempts: number;
+}
+
+export interface AdminQuizAttemptQuestion {
+  questionNumber: number;
+  questionText?: string;
+  options?: Record<string, string>;
+  selectedOption?: string | null;
+  correctAnswer?: string | null;
+  isCorrect?: boolean | null;
+  timeTaken?: number;
 }
 
 export interface AdminQuizAttempt {
@@ -236,6 +253,7 @@ export interface AdminQuizAttempt {
   isActive: boolean;
   isCompleted: boolean;
   timeTaken: number;
+  questions?: AdminQuizAttemptQuestion[];
   createdAt: string;
 }
 

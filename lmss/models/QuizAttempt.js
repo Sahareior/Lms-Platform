@@ -32,6 +32,10 @@ const quizAttemptSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subject",
     },
+    board: {
+      type: String,
+      default: null,
+    },
     type: {
       type: String,
       enum: ["mock_exam", "practice"],

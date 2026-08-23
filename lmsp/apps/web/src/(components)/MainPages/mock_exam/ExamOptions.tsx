@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Award,
@@ -94,6 +94,17 @@ const ExamOptions = () => {
   const location = useLocation();
   const { data: userData, isLoading } = useGetMeQuery();
   const [query, setQuery] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
+
+  // Check for exam-already-completed flag on mount
+  useEffect(() => {
+    if (sessionStorage.getItem('examAlreadyCompleted') === '1') {
+      setShowAlert(true);
+      sessionStorage.removeItem('examAlreadyCompleted');
+      const timer = setTimeout(() => setShowAlert(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const selectedExams = (userData?.selectedExams || []) as SelectedExam[];
 
@@ -116,6 +127,24 @@ const ExamOptions = () => {
       {location.pathname === "/mock-exam" ? (
         <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] md:p-6">
           <div className="mx-auto max-w-6xl">
+            {/* ── Already Completed Alert ──────────────────────── */}
+            {showAlert && (
+              <div className="mb-4 p-4 rounded-xl border border-[#EB5757]/30 bg-[#EB5757]/10 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🚫</span>
+                  <div>
+                    <p className="text-sm font-bold text-[#EB5757]">You have already completed this mock exam.</p>
+                    <p className="text-xs text-[#A1A8B3]">Each exam can only be attempted once.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAlert(false)}
+                  className="text-[#A1A8B3] hover:text-[#F5F7FA] text-lg font-bold px-2"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             {/* ── Hero Header ───────────────────────────────────── */}
             <div className="relative overflow-hidden rounded-2xl border border-[#23262D] bg-gradient-to-br from-[#161920] via-[#111318] to-[#0B0D12] p-6 md:p-8 mb-6">
               {/* Ambient glows */}

@@ -322,6 +322,7 @@ export type {
   UpdateScheduleExamRequest,
   AdminQuizAttemptResponse,
   AdminQuizAttempt,
+  AdminQuizAttemptQuestion,
   QuizAttemptSummary,
 } from './redux/api/adminApi';
 
@@ -338,5 +339,7 @@ export type {
   Theme,
   UIState,
   ExamCategory,
+  BangladeshBoard,
   RootState as AppRootState,
 } from './types';
+export { BANGLADESH_BOARDS } from './types';

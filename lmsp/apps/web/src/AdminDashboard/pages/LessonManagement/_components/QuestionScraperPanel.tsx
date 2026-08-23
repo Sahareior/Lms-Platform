@@ -1,5 +1,6 @@
 import { BookOpen, CheckCircle, FileSearch, Loader2, X, Zap } from 'lucide-react';
 import type { AdminExamVersion, AdminSubject } from '@my-monorepo/store';
+import { BANGLADESH_BOARDS, type BangladeshBoard } from '@my-monorepo/store';
 import FileDropzone from './FileDropzone';
 import SectionCard from './SectionCard';
 
@@ -9,8 +10,9 @@ interface QuestionScraperPanelProps {
   selectOptions: string;
   selectVersion: string;
   selectSubject: string;
+  selectBoard: string;
   scrapedQuestions: any[] | null;
-  exams: Array<{ _id: string; name: string }>;
+  exams: Array<{ _id: string; name: string; category?: string }>;
   examVersions: AdminExamVersion[];
   subjects: AdminSubject[];
   onFileSelect: (file: File) => void;
@@ -18,6 +20,7 @@ interface QuestionScraperPanelProps {
   onExamChange: (examId: string) => void;
   onVersionChange: (versionId: string) => void;
   onSubjectChange: (subjectId: string) => void;
+  onBoardChange: (board: string) => void;
   onScrape: () => void;
   onClearScraped: () => void;
 }
@@ -29,6 +32,7 @@ export default function QuestionScraperPanel({
   selectOptions,
   selectVersion,
   selectSubject,
+  selectBoard,
   scrapedQuestions,
   exams,
   examVersions,
@@ -38,6 +42,7 @@ export default function QuestionScraperPanel({
   onExamChange,
   onVersionChange,
   onSubjectChange,
+  onBoardChange,
   onScrape,
   onClearScraped,
 }: QuestionScraperPanelProps) {
@@ -45,6 +50,10 @@ export default function QuestionScraperPanel({
     const examId = typeof s.exam === 'string' ? s.exam : s.exam?._id;
     return examId === selectOptions;
   }).length;
+
+  // Check if the selected exam is academic (HSC)
+  const selectedExam = exams?.find((e) => e._id === selectOptions);
+  const isAcademicExam = selectedExam?.category === 'academic';
 
   return (
     <SectionCard
@@ -62,7 +71,7 @@ export default function QuestionScraperPanel({
           onClear={onClearFile}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className={isAcademicExam ? 'grid grid-cols-1 sm:grid-cols-4 gap-4' : 'grid grid-cols-1 sm:grid-cols-3 gap-4'}>
           <div>
             <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
               Exam
@@ -80,6 +89,30 @@ export default function QuestionScraperPanel({
               ))}
             </select>
           </div>
+
+          {/* Board dropdown - only for academic (HSC) exams */}
+          {isAcademicExam && (
+            <div>
+              <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
+                Board
+              </label>
+              <select
+                value={selectBoard}
+                onChange={(e) => onBoardChange(e.target.value)}
+                disabled={!selectOptions}
+                className="w-full px-4 py-3 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {selectOptions ? 'Select a board' : 'Select an exam first'}
+                </option>
+                {BANGLADESH_BOARDS.map((board) => (
+                  <option key={board} value={board}>
+                    {board}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
@@ -145,6 +178,11 @@ export default function QuestionScraperPanel({
               The system will parse the uploaded question paper PDF, extract individual
               questions with their options, and store them in the question bank. Run the
               AI pattern analysis from the Question Bank (Analyze &amp; Save) on each set.
+              {isAcademicExam && (
+                <span className="block mt-1 text-emerald-300/80 font-medium">
+                  📋 Academic exam detected — Board selection is required for HSC question papers.
+                </span>
+              )}
             </p>
           </div>
         </div>

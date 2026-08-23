@@ -9,6 +9,7 @@ export interface StartAttemptRequest {
   type?: 'mock_exam' | 'practice';
   source?: 'question_center' | 'mock_exam' | 'quiz_practice';
   totalQuestions?: number;
+  board?: string;
 }
 
 export interface SaveAnswerRequest {
