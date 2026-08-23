@@ -33,7 +33,7 @@ export default function AiRecommendationsCard({
   onViewAll: () => void;
 }) {
   return (
-    <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-6 flex flex-col justify-between space-y-4">
+    <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-1 flex flex-col justify-between space-y-4">
       <div className="flex items-center gap-2">
         <div className="p-2 bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-lg text-[#00E5B3]">
           <Brain size={16} />
@@ -59,10 +59,10 @@ export default function AiRecommendationsCard({
             className="rounded-xl p-3 border text-center"
             style={{ borderColor: `${verdictColor}40`, background: `${verdictColor}14` }}
           >
-            <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: verdictColor }}>
-              {activeVerdict}
+            <div className="text-[13px] uppercase tracking-wider font-bold" style={{ color: verdictColor }}>
+              {activeVerdict} 
             </div>
-            <p className="text-[10px] text-[#A1A8B3] mt-1 leading-relaxed">
+            <p className="text-[13px] text-[#A1A8B3] mt-1 leading-relaxed">
               {verdictMessage}
             </p>
           </div>
@@ -70,13 +70,13 @@ export default function AiRecommendationsCard({
             <div className="rounded-xl p-3 border border-[#2F80ED]/30 bg-[#2F80ED]/10">
               <div className="flex items-center gap-1.5 mb-2">
                 <Calendar size={12} className="text-[#2F80ED]" />
-                <span className="text-[10px] uppercase tracking-wider font-bold text-[#2F80ED]">
+                <span className="text-[13px] uppercase tracking-wider font-bold text-[#2F80ED]">
                   Study Plan
                 </span>
               </div>
               <div className="space-y-1.5">
                 {aiInsights!.study_plan.slice(0, 3).map((plan: any, idx: number) => (
-                  <div key={idx} className="flex items-start gap-2 text-[10px]">
+                  <div key={idx} className="flex items-start gap-4 text-[13px]">
                     <span className="font-bold text-[#F5F7FA] flex-shrink-0">{plan.day}</span>
                     <span className="text-[#A1A8B3] leading-snug">
                       {plan.title}
@@ -94,7 +94,7 @@ export default function AiRecommendationsCard({
                 className={`bg-[#161920] border border-[#23262D] border-l-4 ${item.color} rounded-xl p-3 hover:border-[#323742] transition-all`}
               >
                 <h3 className="font-bold text-xs text-[#F5F7FA]">{item.title}</h3>
-                <p className="text-[10px] font-semibold text-[#A1A8B3] mt-0.5">{item.desc}</p>
+                <p className="text-[12px] font-semibold text-[#A1A8B3] mt-0.5">{item.desc}</p>
               </div>
             ))
           ) : (

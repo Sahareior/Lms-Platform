@@ -27,16 +27,19 @@ import type { QuestionItem, QuizResultData } from "./_components/quizTypes";
 interface QuizPreatiseProps {
   examId?: string;
   versionId?: string;
+  board?:string
 }
 
 const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   examId: propExamId,
   versionId: propVersionId,
+  board:propBoard
 }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const examId = propExamId || searchParams.get("examId") || "";
   const versionId = propVersionId || searchParams.get("versionId") || "";
+  const board = propBoard || searchParams.get("board") || "";
   const scheduleId = searchParams.get("scheduleId") || "";
   const [postUserQuizs] = usePostUserQuizsMutation();
   const userId = useAppSelector((state) => state.user.user?._id) || "";
@@ -55,7 +58,7 @@ const QuizPreatise: React.FC<QuizPreatiseProps> = ({
   });
   const { data: questionsData, isLoading: questionsLoading } =
     useGetQuestionsByExamQuery(
-      { examId, versionId: versionId || undefined },
+      { examId, versionId: versionId || undefined, board:board || undefined },
       { skip: !examId }
     );
 

@@ -389,6 +389,18 @@ const QuestionBank: React.FC = () => {
       ),
     },
     {
+      title: 'Board',
+      dataIndex: 'board',
+      key: 'board',
+      render: (board?: string) => (
+        board ? (
+          <Tag color="orange" className="font-medium">{board}</Tag>
+        ) : (
+          <span className="text-sm text-[#5F6B64]">—</span>
+        )
+      ),
+    },
+    {
       title: 'Questions',
       dataIndex: 'data',
       key: 'dataCount',

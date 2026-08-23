@@ -338,5 +338,7 @@ export type {
   Theme,
   UIState,
   ExamCategory,
+  BangladeshBoard,
   RootState as AppRootState,
 } from './types';
+export { BANGLADESH_BOARDS } from './types';

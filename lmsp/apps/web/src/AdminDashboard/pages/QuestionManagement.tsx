@@ -60,6 +60,7 @@ export default function QuestionManagement() {
   const [scraperExam, setScraperExam] = useState('');
   const [selectVersion, setSelectVersion] = useState('');
   const [selectSubject, setSelectSubject] = useState('');
+  const [selectBoard, setSelectBoard] = useState('');
   const [scrapedQuestions, setScrapedQuestions] = useState<any[] | null>(null);
   const [questionPaperScraper, { isLoading: isScraping }] = useQuestionPaperScraperMutation();
   const [postScrapQuestions] = usePostScrapQuestionsMutation();
@@ -155,6 +156,13 @@ export default function QuestionManagement() {
       return;
     }
 
+    // Check if the selected exam is academic and requires a board
+    const selectedExamData = (exams as any[])?.find((e: any) => e._id === selectOptions);
+    if (selectedExamData?.category === 'academic' && !selectBoard) {
+      showToast('error', 'Please select a board for this academic (HSC) exam.');
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append('file', scraperFile);
@@ -179,6 +187,11 @@ export default function QuestionManagement() {
       if (selectSubject) {
         payloadData.subject = selectSubject;
       }
+      // Include board & division if selected (for academic/HSC exams)
+      if (selectBoard) {
+        payloadData.board = selectBoard;
+        payloadData.division = selectBoard;
+      }
       await postScrapQuestions(payloadData).unwrap();
 
       setScrapedQuestions(extracted);
@@ -189,12 +202,9 @@ export default function QuestionManagement() {
       setSelectOptions('');
       setSelectVersion('');
       setSelectSubject('');
-    } catch (err: any) {
-      if (err?.status === 409) {
-        showToast('error', err?.data?.message || 'Questions already exist for this exam/version/subject. Open the Question Bank to analyze them.');
-      } else {
-        showToast('error', 'Failed to scrape questions. Please try again.');
-      }
+      setSelectBoard('');
+    } catch {
+      showToast('error', 'Failed to scrape questions. Please try again.');
     }
   };
 
@@ -269,6 +279,7 @@ export default function QuestionManagement() {
               selectOptions={selectOptions}
               selectVersion={selectVersion}
               selectSubject={selectSubject}
+              selectBoard={selectBoard}
               scrapedQuestions={scrapedQuestions}
               exams={exams || []}
               examVersions={examVersions || []}
@@ -279,9 +290,11 @@ export default function QuestionManagement() {
                 setSelectOptions(examId);
                 setSelectVersion('');
                 setSelectSubject('');
+                setSelectBoard('');
               }}
               onVersionChange={setSelectVersion}
               onSubjectChange={setSelectSubject}
+              onBoardChange={setSelectBoard}
               onScrape={handleScrapeQuestions}
               onClearScraped={() => setScrapedQuestions(null)}
             />

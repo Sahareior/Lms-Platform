@@ -1,5 +1,5 @@
 import { useGetQuestionsByExamQuery } from "@my-monorepo/store";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowLeft,
   Clock,
@@ -36,6 +36,8 @@ export default function QuestionMaster() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [selectedYear, setSelectedYear] = useState<string>("All");
+
   // Determine if we're on a child route (exam-din)
   const isChildRoute = location.pathname.includes("/exam-din");
 
@@ -48,6 +50,49 @@ export default function QuestionMaster() {
     { examId: examType! },
     { skip: !examType }
   );
+
+  const exams = useMemo(() => {
+    if (!questionSets) return [];
+    return questionSets.map((set: any) => {
+      const examName = set.exam?.name || "Unknown Exam";
+      const board = set?.board || "";
+      const examId = set?.exam?._id;
+      const examVersionId = set?.examVersion?._id;
+      const subjectId = set?.subject?._id;
+      const version = set.examVersion?.examVersion || "";
+      const subject = set.subject?.name || "";
+      const title = `${board} - ${examName} ${version ? ` - ${version}` : ""}`;
+      return {
+        _id: set._id,
+        board,
+        title,
+        examName,
+        version,
+        subject,
+        examId,         // real Exam _id (populated by the API)
+        subjectId,      // ✅ added
+        examVersionId,  // ✅ added
+        marks: set.totalMarks || 100,
+        duration: set.duration || "60 mins",
+        description: set.description || `${examName} ${version} ${subject} – question set`,
+        status: "Available",
+        date: set.createdAt ? new Date(set.createdAt).toLocaleDateString("en-BD", { day: "numeric", month: "short", year: "numeric" }) : "N/A",
+      };
+    });
+  }, [questionSets]);
+
+  const examYearArray = useMemo(() => {
+    const examYearBasedFilter = new Set<string>();
+    exams.forEach((exam: any) => {
+      examYearBasedFilter.add(exam.version);
+    });
+    return Array.from(examYearBasedFilter).sort();
+  }, [exams]);
+
+  const filteredExams = useMemo(() => {
+    if (selectedYear === "All") return exams;
+    return exams.filter((exam: any) => exam.version === selectedYear);
+  }, [exams, selectedYear]);
 
   // Accent colour for current category
   const accent = examType ? categoryAccent[examType] || "#9B51E0" : "#9B51E0";
@@ -97,43 +142,49 @@ export default function QuestionMaster() {
     );
   }
 
-  // Map API data to card‑friendly objects, including subjectId and examVersionId
-  const exams = questionSets.map((set: any) => {
-    const examName = set.exam?.name || "Unknown Exam";
-    const examId = set?.exam?._id;
-    const examVersionId = set?.examVersion?._id;
-    const subjectId = set?.subject?._id;
-    const version = set.examVersion?.examVersion || "";
-    const subject = set.subject?.name || "";
-    const title = `${examName}${version ? ` - ${version}` : ""}${subject ? ` - ${subject}` : ""}`;
-    return {
-      _id: set._id,
-      title,
-      examName,
-      version,
-      subject,
-      examId,         // real Exam _id (populated by the API)
-      subjectId,      // ✅ added
-      examVersionId,  // ✅ added
-      marks: set.totalMarks || 100,
-      duration: set.duration || "60 mins",
-      description: set.description || `${examName} ${version} ${subject} – question set`,
-      status: "Available",
-      date: set.createdAt ? new Date(set.createdAt).toLocaleDateString("en-BD", { day: "numeric", month: "short", year: "numeric" }) : "N/A",
-    };
-  });
-
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
       {/* Exam Cards */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-5">
-        {exams.length === 0 ? (
+        
+        {/* Year Filter */}
+        {examYearArray.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            <button
+              onClick={() => setSelectedYear("All")}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                selectedYear === "All"
+                  ? "text-white"
+                  : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
+              }`}
+              style={selectedYear === "All" ? { backgroundColor: accent } : {}}
+            >
+              All
+            </button>
+            {examYearArray.map((year: string) => (
+              <button
+                key={year}
+                onClick={() => setSelectedYear(year)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                  selectedYear === year
+                    ? "text-white"
+                    : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
+                }`}
+                style={selectedYear === year ? { backgroundColor: accent } : {}}
+              >
+                {year || "Unknown"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {filteredExams.length === 0 ? (
           <div className="text-center py-16 bg-[#111318] rounded-2xl border border-[#23262D]">
             <FileText size={32} className="text-[#6B7280] mx-auto mb-3" />
             <p className="text-[#A1A8B3] font-semibold">No question sets available</p>
           </div>
         ) : (
-          exams.map((exam: any) => (
+          filteredExams.map((exam: any) => (
             <div
               key={exam._id}
               className="bg-[#111318] rounded-2xl border border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.3)] transition-all duration-300 p-6 group"

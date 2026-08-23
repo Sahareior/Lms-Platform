@@ -11,6 +11,11 @@ const scheduleExamSchema = new mongoose.Schema({
     ref: 'ExamVersion',
     required: true,
   },
+  board: {
+    type: String,
+    enum: ['Barishal', 'Chattogram', 'Comilla', 'Dhaka', 'Dinajpur', 'Jessore', 'Rajshahi', 'Sylhet'],
+    default: null,
+  },
   title: {
     type: String,
     required: true,
