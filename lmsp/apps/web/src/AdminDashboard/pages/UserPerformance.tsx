@@ -58,7 +58,7 @@ const UserPerformance: React.FC = () => {
     { skip: !expandedRowKey }
   );
 
-  const attempts = data?.attempts || [];
+  const attempts = (data?.attempts || []).filter((a: AdminQuizAttempt) => a.isCompleted);
   const summary = data?.summary || {
     totalAttempts: 0,
     avgPercentage: 0,
@@ -104,10 +104,10 @@ const UserPerformance: React.FC = () => {
               strong
               style={{ fontSize: 13, display: "block", lineHeight: 1.2 }}
             >
-              {user?.username || user?.email || "Unknown"}
+              {user?.name || user?.email || "Unknown"}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              {user?.division || user?.district || "—"}
+              {user?.email || user?.district || "—"}
             </Text>
           </div>
         </div>
@@ -161,7 +161,7 @@ const UserPerformance: React.FC = () => {
                 : "#ff4d4f"
             }
           />
-          <Text style={{ fontSize: 12 }}>{record.percentage}%</Text>
+          {/* <Text style={{ fontSize: 12 }}>{record.percentage}%</Text> */}
         </div>
       ),
     },

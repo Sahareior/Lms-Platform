@@ -18,7 +18,7 @@ const LandingNav = () => {
           <Link to="/" aria-label="Geneseon home" className="flex items-center gap-2.5 group">
           <img className='w-9' src="/nav.png" alt="" />
 
-            <span className="text-sm font-medium tracking-[0.35em] text-white">
+            <span className="text-sm font-semibold tracking-[0.3em] text-white" style={{ fontFeatureSettings: '"ss01"' }}>
               GENESEON
             </span>
           </Link>

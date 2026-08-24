@@ -770,7 +770,7 @@ export const getAttemptById = async (req, res) => {
 export const exportAttemptsCsv = async (req, res) => {
   try {
     const { type, examId, userId } = req.query;
-    const filter = {};
+    const filter = { isCompleted: true };
     if (type) filter.type = type;
     if (examId) filter.exam = examId;
     if (userId) filter.user = userId;
@@ -810,7 +810,7 @@ export const getAllAttempts = async (req, res) => {
   try {
     const { type, examId, userId, page = 1, limit = 20 } = req.query;
 
-    const filter = {};
+    const filter = { isCompleted: true };
     if (type) filter.type = type;
     if (examId) filter.exam = examId;
     if (userId) filter.user = userId;
@@ -819,7 +819,7 @@ export const getAllAttempts = async (req, res) => {
 
     const [attempts, total] = await Promise.all([
       QuizAttempt.find(filter)
-        .populate("user", "username email phone division district")
+        .populate("user", "name email phone division district")
         .populate("exam", "name image")
         .populate("examVersion", "examVersion")
         .sort({ createdAt: -1 })

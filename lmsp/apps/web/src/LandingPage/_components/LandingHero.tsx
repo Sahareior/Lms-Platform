@@ -107,17 +107,16 @@ const LandingHero = () => {
             lg:pb-20
           "
           >
-            {/* Eyebrow */}
-            <p
+            {/* Eyebrow */}            <p
               className="
-              mt-9 mb-6
-              text-[11px]
-              sm:text-xs
-              font-medium
-              tracking-[0.28em]
-              uppercase
-              text-gray-400
-            "
+                mt-9 mb-6
+                text-[11px]
+                sm:text-xs
+                font-medium
+                tracking-[0.35em]
+                uppercase
+                text-gray-400
+              "
             >
               Distanced. Advanced. Genesis.
             </p>
@@ -125,15 +124,16 @@ const LandingHero = () => {
             {/* Heading */}
             <h1
               className="
-              text-5xl
-              sm:text-6xl
-              lg:text-7xl
-              xl:text-[76px]
-              font-semibold
-              leading-[1.02]
-              tracking-[0.08em]
-              text-white
-            "
+                text-5xl
+                sm:text-6xl
+                lg:text-7xl
+                xl:text-[76px]
+                font-bold
+                leading-[1.02]
+                tracking-[0.04em]
+                text-white
+              "
+              style={{ fontFeatureSettings: '"ss01", "ss02"' }}
             >
               THE NEXT
               <br />
@@ -141,13 +141,13 @@ const LandingHero = () => {
               <br />
               <span
                 className="
-                text-transparent
-                bg-clip-text
-                bg-gradient-to-r
-                from-[#9b8cff]
-                via-[#716cff]
-                to-[#4f8cff]
-              "
+                  text-transparent
+                  bg-clip-text
+                  bg-gradient-to-r
+                  from-[#9b8cff]
+                  via-[#716cff]
+                  to-[#4f8cff]
+                "
               >
                 LEARNING
               </span>

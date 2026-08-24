@@ -208,7 +208,7 @@ const LandingFeatures = () => {
                   className="
                     text-3xl
                     lg:text-4xl
-                    font-medium
+                    font-semibold
                     tracking-tight
                     text-transparent
                     bg-clip-text
@@ -216,6 +216,7 @@ const LandingFeatures = () => {
                     from-[#a28cff]
                     to-[#648cff]
                   "
+                  style={{ fontFeatureSettings: '"tnum"' }}
                 >
                   {stat.value}
                 </p>
@@ -278,11 +279,12 @@ const LandingFeatures = () => {
                   max-w-[280px]
                   text-3xl
                   lg:text-4xl
-                  font-light
+                  font-medium
                   leading-[1.15]
-                  tracking-[-0.02em]
+                  tracking-[-0.01em]
                   text-white
                 "
+                style={{ fontFeatureSettings: '"ss01", "ss02"' }}
               >
                 Powerful features for limitless potential.
               </h2>
@@ -421,7 +423,7 @@ const FeatureCards = () => {
                 <h3
                   className="
                     text-[15px]
-                    font-medium
+                    font-semibold
                     text-gray-200
                   "
                 >

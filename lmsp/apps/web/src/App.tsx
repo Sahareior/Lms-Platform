@@ -126,7 +126,7 @@ useEffect(() => {
           colorPrimary: '#2F80ED',
           colorText: '#F5F7FA',
           colorTextDescription: '#A1A8B3',
-          fontFamily: "'Geist', 'Inter', sans-serif",
+          fontFamily: "'Space Grotesk', 'Geist', 'Inter', sans-serif",
           borderRadius: 12,
         },
       }}
@@ -151,7 +151,7 @@ useEffect(() => {
                 <img className='w-24' src="/a.png" alt="" />
              
                 <div>
-                  <h1 className="font-bold text-lg text-[#F5F7FA] tracking-wide">Geneseon</h1>
+                  <h1 className="font-bold text-lg text-[#F5F7FA] tracking-wide" style={{ fontFeatureSettings: '"ss01"' }}>Geneseon</h1>
                   <p className="text-xs text-[#A1A8B3]">AI LMS Platform</p>
                 </div>
               </div>

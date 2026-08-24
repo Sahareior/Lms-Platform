@@ -104,11 +104,12 @@ const LandingCTA = () => {
               className="
                 text-3xl
                 lg:text-4xl
-                font-light
+                font-medium
                 leading-[1.15]
-                tracking-[-0.02em]
+                tracking-[-0.01em]
                 text-white
               "
+              style={{ fontFeatureSettings: '"ss01", "ss02"' }}
             >
               Begin your journey
               <br />
