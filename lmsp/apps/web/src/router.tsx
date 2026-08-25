@@ -6,6 +6,7 @@ import App from './App';
 import { Login, SignUp, ForgotPassword, ResetPassword } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
 import HomeRedirect from './auth/HomeRedirect';
+import Omer from './(components)/ExamPaper/omr/Omr';
 
 // ─── Lazy page imports (route-level code splitting) ─────────
 // Each page ships in its own chunk, loaded on first visit, so the
@@ -59,6 +60,10 @@ const router = createBrowserRouter([
   {
     path: '/landing',
     element: <Navigate to="/" replace />,
+  },
+  {
+    path:'omr',
+    element:<Omer />
   },
 
   {

@@ -144,11 +144,14 @@ html {
   }
 
   #certificate-print-area,
-  #certificate-print-area * {
+  #certificate-print-area *,
+  #omr-print-area,
+  #omr-print-area * {
     visibility: visible;
   }
 
-  #certificate-print-area {
+  #certificate-print-area,
+  #omr-print-area {
     position: absolute;
     left: 0;
     top: 0;

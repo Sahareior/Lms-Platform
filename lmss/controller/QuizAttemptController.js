@@ -72,15 +72,25 @@ export const startAttempt = async (req, res) => {
     }
 
     // ── One-attempt-per-exam guard ────────────────────────────────
-    // If a completed attempt already exists for this user + exam,
+    // If a completed attempt already exists for this user + specific exam/version/board,
     // block a new attempt. Only enforced for mock_exam source.
     if (examId && (source === 'mock_exam' || type === 'mock_exam')) {
-      const existingCompleted = await QuizAttempt.findOne({
+      const guardFilter = {
         user: userId,
         exam: examId,
         isCompleted: true,
-        ...(examVersionId ? { examVersion: examVersionId } : {}),
-      });
+      };
+      if (examVersionId) {
+        guardFilter.examVersion = examVersionId;
+      }
+      if (board && board !== 'undefined' && board !== 'null') {
+        guardFilter.board = board;
+      }
+      if (subjectId) {
+        guardFilter.subject = subjectId;
+      }
+
+      const existingCompleted = await QuizAttempt.findOne(guardFilter);
       if (existingCompleted) {
         return res.status(409).json({
           message: "You have already completed this mock exam. Each exam can only be attempted once.",
@@ -703,7 +713,7 @@ export const getWeeklyActivity = async (req, res) => {
 export const getUserAttempts = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { type, limit } = req.query;
+    const { type, source, limit } = req.query;
 
     if (!userId) {
       return res.status(400).json({ message: "userId is required" });
@@ -711,6 +721,7 @@ export const getUserAttempts = async (req, res) => {
 
     const filter = { user: userId };
     if (type) filter.type = type;
+    if (source) filter.source = source;
 
     const attempts = await QuizAttempt.find(filter)
       .populate("exam", "name image")
