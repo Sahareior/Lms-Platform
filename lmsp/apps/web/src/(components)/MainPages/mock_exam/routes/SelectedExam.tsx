@@ -57,6 +57,24 @@ const getTimeRemaining = (startDate: string) => {
   return `Starts in ${minutes}m`;
 };
 
+const isExamActive = (scheduled: ScheduleExam) => {
+  const currentDate = new Date();
+  const startDate = new Date(scheduled.startDate);
+  const endDate = new Date(scheduled.endDate);
+  return currentDate >= startDate && currentDate <= endDate;
+};
+
+// Derive live status from dates — server status can be stale (cache/RTK query)
+const getEffectiveStatus = (scheduled: ScheduleExam): string => {
+  if (scheduled.status === "cancelled") return "cancelled";
+  const now = new Date();
+  const start = new Date(scheduled.startDate);
+  const end = new Date(scheduled.endDate);
+  if (now < start) return "upcoming";
+  if (now > end) return "completed";
+  return "active";
+};
+
 const SelectedExam = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -71,17 +89,14 @@ const SelectedExam = () => {
   const currentExam = exams?.find((e: any) => e._id === examId);
 
   // Only upcoming/active exams for students
-  const availableExams =
-    scheduleExams?.filter(
-      (s: ScheduleExam) => s.status === "active" || s.status === "upcoming"
-    ) ?? [];
 
-  const isExamActive = (scheduled: ScheduleExam) => {
-    const currentDate = new Date();
-    const startDate = new Date(scheduled.startDate);
-    const endDate = new Date(scheduled.endDate);
-    return currentDate >= startDate && currentDate <= endDate;
-  };
+  console.log(scheduleExams, "scheduleExams");
+
+  const availableExams =
+    scheduleExams?.filter((s: ScheduleExam) => {
+      const eff = getEffectiveStatus(s);
+      return eff === "active" || eff === "upcoming";
+    }) ?? [];
 
   const handleExamClick = (scheduled: ScheduleExam) => {
     // Only navigate if the exam is active
@@ -149,6 +164,7 @@ const SelectedExam = () => {
               <div className="space-y-3 sm:space-y-4">
                 {availableExams.map((scheduled: ScheduleExam) => {
                   const isActive = isExamActive(scheduled);
+                  const effectiveStatus = getEffectiveStatus(scheduled);
                   const timeRemaining = getTimeRemaining(scheduled.startDate);
 
                   return (
@@ -163,18 +179,17 @@ const SelectedExam = () => {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 md:p-5 gap-3 sm:gap-4">
                         <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                          {/* Icon */}
-                          <div
-                            className={`h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${
-                              isActive
-                                ? scheduled.status === "active"
-                                  ? "bg-[#9B51E0]/10 border border-[#9B51E0]/30 text-[#9B51E0]"
-                                  : "bg-[#2F80ED]/10 border border-[#2F80ED]/30 text-[#2F80ED]"
-                                : "bg-[#323742]/10 border border-[#323742]/30 text-[#6B7280]"
-                            }`}
-                          >
-                            {isActive ? (
-                              scheduled.status === "active" ? (
+                          {/* Icon */}                            <div
+                              className={`h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${
+                                isActive
+                                  ? effectiveStatus === "active"
+                                    ? "bg-[#9B51E0]/10 border border-[#9B51E0]/30 text-[#9B51E0]"
+                                    : "bg-[#2F80ED]/10 border border-[#2F80ED]/30 text-[#2F80ED]"
+                                  : "bg-[#323742]/10 border border-[#323742]/30 text-[#6B7280]"
+                              }`}
+                            >
+                              {isActive ? (
+                                effectiveStatus === "active" ? (
                                 <PlayCircle size={22} className="sm:w-6 sm:h-6 md:w-7 md:h-7" />
                               ) : (
                                 <Calendar size={22} className="sm:w-6 sm:h-6 md:w-7 md:h-7" />
@@ -200,18 +215,18 @@ const SelectedExam = () => {
                             
                             {/* Mobile: Show status badges inline */}
                             <div className="flex sm:hidden items-center gap-2 mb-1.5">
-                              {isActive && scheduled.status === "active" && (
+                              {isActive && effectiveStatus === "active" && (
                                 <span className="bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">
                                   ● LIVE
                                 </span>
                               )}
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${getStatusBadge(
-                                  scheduled.status
+                                  effectiveStatus
                                 )}`}
                               >
-                                {scheduled.status.charAt(0).toUpperCase() +
-                                  scheduled.status.slice(1)}
+                                {effectiveStatus.charAt(0).toUpperCase() +
+                                  effectiveStatus.slice(1)}
                               </span>
                             </div>
                             
@@ -245,18 +260,18 @@ const SelectedExam = () => {
 
                         {/* Right side: status badges + chevron (desktop only) */}
                         <div className="hidden sm:flex items-center gap-3 ml-4 shrink-0">
-                          {isActive && scheduled.status === "active" && (
+                          {isActive && effectiveStatus === "active" && (
                             <span className="bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 px-3 py-1 rounded-full text-sm font-bold animate-pulse whitespace-nowrap">
                               ● LIVE
                             </span>
                           )}
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusBadge(
-                              scheduled.status
+                              effectiveStatus
                             )}`}
                           >
-                            {scheduled.status.charAt(0).toUpperCase() +
-                              scheduled.status.slice(1)}
+                            {effectiveStatus.charAt(0).toUpperCase() +
+                              effectiveStatus.slice(1)}
                           </span>
                           <ChevronRight
                             size={22}

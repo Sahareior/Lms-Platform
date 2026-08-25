@@ -354,9 +354,17 @@ export const batchSaveAnswers = async (req, res) => {
       attempt.totalQuestions > 0
         ? Math.round((correctCount / attempt.totalQuestions) * 100)
         : 0;
-    // Sum per-question times for attempt-level duration
+    // Sum per-question times for attempt-level duration, but never let the
+    // client-reported sum exceed real wall-clock elapsed time (clients can
+    // report overlapping per-question windows that inflate the total).
     const totalTime = attempt.questions.reduce((sum, q) => sum + (q.timeTaken || 0), 0);
-    if (totalTime > 0) attempt.timeTaken = totalTime;
+    if (totalTime > 0) {
+      const wallClockSeconds = Math.max(
+        1,
+        Math.round((Date.now() - new Date(attempt.startedAt).getTime()) / 1000)
+      );
+      attempt.timeTaken = Math.min(totalTime, wallClockSeconds);
+    }
 
     await attempt.save();
 
@@ -434,11 +442,17 @@ export const completeAttempt = async (req, res) => {
     attempt.isActive = false;
     attempt.completedAt = new Date();
 
-    // Set total timeTaken: sum of per-question times, or fallback to wall-clock
+    // Set total timeTaken: sum of per-question times capped at wall-clock
+    // elapsed (client-reported sums can overlap and overstate), or fallback
+    // to wall-clock itself.
+    const wallClockSeconds = Math.max(
+      1,
+      Math.round((new Date() - new Date(attempt.startedAt)) / 1000)
+    );
     const totalTime = attempt.questions.reduce((sum, q) => sum + (q.timeTaken || 0), 0);
     attempt.timeTaken = totalTime > 0
-      ? totalTime
-      : Math.round((new Date() - new Date(attempt.startedAt)) / 1000);
+      ? Math.min(totalTime, wallClockSeconds)
+      : wallClockSeconds;
 
     await attempt.save();
 
@@ -744,7 +758,7 @@ export const getAttemptById = async (req, res) => {
     const attempt = await QuizAttempt.findById(id)
       .populate("exam", "name image")
       .populate("examVersion", "examVersion")
-      .populate("user", "username email phone division district");
+      .populate("user", "name username email phone division district");
 
     if (!attempt) {
       return res.status(404).json({ message: "Attempt not found" });
@@ -830,7 +844,7 @@ export const getAllAttempts = async (req, res) => {
 
     const [attempts, total] = await Promise.all([
       QuizAttempt.find(filter)
-        .populate("user", "name email phone division district")
+        .populate("user", "name username email phone division district")
         .populate("exam", "name image")
         .populate("examVersion", "examVersion")
         .sort({ createdAt: -1 })

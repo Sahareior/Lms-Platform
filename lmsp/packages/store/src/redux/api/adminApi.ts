@@ -232,6 +232,7 @@ export interface AdminQuizAttempt {
   user: {
     _id: string;
     name?: string;
+    username?: string;
     email?: string;
     phone?: string;
     division?: string;

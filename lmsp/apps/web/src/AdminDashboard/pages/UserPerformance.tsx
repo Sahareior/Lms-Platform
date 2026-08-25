@@ -104,7 +104,7 @@ const UserPerformance: React.FC = () => {
               strong
               style={{ fontSize: 13, display: "block", lineHeight: 1.2 }}
             >
-              {user?.name || user?.email || "Unknown"}
+              {user?.name || user?.username || "Unknown"}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
               {user?.email || user?.district || "—"}
@@ -358,7 +358,7 @@ const UserPerformance: React.FC = () => {
             sessions
           </Text>
         </div>
-        <Button
+        {/* <Button
           icon={<DownloadOutlined />}
           onClick={async () => {
             try {
@@ -370,7 +370,7 @@ const UserPerformance: React.FC = () => {
           }}
         >
           Export CSV
-        </Button>
+        </Button> */}
       </div>
 
       {/* ─── Stats Cards ──────────────────────────── */}
