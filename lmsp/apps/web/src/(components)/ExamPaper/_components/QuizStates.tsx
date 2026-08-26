@@ -2,7 +2,7 @@ import { ArrowLeft, BookOpen, Loader2 } from "lucide-react";
 
 export function QuizLoading({ loadingQuestions }: { loadingQuestions: boolean }) {
   return (
-    <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center">
+    <div className="min-h-screen w-full bg-[#0B0D12] flex items-center justify-center">
       <div className="text-center">
         <Loader2 className="animate-spin text-3xl text-[#9B51E0] mx-auto mb-4" />
         <p className="text-[#A1A8B3] font-medium">

@@ -28,6 +28,10 @@ const quizAttemptSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "ExamVersion",
     },
+    scheduleExam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ScheduleExam",
+    },
     subject: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subject",

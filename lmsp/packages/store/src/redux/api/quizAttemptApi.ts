@@ -5,6 +5,7 @@ export interface StartAttemptRequest {
   userId: string;
   examId?: string;
   examVersionId?: string;
+  scheduleExamId?: string;
   subjectId?: string;
   type?: 'mock_exam' | 'practice';
   source?: 'question_center' | 'mock_exam' | 'quiz_practice';
@@ -190,11 +191,12 @@ const quizAttemptApi = api.injectEndpoints({
     }),
 
     // ── Get user attempts ────────────────────────────────────
-    getUserAttempts: build.query<Attempt[], { userId: string; type?: string; limit?: number }>({
-      query: ({ userId, type, limit }) => {
+    getUserAttempts: build.query<Attempt[], { userId: string; type?: string; source?: string; limit?: number }>({
+      query: ({ userId, type, source, limit }) => {
         let url = `/quiz-attempts/user/${userId}`;
         const params = new URLSearchParams();
         if (type) params.set('type', type);
+        if (source) params.set('source', source);
         if (limit) params.set('limit', String(limit));
         const qs = params.toString();
         if (qs) url += `?${qs}`;

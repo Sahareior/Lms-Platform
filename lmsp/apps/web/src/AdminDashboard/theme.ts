@@ -37,7 +37,7 @@ export const adminTheme: ThemeConfig = {
     colorTextDisabled: ADMIN_COLORS.textMuted,
     colorSplit: ADMIN_COLORS.borderSubtle,
     borderRadius: 12,
-    fontFamily: "'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    fontFamily: "'Space Grotesk', 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
   },
   components: {
     Layout: {

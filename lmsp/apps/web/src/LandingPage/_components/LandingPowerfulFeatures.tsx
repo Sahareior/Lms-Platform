@@ -18,7 +18,7 @@ const LandingPowerfulFeatures = () => {
             <p className="text-[11px] font-bold tracking-[0.25em] text-indigo-400 uppercase mb-4">
               BUILT FOR THE FUTURE
             </p>
-            <h2 className="text-3xl lg:text-[2rem] font-bold mb-5 leading-[1.15]">
+            <h2 className="text-3xl lg:text-[2rem] font-bold mb-5 leading-[1.15]" style={{ fontFeatureSettings: '"ss01", "ss02"' }}>
               Powerful features for limitless potential.
             </h2>
             <p className="text-gray-400 mb-8 text-[14px] leading-relaxed">
@@ -51,7 +51,7 @@ const LandingPowerfulFeatures = () => {
 
                 {/* Card Content */}
                 <div className="p-5 flex flex-col flex-1">
-                  <h4 className="text-[15px] font-semibold mb-2 text-white">{card.title}</h4>
+                  <h4 className="text-[15px] font-semibold mb-2 text-white" style={{ fontFeatureSettings: '"ss01"' }}>{card.title}</h4>
                   <p className="text-[13px] text-gray-500 leading-relaxed flex-1">{card.desc}</p>
                   <div className="flex justify-end mt-4">
                     <ArrowRight

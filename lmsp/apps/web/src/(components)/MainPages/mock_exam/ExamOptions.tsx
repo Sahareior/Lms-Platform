@@ -126,7 +126,7 @@ const ExamOptions = () => {
     <div>
       {location.pathname === "/mock-exam" ? (
         <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] md:p-6">
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-8xl">
             {/* ── Already Completed Alert ──────────────────────── */}
             {showAlert && (
               <div className="mb-4 p-4 rounded-xl border border-[#EB5757]/30 bg-[#EB5757]/10 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300">

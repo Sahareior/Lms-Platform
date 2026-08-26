@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import Swal from 'sweetalert2';
 import {
   useGetExamsQuery,
   useGetQuestionsByExamQuery,
@@ -13,7 +14,7 @@ import {
   useGetUserPerformanceQuery,
   useGetUserAttemptsQuery,
 } from "@my-monorepo/store";
-// postUserQuizs removed — performance is now computed from QuizAttempt on the backend
+import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
 import QuestionCard from "./_components/QuestionCard";
 import QuizHeader from "./_components/QuizHeader";
 import QuizProgressBar from "./_components/QuizProgressBar";
@@ -24,8 +25,10 @@ import {
   computeLocalScore, buildLocalReview,
 } from "./_components/quizTypes";
 import type { QuestionItem, QuizResultData } from "./_components/quizTypes";
+import { useExamSecurity } from "./examSecurity/useExamSecurity";
+import Watermark from "./examSecurity/Watermark.tsx";
 
-interface ExamPaperProps {
+export interface ExamPaperProps {
   examId?: string;
   versionId?: string;
   board?:string
@@ -52,17 +55,37 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   );
 
   // Pre-check: has this user already completed a mock_exam attempt for this exam?
+  // Query by source (not type) because mock-exam attempts are stored with
+  // type:'practice' and source:'mock_exam'.
   const { data: userAttempts, isLoading: attemptsLoading } = useGetUserAttemptsQuery(
-    { userId, type: 'mock_exam', limit: 50 },
+    { userId, source: 'mock_exam', limit: 50 },
     { skip: !userId || !examId }
   );
 
   const hasCompletedAttempt = useMemo(() => {
     if (!userAttempts || !examId) return false;
-    return userAttempts.some(
-      (a: any) => a.isCompleted && (a.exam?._id === examId || a.exam === examId)
-    );
-  }, [userAttempts, examId]);
+    return userAttempts.some((a: any) => {
+      if (!a.isCompleted) return false;
+
+      // Must match exam
+      const attemptExamId = String(a.exam?._id || a.exam || '');
+      if (attemptExamId !== String(examId)) return false;
+
+      // If versionId is specified, the attempt must match this version
+      if (versionId) {
+        const attemptVersionId = String(a.examVersion?._id || a.examVersion || '');
+        if (attemptVersionId && attemptVersionId !== String(versionId)) return false;
+      }
+
+      // If board is specified, the attempt must match this board
+      if (board) {
+        const attemptBoard = String(a.board || '');
+        if (attemptBoard && attemptBoard !== String(board)) return false;
+      }
+
+      return true;
+    });
+  }, [userAttempts, examId, versionId, board]);
 
   const { data: exams } = useGetExamsQuery();
   const { data: examVersions } = useGetExamVersionsByExamQuery(examId, {
@@ -82,12 +105,14 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const [batchSaveAnswers] = useBatchSaveAnswersMutation();
   const [completeAttempt, { isLoading: isCompleting }] =
     useCompleteAttemptMutation();
+  const [postUserQuizs] = usePostUserQuizsMutation();
 
   const attemptIdRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const questionStartTimes = useRef<Record<number, number>>({});
   const submitInFlightRef = useRef(false);
+  const alertShownRef = useRef(false);
 
   const currentExam = exams?.find((e: any) => e._id === examId);
   const currentVersion = examVersions?.find((v: any) => v._id === versionId);
@@ -209,17 +234,36 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [durationSeconds, isSubmitted, answeredCount, scheduleExams]);
 
+  // ─── Show SweetAlert2 when exam is already completed ───
+  useEffect(() => {
+    if (attemptsLoading || alertShownRef.current) return;
+    
+    if (hasCompletedAttempt) {
+      alertShownRef.current = true;
+      
+      Swal.fire({
+        title: 'Already Participated',
+        text: 'You have already participated in this exam. You cannot take it again.',
+        icon: 'warning',
+        confirmButtonText: 'Go to Exams',
+        confirmButtonColor: '#9B51E0',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }).then(() => {
+        navigate('/mock-exam', { replace: true });
+      });
+    }
+  }, [hasCompletedAttempt, attemptsLoading, navigate]);
+
   // ─── Start attempt when exam loads ───
   useEffect(() => {
-    // Pre-check: if already completed, redirect with alert
+    // Don't fire check or startAttempt until the pre-check query has loaded
+    if (attemptsLoading) return;
+
+    // Pre-check: if already completed, skip starting attempt
     if (hasCompletedAttempt) {
-      sessionStorage.setItem('examAlreadyCompleted', '1');
-      navigate('/mock-exam', { replace: true });
       return;
     }
-
-    // Don't fire startAttempt until the pre-check query has loaded
-    if (attemptsLoading) return;
 
     if (!examId || !userId || allQuestions.length === 0) return;
 
@@ -229,6 +273,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           userId,
           examId,
           examVersionId: versionId || undefined,
+          scheduleExamId: scheduleId || undefined,
           type: "practice",
           source: "mock_exam",
           totalQuestions: allQuestions.length,
@@ -238,10 +283,23 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         startTimeRef.current = Date.now();
         setError(null);
       } catch (err: any) {
-        // 409 = already completed this mock exam → redirect with alert
+        // 409 = already completed this specific mock exam → show alert and redirect
         if (err?.status === 409 || err?.data?.message?.includes('already completed')) {
-          sessionStorage.setItem('examAlreadyCompleted', '1');
-          navigate('/mock-exam', { replace: true });
+          if (!alertShownRef.current) {
+            alertShownRef.current = true;
+            
+            Swal.fire({
+              title: 'Already Participated',
+              text: 'You have already participated in this exam. You cannot take it again.',
+              icon: 'warning',
+              confirmButtonText: 'Go to Exams',
+              confirmButtonColor: '#9B51E0',
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+            }).then(() => {
+              navigate('/mock-exam', { replace: true });
+            });
+          }
         } else {
           const msg = err instanceof Error ? err.message : "Failed to start attempt";
           console.error("Failed to start attempt:", msg);
@@ -251,7 +309,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     };
 
     initAttempt();
-  }, [examId, versionId, userId, allQuestions.length, startAttempt, navigate, hasCompletedAttempt, attemptsLoading]);
+  }, [examId, versionId, board, userId, allQuestions.length, startAttempt, navigate, hasCompletedAttempt, attemptsLoading]);
 
   // ─── Reset state on exam change ───
   useEffect(() => {
@@ -263,6 +321,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     submitInFlightRef.current = false;
     startTimeRef.current = Date.now();
     questionStartTimes.current = {};
+    alertShownRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId, versionId]);
 
@@ -312,8 +371,28 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           });
         }
 
+        // Persist quiz performance (fire-and-forget)
+        if (userId && qItem.id && examId && versionId) {
+          postUserQuizs({
+            user: userId,
+            exam: examId,
+            examVersion: versionId,
+            subject: null,
+            submittedQuestions: [
+              {
+                question: qItem.id,
+                providedAnswer: qItem.optionKeys?.[oIndex] ?? "",
+              },
+            ],
+          })
+            .unwrap()
+            .catch((err) => {
+              console.warn("Failed to save quiz performance:", err);
+            });
+        }
+
         return updated;
-      });    }, [isSubmitted, userId, allQuestions, saveAnswer, examId, versionId, searchParams]
+      });    }, [isSubmitted, userId, allQuestions, saveAnswer, postUserQuizs, examId, versionId, searchParams]
   );
 
   const handleSubmit = useCallback(
@@ -441,6 +520,13 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [timeLeft, isSubmitted, totalQuestions, handleSubmit]);
 
+    const violations = useExamSecurity({
+    isSubmitted,
+    onViolationLimitReached: () => handleSubmit(true),
+  });
+
+  console.log("Violations:", violations); // For debugging purposes
+
   // Show loading while checking if exam is already attempted
   if (attemptsLoading || questionsLoading || isStarting) {
     return <QuizLoading loadingQuestions={questionsLoading || attemptsLoading} />;
@@ -462,6 +548,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] pb-12">
+        {!isSubmitted && <Watermark userId={userId} examId={examId} />}
       <QuizHeader
         examName={currentExam?.name || ""}
         versionName={currentVersion?.examVersion || ""}
@@ -480,7 +567,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       />
 
       {/* ────── QUESTIONS ────── */}
-      <main className="max-w-3xl mx-auto px-4 md:px-6 mt-8 space-y-6 pb-16">
+      <main className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 mt-6 sm:mt-8 space-y-4 sm:space-y-6 pb-16">
         {allQuestions.map((q, index) => (
           <QuestionCard
             key={q.questionNumber ?? index}
