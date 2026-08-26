@@ -245,6 +245,19 @@ export type {
   AiHistoryItem,
 } from './redux/api/userPerformanceApi';
 
+// ─── RTK Query Temp Exam Submission API ───────────────────
+export {
+  useGetTempExamSubmissionQuery,
+  useSaveTempExamSubmissionMutation,
+  useDeleteTempExamSubmissionMutation,
+} from './redux/api/tempExamSubmissionApi';
+export type {
+  TempExamSubmission,
+  SaveTempExamSubmissionRequest,
+  DeleteTempExamSubmissionRequest,
+  SubmittedAnswerItem,
+} from './redux/api/tempExamSubmissionApi';
+
 // ─── RTK Query Admin API ─────────────────────────────────────
 export {
   useGetAdminUsersQuery,

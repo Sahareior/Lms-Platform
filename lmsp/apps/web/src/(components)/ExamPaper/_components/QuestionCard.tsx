@@ -81,6 +81,10 @@ const QuestionCard = React.memo(function QuestionCard({
         )}
       </div>
 
+      <h3 className="text-base font-medium leading-relaxed text-[#F5F7FA] mb-6">
+        {q.question}
+      </h3>
+
       {/* Scenario / passage text */}
       {q.scenarioText && (
         <div className="mb-5 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
@@ -104,9 +108,7 @@ const QuestionCard = React.memo(function QuestionCard({
         </div>
       )}
 
-      <h3 className="text-base font-medium leading-relaxed text-[#F5F7FA] mb-6">
-        {q.question}
-      </h3>
+
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {q.options.map((opt, optIndex) => {

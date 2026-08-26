@@ -112,6 +112,25 @@ export const startAttempt = async (req, res) => {
       }
     }
 
+    // ── Reuse existing active uncompleted attempt if already started ──
+    const activeFilter = {
+      user: userId,
+      isActive: true,
+      isCompleted: false,
+      ...(examId ? { exam: examId } : {}),
+    };
+    if (examVersionId) activeFilter.examVersion = examVersionId;
+    if (board && board !== 'undefined' && board !== 'null') activeFilter.board = board;
+    if (subjectId) activeFilter.subject = subjectId;
+
+    const existingActive = await QuizAttempt.findOne(activeFilter)
+      .populate("exam", "name")
+      .populate("examVersion", "examVersion");
+
+    if (existingActive) {
+      return res.status(200).json(existingActive);
+    }
+
     // Deactivate any existing active attempt for this user + type + exam
     await QuizAttempt.updateMany(
       { user: userId, isActive: true, ...(examId ? { exam: examId } : {}) },

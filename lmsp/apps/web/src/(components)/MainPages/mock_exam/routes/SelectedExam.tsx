@@ -9,9 +9,15 @@ import {
   Calendar,
   Lock,
   Timer,
+  CheckCircle2,
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useGetExamsQuery, useGetScheduleExamsByExamQuery } from "@my-monorepo/store";
+import {
+  useGetExamsQuery,
+  useGetScheduleExamsByExamQuery,
+  useGetUserAttemptsQuery,
+  useAppSelector,
+} from "@my-monorepo/store";
 import type { ScheduleExam } from "@my-monorepo/store";
 
 // ─── Status styling (BrainForge dark theme) ──────────────────
@@ -80,17 +86,18 @@ const SelectedExam = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const examId = searchParams.get("examId");
+  const userId = useAppSelector((state) => state.user.user?._id) || "";
 
   const { data: exams } = useGetExamsQuery();
   const { data: scheduleExams, isLoading } = useGetScheduleExamsByExamQuery(examId!, {
     skip: !examId,
   });
+  const { data: userAttempts } = useGetUserAttemptsQuery(
+    { userId, source: "mock_exam", limit: 50 },
+    { skip: !userId || !examId }
+  );
 
   const currentExam = exams?.find((e: any) => e._id === examId);
-
-  // Only upcoming/active exams for students
-
-  console.log(scheduleExams, "scheduleExams");
 
   const availableExams =
     scheduleExams?.filter((s: ScheduleExam) => {
@@ -98,7 +105,50 @@ const SelectedExam = () => {
       return eff === "active" || eff === "upcoming";
     }) ?? [];
 
+  const isExamParticipated = (scheduled: ScheduleExam) => {
+    if (!userAttempts || !examId) return false;
+    const versionId =
+      typeof scheduled.examVersion === "object"
+        ? scheduled.examVersion?._id
+        : scheduled.examVersion;
+    const board =
+      scheduled.board && scheduled.board !== "undefined" && scheduled.board !== "null"
+        ? scheduled.board
+        : "";
+
+    return userAttempts.some((a: any) => {
+      if (!a.isCompleted) return false;
+
+      // Match scheduleExam if present
+      const attemptScheduleId = String(a.scheduleExam?._id || a.scheduleExam || "");
+      if (attemptScheduleId && attemptScheduleId === String(scheduled._id)) return true;
+
+      // Must match exam
+      const attemptExamId = String(a.exam?._id || a.exam || "");
+      if (attemptExamId !== String(examId)) return false;
+
+      // If versionId is specified, must match
+      if (versionId) {
+        const attemptVersionId = String(a.examVersion?._id || a.examVersion || "");
+        if (attemptVersionId && attemptVersionId !== String(versionId)) return false;
+      }
+
+      // If board is specified, must match
+      if (board) {
+        const attemptBoard = String(a.board || "");
+        if (attemptBoard && attemptBoard !== String(board)) return false;
+      }
+
+      return true;
+    });
+  };
+
   const handleExamClick = (scheduled: ScheduleExam) => {
+    // If user already participated, disable navigation
+    if (isExamParticipated(scheduled)) {
+      return;
+    }
+
     // Only navigate if the exam is active
     if (!isExamActive(scheduled)) {
       return; // Prevent navigation for future exams
@@ -163,7 +213,8 @@ const SelectedExam = () => {
               /* Exam list */
               <div className="space-y-3 sm:space-y-4">
                 {availableExams.map((scheduled: ScheduleExam) => {
-                  const isActive = isExamActive(scheduled);
+                  const isParticipated = isExamParticipated(scheduled);
+                  const isActive = isExamActive(scheduled) && !isParticipated;
                   const effectiveStatus = getEffectiveStatus(scheduled);
                   const timeRemaining = getTimeRemaining(scheduled.startDate);
 
@@ -172,24 +223,31 @@ const SelectedExam = () => {
                       key={scheduled._id}
                       onClick={() => handleExamClick(scheduled)}
                       className={`bg-[#111318] rounded-xl sm:rounded-2xl border transition-all duration-200 group ${
-                        isActive
+                        isParticipated
+                          ? "border-emerald-500/30 bg-[#111318]/90 opacity-80 cursor-not-allowed"
+                          : isActive
                           ? "border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.25)] cursor-pointer"
                           : "border-[#23262D] opacity-50 cursor-not-allowed hover:border-[#EB5757]/30"
                       }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 md:p-5 gap-3 sm:gap-4">
                         <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                          {/* Icon */}                            <div
-                              className={`h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${
-                                isActive
-                                  ? effectiveStatus === "active"
-                                    ? "bg-[#9B51E0]/10 border border-[#9B51E0]/30 text-[#9B51E0]"
-                                    : "bg-[#2F80ED]/10 border border-[#2F80ED]/30 text-[#2F80ED]"
-                                  : "bg-[#323742]/10 border border-[#323742]/30 text-[#6B7280]"
-                              }`}
-                            >
-                              {isActive ? (
-                                effectiveStatus === "active" ? (
+                          {/* Icon */}
+                          <div
+                            className={`h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${
+                              isParticipated
+                                ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                                : isActive
+                                ? effectiveStatus === "active"
+                                  ? "bg-[#9B51E0]/10 border border-[#9B51E0]/30 text-[#9B51E0]"
+                                  : "bg-[#2F80ED]/10 border border-[#2F80ED]/30 text-[#2F80ED]"
+                                : "bg-[#323742]/10 border border-[#323742]/30 text-[#6B7280]"
+                            }`}
+                          >
+                            {isParticipated ? (
+                              <CheckCircle2 size={22} className="sm:w-6 sm:h-6 md:w-7 md:h-7 text-emerald-400" />
+                            ) : isActive ? (
+                              effectiveStatus === "active" ? (
                                 <PlayCircle size={22} className="sm:w-6 sm:h-6 md:w-7 md:h-7" />
                               ) : (
                                 <Calendar size={22} className="sm:w-6 sm:h-6 md:w-7 md:h-7" />
@@ -205,7 +263,7 @@ const SelectedExam = () => {
                               <h2 className="text-sm sm:text-base md:text-lg font-bold text-[#F5F7FA] truncate max-w-full">
                                 {scheduled.title}
                               </h2>
-                              {timeRemaining && (
+                              {!isParticipated && timeRemaining && (
                                 <span className="text-[10px] sm:text-xs font-medium text-[#F2994A] bg-[#F2994A]/10 px-1.5 sm:px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
                                   <Timer size={10} className="sm:w-3 sm:h-3" />
                                   {timeRemaining}
@@ -215,19 +273,27 @@ const SelectedExam = () => {
                             
                             {/* Mobile: Show status badges inline */}
                             <div className="flex sm:hidden items-center gap-2 mb-1.5">
-                              {isActive && effectiveStatus === "active" && (
-                                <span className="bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">
-                                  ● LIVE
+                              {isParticipated ? (
+                                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap flex items-center gap-1">
+                                  <CheckCircle2 size={10} /> Participated
                                 </span>
+                              ) : (
+                                <>
+                                  {isActive && effectiveStatus === "active" && (
+                                    <span className="bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">
+                                      ● LIVE
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${getStatusBadge(
+                                      effectiveStatus
+                                    )}`}
+                                  >
+                                    {effectiveStatus.charAt(0).toUpperCase() +
+                                      effectiveStatus.slice(1)}
+                                  </span>
+                                </>
                               )}
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${getStatusBadge(
-                                  effectiveStatus
-                                )}`}
-                              >
-                                {effectiveStatus.charAt(0).toUpperCase() +
-                                  effectiveStatus.slice(1)}
-                              </span>
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-[11px] sm:text-sm text-[#A1A8B3]">
@@ -260,19 +326,27 @@ const SelectedExam = () => {
 
                         {/* Right side: status badges + chevron (desktop only) */}
                         <div className="hidden sm:flex items-center gap-3 ml-4 shrink-0">
-                          {isActive && effectiveStatus === "active" && (
-                            <span className="bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 px-3 py-1 rounded-full text-sm font-bold animate-pulse whitespace-nowrap">
-                              ● LIVE
+                          {isParticipated ? (
+                            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1.5">
+                              <CheckCircle2 size={14} /> Participated
                             </span>
+                          ) : (
+                            <>
+                              {isActive && effectiveStatus === "active" && (
+                                <span className="bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 px-3 py-1 rounded-full text-sm font-bold animate-pulse whitespace-nowrap">
+                                  ● LIVE
+                                </span>
+                              )}
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusBadge(
+                                  effectiveStatus
+                                )}`}
+                              >
+                                {effectiveStatus.charAt(0).toUpperCase() +
+                                  effectiveStatus.slice(1)}
+                              </span>
+                            </>
                           )}
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusBadge(
-                              effectiveStatus
-                            )}`}
-                          >
-                            {effectiveStatus.charAt(0).toUpperCase() +
-                              effectiveStatus.slice(1)}
-                          </span>
                           <ChevronRight
                             size={22}
                             className={`${
@@ -294,8 +368,15 @@ const SelectedExam = () => {
                         />
                       </div>
                       
-                      {/* Locked overlay for future exams */}
-                      {!isActive && (
+                      {/* Sub message for participated or locked exams */}
+                      {isParticipated ? (
+                        <div className="px-3 sm:px-5 pb-3 sm:pb-4">
+                          <p className="text-[10px] sm:text-xs text-emerald-400/90 flex items-center gap-1">
+                            <CheckCircle2 size={12} className="sm:w-3.5 sm:h-3.5" />
+                            You have already participated in this exam.
+                          </p>
+                        </div>
+                      ) : !isActive && (
                         <div className="px-3 sm:px-5 pb-3 sm:pb-4">
                           <p className="text-[10px] sm:text-xs text-[#EB5757] flex items-center gap-1">
                             <Lock size={10} className="sm:w-3 sm:h-3" />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useBlocker } from "react-router-dom";
 import Swal from 'sweetalert2';
 import {
   useGetExamsQuery,
@@ -13,6 +13,10 @@ import {
   useCompleteAttemptMutation,
   useGetUserPerformanceQuery,
   useGetUserAttemptsQuery,
+  useGetActiveAttemptQuery,
+  useGetTempExamSubmissionQuery,
+  useSaveTempExamSubmissionMutation,
+  useDeleteTempExamSubmissionMutation,
 } from "@my-monorepo/store";
 import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
 import QuestionCard from "./_components/QuestionCard";
@@ -31,13 +35,13 @@ import Watermark from "./examSecurity/Watermark.tsx";
 export interface ExamPaperProps {
   examId?: string;
   versionId?: string;
-  board?:string
+  board?: string
 }
 
 const ExamPaper: React.FC<ExamPaperProps> = ({
   examId: propExamId,
   versionId: propVersionId,
-  board:propBoard
+  board: propBoard
 }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -96,7 +100,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   });
   const { data: questionsData, isLoading: questionsLoading } =
     useGetQuestionsByExamQuery(
-      { examId, versionId: versionId || undefined, board:board || undefined },
+      { examId, versionId: versionId || undefined, board: board || undefined },
       { skip: !examId }
     );
 
@@ -106,13 +110,18 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const [completeAttempt, { isLoading: isCompleting }] =
     useCompleteAttemptMutation();
   const [postUserQuizs] = usePostUserQuizsMutation();
+  const { data: tempSubmission } = useGetTempExamSubmissionQuery(
+    { userId, examId, versionId: versionId || undefined, board: board || undefined },
+    { skip: !userId || !examId }
+  );
+  const [saveTempExamSubmission] = useSaveTempExamSubmissionMutation();
+  const [deleteTempExamSubmission] = useDeleteTempExamSubmissionMutation();
 
   const attemptIdRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const questionStartTimes = useRef<Record<number, number>>({});
   const submitInFlightRef = useRef(false);
-  const alertShownRef = useRef(false);
 
   const currentExam = exams?.find((e: any) => e._id === examId);
   const currentVersion = examVersions?.find((v: any) => v._id === versionId);
@@ -176,14 +185,14 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
             questionNumber: q.question_number,
             stats: performance
               ? {
-                  attempts: performance.attempts || 0,
-                  failures: performance.failures || 0,
-                  successes: performance.successes || 0,
-                  successRate:
-                    performance.attempts > 0
-                      ? Math.round((performance.successes / performance.attempts) * 100)
-                      : 0,
-                }
+                attempts: performance.attempts || 0,
+                failures: performance.failures || 0,
+                successes: performance.successes || 0,
+                successRate:
+                  performance.attempts > 0
+                    ? Math.round((performance.successes / performance.attempts) * 100)
+                    : 0,
+              }
               : undefined,
           });
         });
@@ -192,10 +201,33 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     return flattened;
   }, [questionsData, getCorrectAnswerIndex, userPerformance]);
 
+  // ─── Restore timer from localStorage on mount ───
+  const timerStorageKey = `examTimer:${examId}:${versionId}:${scheduleId}`;
+  const restoredTimeLeft = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(timerStorageKey);
+      if (!raw) return null;
+      const { savedAt, timeLeft: saved } = JSON.parse(raw) as { savedAt: number; timeLeft: number };
+      if (typeof saved !== 'number' || typeof savedAt !== 'number') return null;
+      const elapsed = Math.floor((Date.now() - savedAt) / 1000);
+      const remaining = saved - elapsed;
+      return remaining > 0 ? remaining : 0;
+    } catch {
+      return null;
+    }
+  }, [timerStorageKey]);
+
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
-  const [timeLeft, setTimeLeft] = useState(7200);
+  const [timeLeft, setTimeLeft] = useState(restoredTimeLeft ?? 7200);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch the active attempt to restore saved answers (answers are saved
+  // separately via saveAnswer, so startAttempt's response has empty questions)
+  const { data: activeAttempt } = useGetActiveAttemptQuery(
+    { userId, examId: examId || undefined },
+    { skip: !userId || !examId || !attemptIdRef.current || isSubmitted }
+  );
 
   const totalQuestions = allQuestions.length;
   const answeredCount = Object.keys(selectedAnswers).length;
@@ -222,36 +254,21 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   }, [isSubmitted]);
 
   // ─── Sync the countdown with the scheduled exam duration ───
-  // The schedule is fetched asynchronously, so on first render the real
-  // duration isn't known yet and the timer must NOT latch onto the 2-hour
-  // default. Once the schedule query settles (`scheduleExams !== undefined`)
-  // we apply the correct duration — but only while the user hasn't started
-  // answering, so the countdown never resets mid-quiz.
+  // Only set from schedule when no timer was restored from localStorage
+  // (i.e. first visit — not a refresh).
   useEffect(() => {
     if (isSubmitted || scheduleExams === undefined) return;
-    if (answeredCount === 0) {
+    if (restoredTimeLeft === null) {
       setTimeLeft(durationSeconds);
     }
-  }, [durationSeconds, isSubmitted, answeredCount, scheduleExams]);
+  }, [durationSeconds, isSubmitted, scheduleExams, restoredTimeLeft]);
 
-  // ─── Show SweetAlert2 when exam is already completed ───
+  // ─── Redirect when exam is already completed ───
   useEffect(() => {
-    if (attemptsLoading || alertShownRef.current) return;
-    
+    if (attemptsLoading) return;
+
     if (hasCompletedAttempt) {
-      alertShownRef.current = true;
-      
-      Swal.fire({
-        title: 'Already Participated',
-        text: 'You have already participated in this exam. You cannot take it again.',
-        icon: 'warning',
-        confirmButtonText: 'Go to Exams',
-        confirmButtonColor: '#9B51E0',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-      }).then(() => {
-        navigate('/mock-exam', { replace: true });
-      });
+      navigate('/mock-exam', { replace: true });
     }
   }, [hasCompletedAttempt, attemptsLoading, navigate]);
 
@@ -282,24 +299,18 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         attemptIdRef.current = result._id;
         startTimeRef.current = Date.now();
         setError(null);
+
+        // ── Save initial timer snapshot so refresh can restore it ──
+        try {
+          localStorage.setItem(timerStorageKey, JSON.stringify({
+            savedAt: Date.now(),
+            timeLeft: durationSeconds,
+          }));
+        } catch { /* ignore */ }
       } catch (err: any) {
-        // 409 = already completed this specific mock exam → show alert and redirect
+        // 409 = already completed this specific mock exam → redirect
         if (err?.status === 409 || err?.data?.message?.includes('already completed')) {
-          if (!alertShownRef.current) {
-            alertShownRef.current = true;
-            
-            Swal.fire({
-              title: 'Already Participated',
-              text: 'You have already participated in this exam. You cannot take it again.',
-              icon: 'warning',
-              confirmButtonText: 'Go to Exams',
-              confirmButtonColor: '#9B51E0',
-              allowOutsideClick: false,
-              allowEscapeKey: false,
-            }).then(() => {
-              navigate('/mock-exam', { replace: true });
-            });
-          }
+          navigate('/mock-exam', { replace: true });
         } else {
           const msg = err instanceof Error ? err.message : "Failed to start attempt";
           console.error("Failed to start attempt:", msg);
@@ -311,17 +322,65 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     initAttempt();
   }, [examId, versionId, board, userId, allQuestions.length, startAttempt, navigate, hasCompletedAttempt, attemptsLoading]);
 
+  // ─── Restore answers and timer from temporary exam submission ───
+  useEffect(() => {
+    if (!tempSubmission || isSubmitted) return;
+
+    if (tempSubmission.attemptId && !attemptIdRef.current) {
+      attemptIdRef.current = tempSubmission.attemptId;
+    }
+
+    if (tempSubmission.selectedAnswers && Object.keys(tempSubmission.selectedAnswers).length > 0) {
+      setSelectedAnswers((prev) => {
+        if (Object.keys(prev).length > 0) return prev;
+        const restored: Record<number, number> = {};
+        Object.entries(tempSubmission.selectedAnswers).forEach(([k, v]) => {
+          const qIdx = Number(k);
+          if (!isNaN(qIdx)) {
+            restored[qIdx] = Number(v);
+          }
+        });
+        return restored;
+      });
+    }
+
+    if (typeof tempSubmission.timeLeft === 'number' && tempSubmission.timeLeft > 0 && restoredTimeLeft === null) {
+      setTimeLeft(tempSubmission.timeLeft);
+    }
+  }, [tempSubmission, isSubmitted, restoredTimeLeft]);
+
+  // ─── Restore answers from the active attempt once it loads ───
+  useEffect(() => {
+    if (!activeAttempt?.questions || activeAttempt.questions.length === 0) return;
+    if (Object.keys(selectedAnswers).length > 0) return; // already restored
+
+    const restored: Record<number, number> = {};
+    activeAttempt.questions.forEach((q: any) => {
+      if (!q.selectedOption) return;
+      const qIdx = allQuestions.findIndex(
+        (aq) => (aq.questionNumber || 0) === q.questionNumber
+      );
+      if (qIdx === -1) return;
+      const optIdx = allQuestions[qIdx].optionKeys?.indexOf(q.selectedOption) ?? -1;
+      if (optIdx >= 0) {
+        restored[qIdx] = optIdx;
+      }
+    });
+    if (Object.keys(restored).length > 0) {
+      setSelectedAnswers(restored);
+    }
+  }, [activeAttempt, allQuestions, selectedAnswers]);
+
   // ─── Reset state on exam change ───
   useEffect(() => {
     setSelectedAnswers({});
     setIsSubmitted(false);
     setError(null);
-    setTimeLeft(durationSeconds);
+    setTimeLeft(restoredTimeLeft ?? durationSeconds);
     attemptIdRef.current = null;
     submitInFlightRef.current = false;
     startTimeRef.current = Date.now();
     questionStartTimes.current = {};
-    alertShownRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId, versionId]);
 
@@ -371,6 +430,34 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           });
         }
 
+        // Auto-save to Temporary Exam Submission API (fire-and-forget)
+        if (userId && examId) {
+          const submittedList = Object.entries(updated).map(([idxStr, optIdx]) => {
+            const q = allQuestions[Number(idxStr)];
+            return {
+              questionId: q?.id,
+              questionNumber: q?.questionNumber || Number(idxStr) + 1,
+              selectedOption: q?.optionKeys?.[optIdx] ?? q?.options[optIdx] ?? "",
+              selectedIndex: optIdx,
+            };
+          });
+
+          saveTempExamSubmission({
+            userId,
+            examId,
+            examVersionId: versionId || undefined,
+            scheduleExamId: scheduleId || undefined,
+            board: board || undefined,
+            paperType: "Type2",
+            selectedAnswers: updated,
+            submittedAnswers: submittedList,
+            timeLeft,
+            attemptId: attemptIdRef.current || undefined,
+          }).catch((err) => {
+            console.warn("Temporary exam submission save failed:", err);
+          });
+        }
+
         // Persist quiz performance (fire-and-forget)
         if (userId && qItem.id && examId && versionId) {
           postUserQuizs({
@@ -392,7 +479,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         }
 
         return updated;
-      });    }, [isSubmitted, userId, allQuestions, saveAnswer, postUserQuizs, examId, versionId, searchParams]
+      });
+    },
+    [isSubmitted, userId, allQuestions, saveAnswer, saveTempExamSubmission, postUserQuizs, examId, versionId, scheduleId, board, timeLeft]
   );
 
   const handleSubmit = useCallback(
@@ -416,6 +505,12 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       // grading) ──
       const localCorrect = computeLocalScore(allQuestions, selectedAnswers);
       setIsSubmitted(true);
+
+      // Clear saved paper-type selection and timer so the picker shows again next time
+      try {
+        localStorage.removeItem('selectedPaperType');
+        localStorage.removeItem(timerStorageKey);
+      } catch { /* ignore */ }
 
       const timeTaken = Math.max(1, durationSeconds - timeLeft);
       const result: QuizResultData = {
@@ -477,6 +572,18 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           });
       }
 
+      // Delete temporary exam submission upon completion
+      if (userId && examId) {
+        deleteTempExamSubmission({
+          userId,
+          examId,
+          versionId: versionId || undefined,
+          board: board || undefined,
+        }).catch((err) => {
+          console.warn("Failed to delete temp exam submission:", err);
+        });
+      }
+
       const qs = new URLSearchParams({
         examName: result.examName,
         versionName: result.versionName,
@@ -504,6 +611,12 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       selectedAnswers,
       completeAttempt,
       batchSaveAnswers,
+      deleteTempExamSubmission,
+      userId,
+      examId,
+      versionId,
+      board,
+      timerStorageKey,
       durationSeconds,
       timeLeft,
       currentExam,
@@ -520,12 +633,71 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [timeLeft, isSubmitted, totalQuestions, handleSubmit]);
 
-    const violations = useExamSecurity({
+  const violations = useExamSecurity({
     isSubmitted,
     onViolationLimitReached: () => handleSubmit(true),
   });
 
-  console.log("Violations:", violations); // For debugging purposes
+
+
+  // ─── Block browser refresh / tab close during exam ───
+  // Also save the ACTUAL current timeLeft to localStorage so refresh
+  // restores the correct remaining time (not the stale initial duration).
+  useEffect(() => {
+    if (isSubmitted) return;
+
+    const handler = (e: BeforeUnloadEvent) => {
+      // Persist the exact timeLeft right before the page unloads
+      try {
+        localStorage.setItem(timerStorageKey, JSON.stringify({
+          savedAt: Date.now(),
+          timeLeft,
+        }));
+      } catch { /* ignore */ }
+      e.preventDefault();
+      e.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isSubmitted, timeLeft, timerStorageKey]);
+
+  // ─── Block navigation when exam is in progress ───
+  const shouldBlock = useCallback(
+    ({ nextLocation }: { currentLocation: any; nextLocation: any }) => {
+      // Don't block if exam is already submitted
+      if (isSubmitted) return false;
+      // Don't block if navigating to the result page (submit already handled it)
+      if (nextLocation.pathname === '/mock-exam/result') return false;
+      return true;
+    },
+    [isSubmitted]
+  );
+
+  const blocker = useBlocker(shouldBlock);
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+
+    Swal.fire({
+      title: 'Are you sure?',
+      text: 'You have unsaved answers. If you leave now, your exam will be submitted automatically.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#9B51E0',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, submit & leave',
+      cancelButtonText: 'No, stay here',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Submit the exam then reset the blocker (handleSubmit navigates to result)
+        blocker.reset();
+        handleSubmit(false);
+      } else {
+        blocker.reset();
+      }
+    });
+  }, [blocker, handleSubmit]);
 
   // Show loading while checking if exam is already attempted
   if (attemptsLoading || questionsLoading || isStarting) {
@@ -548,7 +720,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] pb-12">
-        {!isSubmitted && <Watermark userId={userId} examId={examId} />}
+      {/* {!isSubmitted && <Watermark userId={userId} examId={examId} />} */}
       <QuizHeader
         examName={currentExam?.name || ""}
         versionName={currentVersion?.examVersion || ""}

@@ -25,6 +25,7 @@ import aiChatRoutes from './routes/aiChat.js';
 import certificateRoutes from './routes/certificate.js';
 import notificationRoutes from './routes/notification.js';
 import searchRoutes from './routes/search.js';
+import tempExamSubmissionRoutes from './routes/tempExamSubmission.js';
 import { generalRateLimit } from './middleware/rateLimit.js';
 
 const app = express();
@@ -98,6 +99,7 @@ app.use('/ai-chat', aiChatRoutes);
 app.use('/certificates', certificateRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/search', searchRoutes);
+app.use('/temp-exam-submission', tempExamSubmissionRoutes);
 
 // ─── 404 for unknown routes ─────────────────────────────────
 app.use((req, res) => {

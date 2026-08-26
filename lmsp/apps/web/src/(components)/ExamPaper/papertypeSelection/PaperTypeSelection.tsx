@@ -1,7 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Omer from '../omr/Omr';
 import QuizPreatise from '../ExamPaper';
-import { useLocation } from 'react-router-dom';
 
 interface PaperTypeSelectionProps {
   examId: string;
@@ -9,9 +8,33 @@ interface PaperTypeSelectionProps {
   versionId: string;
 }
 
+const STORAGE_KEY = 'selectedPaperType';
+
 const PaperTypeSelection: React.FC<PaperTypeSelectionProps> = ({ examId, board, versionId }) => {
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-    const [clicked,setClicked] = useState<boolean>(false)
+  const [selectedType, setSelectedType] = useState<string | null>(() => {
+    // Restore from localStorage on mount
+    try {
+      return localStorage.getItem(STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const [clicked, setClicked] = useState<boolean>(!!selectedType);
+
+  // Persist selection to localStorage
+  useEffect(() => {
+    if (selectedType) {
+      try {
+        localStorage.setItem(STORAGE_KEY, selectedType);
+      } catch { /* ignore */ }
+    }
+  }, [selectedType]);
+
+  const handleSelect = (type: string) => {
+    setSelectedType(type);
+    setClicked(true);
+  };
+
   const renderComponent = (key: string | null) => {
     switch (key) {
       case 'Type1':
@@ -22,7 +45,7 @@ const PaperTypeSelection: React.FC<PaperTypeSelectionProps> = ({ examId, board, 
         return null;
     }
   };
-  
+
 
   return (
     <div className="min-h-screen bg-[#1c1f26] flex flex-col items-center justify-center  text-white">
@@ -30,7 +53,7 @@ const PaperTypeSelection: React.FC<PaperTypeSelectionProps> = ({ examId, board, 
           <h2 className="text-2xl font-bold mb-6">Choose your preferred method</h2>
       <div className="flex gap-4 mb-8">
         <button
-          onClick={() => {setSelectedType('Type1');setClicked(true)}}
+          onClick={() => handleSelect('Type1')}
           className={`px-6 py-3 rounded-lg font-semibold transition-all ${
             selectedType === 'Type1'
               ? 'bg-emerald-600 text-white shadow-lg scale-105'
@@ -40,7 +63,7 @@ const PaperTypeSelection: React.FC<PaperTypeSelectionProps> = ({ examId, board, 
           OMR Sheet (Type 1)
         </button>
         <button
-          onClick={() => {setSelectedType('Type2');setClicked(true)}}
+          onClick={() => handleSelect('Type2')}
           className={`px-6 py-3 rounded-lg font-semibold transition-all ${
             selectedType === 'Type2'
               ? 'bg-emerald-600 text-white shadow-lg scale-105'
