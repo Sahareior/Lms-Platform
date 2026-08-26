@@ -5,6 +5,7 @@ export interface StartAttemptRequest {
   userId: string;
   examId?: string;
   examVersionId?: string;
+  scheduleExamId?: string;
   subjectId?: string;
   type?: 'mock_exam' | 'practice';
   source?: 'question_center' | 'mock_exam' | 'quiz_practice';

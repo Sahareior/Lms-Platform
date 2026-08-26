@@ -14,7 +14,7 @@ import {
   useGetUserPerformanceQuery,
   useGetUserAttemptsQuery,
 } from "@my-monorepo/store";
-// postUserQuizs removed — performance is now computed from QuizAttempt on the backend
+import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
 import QuestionCard from "./_components/QuestionCard";
 import QuizHeader from "./_components/QuizHeader";
 import QuizProgressBar from "./_components/QuizProgressBar";
@@ -25,6 +25,8 @@ import {
   computeLocalScore, buildLocalReview,
 } from "./_components/quizTypes";
 import type { QuestionItem, QuizResultData } from "./_components/quizTypes";
+import { useExamSecurity } from "./examSecurity/useExamSecurity";
+import Watermark from "./examSecurity/Watermark.tsx";
 
 export interface ExamPaperProps {
   examId?: string;
@@ -103,6 +105,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const [batchSaveAnswers] = useBatchSaveAnswersMutation();
   const [completeAttempt, { isLoading: isCompleting }] =
     useCompleteAttemptMutation();
+  const [postUserQuizs] = usePostUserQuizsMutation();
 
   const attemptIdRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -270,6 +273,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           userId,
           examId,
           examVersionId: versionId || undefined,
+          scheduleExamId: scheduleId || undefined,
           type: "practice",
           source: "mock_exam",
           totalQuestions: allQuestions.length,
@@ -367,8 +371,28 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           });
         }
 
+        // Persist quiz performance (fire-and-forget)
+        if (userId && qItem.id && examId && versionId) {
+          postUserQuizs({
+            user: userId,
+            exam: examId,
+            examVersion: versionId,
+            subject: null,
+            submittedQuestions: [
+              {
+                question: qItem.id,
+                providedAnswer: qItem.optionKeys?.[oIndex] ?? "",
+              },
+            ],
+          })
+            .unwrap()
+            .catch((err) => {
+              console.warn("Failed to save quiz performance:", err);
+            });
+        }
+
         return updated;
-      });    }, [isSubmitted, userId, allQuestions, saveAnswer, examId, versionId, searchParams]
+      });    }, [isSubmitted, userId, allQuestions, saveAnswer, postUserQuizs, examId, versionId, searchParams]
   );
 
   const handleSubmit = useCallback(
@@ -496,6 +520,13 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [timeLeft, isSubmitted, totalQuestions, handleSubmit]);
 
+    const violations = useExamSecurity({
+    isSubmitted,
+    onViolationLimitReached: () => handleSubmit(true),
+  });
+
+  console.log("Violations:", violations); // For debugging purposes
+
   // Show loading while checking if exam is already attempted
   if (attemptsLoading || questionsLoading || isStarting) {
     return <QuizLoading loadingQuestions={questionsLoading || attemptsLoading} />;
@@ -517,6 +548,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] pb-12">
+        {!isSubmitted && <Watermark userId={userId} examId={examId} />}
       <QuizHeader
         examName={currentExam?.name || ""}
         versionName={currentVersion?.examVersion || ""}

@@ -15,6 +15,7 @@ import {
     useGetUserPerformanceQuery,
     useGetUserAttemptsQuery,
 } from '@my-monorepo/store';
+import { usePostUserQuizsMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
 import {
     computeLocalScore,
     buildLocalReview,
@@ -26,6 +27,8 @@ import {
     NoQuestionsAvailable,
 } from '../_components/QuizStates';
 import type { ExamPaperProps } from '../ExamPaper';
+import { useExamSecurity } from '../examSecurity/useExamSecurity';
+import Watermark from '../examSecurity/Watermark.tsx';
 
 /* -------------------------------------------------------------------------- */
 /*                                 CONSTANTS                                  */
@@ -162,6 +165,7 @@ const Omer: React.FC<ExamPaperProps> = ({
     const [batchSaveAnswers] = useBatchSaveAnswersMutation();
     const [completeAttempt, { isLoading: isCompleting }] =
         useCompleteAttemptMutation();
+    const [postUserQuizs] = usePostUserQuizsMutation();
 
     const attemptIdRef = useRef<string | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -329,6 +333,7 @@ const Omer: React.FC<ExamPaperProps> = ({
                     userId,
                     examId,
                     examVersionId: versionId || undefined,
+                    scheduleExamId: scheduleId || undefined,
                     type: 'practice',
                     source: 'mock_exam',
                     totalQuestions: allQuestions.length,
@@ -416,10 +421,28 @@ const Omer: React.FC<ExamPaperProps> = ({
                     });
                 }
 
+                // Persist quiz performance (fire-and-forget)
+                if (userId && qItem.id && examId && versionId) {
+                    postUserQuizs({
+                        user: userId,
+                        exam: examId,
+                        examVersion: versionId,
+                        subject: null,
+                        submittedQuestions: [
+                            {
+                                question: qItem.id,
+                                providedAnswer: qItem.optionKeys?.[oIndex] ?? '',
+                            },
+                        ],
+                    })
+                        .unwrap()
+                        .catch((err) => {
+                            console.warn('Failed to save quiz performance:', err);
+                        });
+                }
+
                 return updated;
-            });
-        },
-        [isSubmitted, userId, allQuestions, saveAnswer, selectedAnswers]
+            });        }, [isSubmitted, userId, allQuestions, saveAnswer, postUserQuizs, selectedAnswers, examId, versionId]
     );
 
     // ─── Handle Submit ───
@@ -571,6 +594,11 @@ const Omer: React.FC<ExamPaperProps> = ({
         return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
+        const violations = useExamSecurity({
+        isSubmitted,
+        onViolationLimitReached: () => handleSubmit(true),
+      });
+
     // Loading & empty states
     if (attemptsLoading || questionsLoading || isStarting) {
         return <QuizLoading loadingQuestions={questionsLoading || attemptsLoading} />;
@@ -586,6 +614,7 @@ const Omer: React.FC<ExamPaperProps> = ({
 
     return (
         <div className="min-h-screen bg-[#1c1f26] py-4 sm:py-6 px-2 sm:px-4 text-slate-900 font-sans print:bg-white print:p-0">
+             {!isSubmitted && <Watermark userId={userId} examId={examId} />}
             {/* ──────────────────────────────────────────────────────────── */}
             {/* TOP CONTROLS & TOOLBAR (Hidden in Print)                     */}
             {/* ──────────────────────────────────────────────────────────── */}

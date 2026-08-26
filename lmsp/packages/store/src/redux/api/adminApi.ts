@@ -240,6 +240,7 @@ export interface AdminQuizAttempt {
   };
   exam?: { _id: string; name: string; image?: string } | null;
   examVersion?: { _id: string; examVersion: string } | null;
+  board?: string;
   subject?: string;
   type: 'mock_exam' | 'practice';
   source: 'question_center' | 'mock_exam' | 'quiz_practice';
@@ -686,13 +687,17 @@ const adminApi = api.injectEndpoints({
     // ── Quiz Attempt Performance ────────────────────────────
     getAllQuizAttempts: build.query<
       AdminQuizAttemptResponse,
-      { type?: string; examId?: string; userId?: string; page?: number; limit?: number }
+      { type?: string; examId?: string; examVersionId?: string; board?: string; userId?: string; startDate?: string; endDate?: string; page?: number; limit?: number }
     >({
       query: (params) => {
         const queryParams = new URLSearchParams();
         if (params.type) queryParams.set('type', params.type);
         if (params.examId) queryParams.set('examId', params.examId);
+        if (params.examVersionId) queryParams.set('examVersionId', params.examVersionId);
+        if (params.board) queryParams.set('board', params.board);
         if (params.userId) queryParams.set('userId', params.userId);
+        if (params.startDate) queryParams.set('startDate', params.startDate);
+        if (params.endDate) queryParams.set('endDate', params.endDate);
         if (params.page) queryParams.set('page', String(params.page));
         if (params.limit) queryParams.set('limit', String(params.limit));
         return { url: `/quiz-attempts?${queryParams.toString()}` };
