@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useBlocker } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { Send, Clock, AlertCircle } from 'lucide-react';
 import {
@@ -14,6 +14,10 @@ import {
     useCompleteAttemptMutation,
     useGetUserPerformanceQuery,
     useGetUserAttemptsQuery,
+    useGetActiveAttemptQuery,
+    useGetTempExamSubmissionQuery,
+    useSaveTempExamSubmissionMutation,
+    useDeleteTempExamSubmissionMutation,
 } from '@my-monorepo/store';
 import { usePostUserQuizsMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
 import {
@@ -166,13 +170,18 @@ const Omer: React.FC<ExamPaperProps> = ({
     const [completeAttempt, { isLoading: isCompleting }] =
         useCompleteAttemptMutation();
     const [postUserQuizs] = usePostUserQuizsMutation();
+    const { data: tempSubmission } = useGetTempExamSubmissionQuery(
+        { userId, examId, versionId: versionId || undefined, board: board || undefined },
+        { skip: !userId || !examId }
+    );
+    const [saveTempExamSubmission] = useSaveTempExamSubmissionMutation();
+    const [deleteTempExamSubmission] = useDeleteTempExamSubmissionMutation();
 
     const attemptIdRef = useRef<string | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const startTimeRef = useRef<number>(Date.now());
     const questionStartTimes = useRef<Record<number, number>>({});
     const submitInFlightRef = useRef(false);
-    const alertShownRef = useRef(false);
 
     const currentExam = exams?.find((e: any) => e._id === examId);
     const currentVersion = examVersions?.find((v: any) => v._id === versionId);
@@ -257,11 +266,34 @@ const Omer: React.FC<ExamPaperProps> = ({
     const [extraDigits, setExtraDigits] = useState<(number | null)[]>([null, null, null, null, null]);
     const [setDigits, setSetDigits] = useState<(number | null)[]>([null, null]);
 
+    // ─── Restore timer from localStorage on mount ───
+    const timerStorageKey = `examTimer:${examId}:${versionId}:${scheduleId}`;
+    const restoredTimeLeft = useMemo(() => {
+        try {
+            const raw = localStorage.getItem(timerStorageKey);
+            if (!raw) return null;
+            const { savedAt, timeLeft: saved } = JSON.parse(raw) as { savedAt: number; timeLeft: number };
+            if (typeof saved !== 'number' || typeof savedAt !== 'number') return null;
+            const elapsed = Math.floor((Date.now() - savedAt) / 1000);
+            const remaining = saved - elapsed;
+            return remaining > 0 ? remaining : 0;
+        } catch {
+            return null;
+        }
+    }, [timerStorageKey]);
+
     // Quiz submission states
     const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
-    const [timeLeft, setTimeLeft] = useState<number>(7200);
+    const [timeLeft, setTimeLeft] = useState<number>(restoredTimeLeft ?? 7200);
     const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Fetch the active attempt to restore saved answers (answers are saved
+    // separately via saveAnswer, so startAttempt's response has empty questions)
+    const { data: activeAttempt } = useGetActiveAttemptQuery(
+        { userId, examId: examId || undefined },
+        { skip: !userId || !examId || !attemptIdRef.current || isSubmitted }
+    );
 
     const totalQuestions = allQuestions.length;
     const answeredCount = Object.keys(selectedAnswers).length;
@@ -287,32 +319,20 @@ const Omer: React.FC<ExamPaperProps> = ({
         };
     }, [isSubmitted]);
 
-    // Sync countdown with schedule duration
+    // Sync countdown with schedule duration (skip if restored from localStorage)
     useEffect(() => {
         if (isSubmitted || scheduleExams === undefined) return;
-        if (answeredCount === 0) {
+        if (restoredTimeLeft === null) {
             setTimeLeft(durationSeconds);
         }
-    }, [durationSeconds, isSubmitted, answeredCount, scheduleExams]);
+    }, [durationSeconds, isSubmitted, scheduleExams, restoredTimeLeft]);
 
-    // ─── Show SweetAlert2 when exam is already completed ───
+    // ─── Redirect when exam is already completed ───
     useEffect(() => {
-        if (attemptsLoading || alertShownRef.current) return;
-        
+        if (attemptsLoading) return;
+
         if (hasCompletedAttempt) {
-            alertShownRef.current = true;
-            
-            Swal.fire({
-                title: 'Already Participated',
-                text: 'You have already participated in this exam. You cannot take it again.',
-                icon: 'warning',
-                confirmButtonText: 'Go to Exams',
-                confirmButtonColor: '#9B51E0',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-            }).then(() => {
-                navigate('/mock-exam', { replace: true });
-            });
+            navigate('/mock-exam', { replace: true });
         }
     }, [hasCompletedAttempt, attemptsLoading, navigate]);
 
@@ -342,23 +362,18 @@ const Omer: React.FC<ExamPaperProps> = ({
                 attemptIdRef.current = result._id;
                 startTimeRef.current = Date.now();
                 setError(null);
+
+                // ── Save initial timer snapshot so refresh can restore it ──
+                try {
+                    localStorage.setItem(timerStorageKey, JSON.stringify({
+                        savedAt: Date.now(),
+                        timeLeft: durationSeconds,
+                    }));
+                } catch { /* ignore */ }
             } catch (err: any) {
+                // 409 = already completed this specific mock exam → redirect
                 if (err?.status === 409 || err?.data?.message?.includes('already completed')) {
-                    if (!alertShownRef.current) {
-                        alertShownRef.current = true;
-                        
-                        Swal.fire({
-                            title: 'Already Participated',
-                            text: 'You have already participated in this exam. You cannot take it again.',
-                            icon: 'warning',
-                            confirmButtonText: 'Go to Exams',
-                            confirmButtonColor: '#9B51E0',
-                            allowOutsideClick: false,
-                            allowEscapeKey: false,
-                        }).then(() => {
-                            navigate('/mock-exam', { replace: true });
-                        });
-                    }
+                    navigate('/mock-exam', { replace: true });
                 } else {
                     const msg = err instanceof Error ? err.message : 'Failed to start attempt';
                     console.error('Failed to start attempt:', msg);
@@ -370,18 +385,140 @@ const Omer: React.FC<ExamPaperProps> = ({
         initAttempt();
     }, [examId, versionId, userId, allQuestions.length, startAttempt, navigate, hasCompletedAttempt, attemptsLoading, board]);
 
+    // ─── Restore answers, timer & candidate metadata from temporary exam submission ───
+    useEffect(() => {
+        if (!tempSubmission || isSubmitted) return;
+
+        if (tempSubmission.attemptId && !attemptIdRef.current) {
+            attemptIdRef.current = tempSubmission.attemptId;
+        }
+
+        if (tempSubmission.selectedAnswers && Object.keys(tempSubmission.selectedAnswers).length > 0) {
+            setSelectedAnswers((prev) => {
+                if (Object.keys(prev).length > 0) return prev;
+                const restored: Record<number, number> = {};
+                Object.entries(tempSubmission.selectedAnswers).forEach(([k, v]) => {
+                    const qIdx = Number(k);
+                    if (!isNaN(qIdx)) {
+                        restored[qIdx] = Number(v);
+                    }
+                });
+                return restored;
+            });
+        }
+
+        if (tempSubmission.rollDigits && Array.isArray(tempSubmission.rollDigits) && tempSubmission.rollDigits.length > 0) {
+            setRollDigits(tempSubmission.rollDigits);
+        }
+        if (tempSubmission.candidateName) {
+            setCandidateName(tempSubmission.candidateName);
+        }
+        if (tempSubmission.subjectDigits && Array.isArray(tempSubmission.subjectDigits)) {
+            setSubjectDigits(tempSubmission.subjectDigits);
+        }
+        if (tempSubmission.paperCode !== undefined && tempSubmission.paperCode !== null) {
+            setPaperCode(tempSubmission.paperCode);
+        }
+        if (tempSubmission.extraDigits && Array.isArray(tempSubmission.extraDigits)) {
+            setExtraDigits(tempSubmission.extraDigits);
+        }
+        if (tempSubmission.setDigits && Array.isArray(tempSubmission.setDigits)) {
+            setSetDigits(tempSubmission.setDigits);
+        }
+
+        if (typeof tempSubmission.timeLeft === 'number' && tempSubmission.timeLeft > 0 && restoredTimeLeft === null) {
+            setTimeLeft(tempSubmission.timeLeft);
+        }
+    }, [tempSubmission, isSubmitted, restoredTimeLeft]);
+
+    // ─── Restore answers from the active attempt once it loads ───
+    useEffect(() => {
+        if (!activeAttempt?.questions || activeAttempt.questions.length === 0) return;
+        if (Object.keys(selectedAnswers).length > 0) return; // already restored
+
+        const restored: Record<number, number> = {};
+        activeAttempt.questions.forEach((q: any) => {
+            if (!q.selectedOption) return;
+            const qIdx = allQuestions.findIndex(
+                (aq) => (aq.questionNumber || 0) === q.questionNumber
+            );
+            if (qIdx === -1) return;
+            const optIdx = allQuestions[qIdx].optionKeys?.indexOf(q.selectedOption) ?? -1;
+            if (optIdx >= 0) {
+                restored[qIdx] = optIdx;
+            }
+        });
+        if (Object.keys(restored).length > 0) {
+            setSelectedAnswers(restored);
+        }
+    }, [activeAttempt, allQuestions, selectedAnswers]);
+
     // Reset state on exam change
     useEffect(() => {
         setSelectedAnswers({});
         setIsSubmitted(false);
         setError(null);
-        setTimeLeft(durationSeconds);
+        setTimeLeft(restoredTimeLeft ?? durationSeconds);
         attemptIdRef.current = null;
         submitInFlightRef.current = false;
         startTimeRef.current = Date.now();
         questionStartTimes.current = {};
-        alertShownRef.current = false;
-    }, [examId, versionId, durationSeconds]);
+    }, [examId, versionId, durationSeconds, restoredTimeLeft]);
+
+    // ─── Helper to persist temporary exam progress ───
+    const persistTempProgress = useCallback(
+        (answersMap: Record<number, number>, overrides: Record<string, any> = {}) => {
+            if (!userId || !examId || isSubmitted) return;
+
+            const submittedList = Object.entries(answersMap).map(([idxStr, optIdx]) => {
+                const q = allQuestions[Number(idxStr)];
+                return {
+                    questionId: q?.id,
+                    questionNumber: q?.questionNumber || Number(idxStr) + 1,
+                    selectedOption: q?.optionKeys?.[optIdx] ?? q?.options[optIdx] ?? '',
+                    selectedIndex: optIdx,
+                };
+            });
+
+            saveTempExamSubmission({
+                userId,
+                examId,
+                examVersionId: versionId || undefined,
+                scheduleExamId: scheduleId || undefined,
+                board: board || undefined,
+                paperType: 'Type1',
+                selectedAnswers: answersMap,
+                submittedAnswers: submittedList,
+                rollDigits: overrides.rollDigits ?? rollDigits,
+                candidateName: overrides.candidateName ?? candidateName,
+                subjectDigits: overrides.subjectDigits ?? subjectDigits,
+                paperCode: overrides.paperCode !== undefined ? overrides.paperCode : paperCode,
+                extraDigits: overrides.extraDigits ?? extraDigits,
+                setDigits: overrides.setDigits ?? setDigits,
+                timeLeft,
+                attemptId: attemptIdRef.current || undefined,
+            }).catch((err) => {
+                console.warn('Temporary exam submission save failed:', err);
+            });
+        },
+        [
+            userId,
+            examId,
+            versionId,
+            scheduleId,
+            board,
+            allQuestions,
+            saveTempExamSubmission,
+            rollDigits,
+            candidateName,
+            subjectDigits,
+            paperCode,
+            extraDigits,
+            setDigits,
+            timeLeft,
+            isSubmitted,
+        ]
+    );
 
     // ─── Handle answer selection ───
     const handleAnswerSelect = useCallback(
@@ -404,7 +541,7 @@ const Omer: React.FC<ExamPaperProps> = ({
                 const updated = { ...prev, [qIndex]: oIndex };
                 const optionKey = qItem.optionKeys?.[oIndex] ?? qItem.options[oIndex] ?? '';
 
-                // Auto-save to backend
+                // Auto-save to backend active attempt
                 const attemptId = attemptIdRef.current;
                 if (attemptId && userId) {
                     const qNumber = qItem.questionNumber || qIndex + 1;
@@ -420,6 +557,9 @@ const Omer: React.FC<ExamPaperProps> = ({
                         console.warn('Auto-save failed:', err);
                     });
                 }
+
+                // Auto-save to Temporary Exam Submission API
+                persistTempProgress(updated);
 
                 // Persist quiz performance (fire-and-forget)
                 if (userId && qItem.id && examId && versionId) {
@@ -442,7 +582,9 @@ const Omer: React.FC<ExamPaperProps> = ({
                 }
 
                 return updated;
-            });        }, [isSubmitted, userId, allQuestions, saveAnswer, postUserQuizs, selectedAnswers, examId, versionId]
+            });
+        },
+        [isSubmitted, userId, allQuestions, saveAnswer, postUserQuizs, selectedAnswers, persistTempProgress, examId, versionId]
     );
 
     // ─── Handle Submit ───
@@ -464,6 +606,12 @@ const Omer: React.FC<ExamPaperProps> = ({
 
             const localCorrect = computeLocalScore(allQuestions, selectedAnswers);
             setIsSubmitted(true);
+
+            // Clear saved paper-type selection and timer so the picker shows again next time
+            try {
+                localStorage.removeItem('selectedPaperType');
+                localStorage.removeItem(timerStorageKey);
+            } catch { /* ignore */ }
 
             const timeTaken = Math.max(1, durationSeconds - timeLeft);
             const result: QuizResultData = {
@@ -508,6 +656,18 @@ const Omer: React.FC<ExamPaperProps> = ({
                     });
             }
 
+            // Delete temporary exam submission upon completion
+            if (userId && examId) {
+                deleteTempExamSubmission({
+                    userId,
+                    examId,
+                    versionId: versionId || undefined,
+                    board: board || undefined,
+                }).catch((err) => {
+                    console.warn('Failed to delete temp exam submission:', err);
+                });
+            }
+
             const qs = new URLSearchParams({
                 examName: result.examName,
                 versionName: result.versionName,
@@ -536,6 +696,12 @@ const Omer: React.FC<ExamPaperProps> = ({
             selectedAnswers,
             completeAttempt,
             batchSaveAnswers,
+            deleteTempExamSubmission,
+            userId,
+            examId,
+            versionId,
+            board,
+            timerStorageKey,
             durationSeconds,
             timeLeft,
             currentExam,
@@ -557,24 +723,31 @@ const Omer: React.FC<ExamPaperProps> = ({
         const updated = [...rollDigits];
         updated[index] = digit;
         setRollDigits(updated);
+        persistTempProgress(selectedAnswers, { rollDigits: updated });
     };
 
     const toggleSubjectDigit = (col: number, digit: number) => {
         setSubjectDigits((prev) => {
             const next = [...prev];
             next[col] = next[col] === digit ? null : digit;
+            persistTempProgress(selectedAnswers, { subjectDigits: next });
             return next;
         });
     };
 
     const togglePaperCode = (digit: number) => {
-        setPaperCode((prev) => (prev === digit ? null : digit));
+        setPaperCode((prev) => {
+            const next = prev === digit ? null : digit;
+            persistTempProgress(selectedAnswers, { paperCode: next });
+            return next;
+        });
     };
 
     const toggleExtraDigit = (col: number, digit: number) => {
         setExtraDigits((prev) => {
             const next = [...prev];
             next[col] = next[col] === digit ? null : digit;
+            persistTempProgress(selectedAnswers, { extraDigits: next });
             return next;
         });
     };
@@ -583,6 +756,7 @@ const Omer: React.FC<ExamPaperProps> = ({
         setSetDigits((prev) => {
             const next = [...prev];
             next[col] = next[col] === digit ? null : digit;
+            persistTempProgress(selectedAnswers, { setDigits: next });
             return next;
         });
     };
@@ -594,10 +768,68 @@ const Omer: React.FC<ExamPaperProps> = ({
         return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
-        const violations = useExamSecurity({
+    const violations = useExamSecurity({
         isSubmitted,
         onViolationLimitReached: () => handleSubmit(true),
-      });
+    });
+
+    // ─── Block browser refresh / tab close during exam ───
+    // Also save the ACTUAL current timeLeft to localStorage so refresh
+    // restores the correct remaining time.
+    useEffect(() => {
+        if (isSubmitted) return;
+
+        const handler = (e: BeforeUnloadEvent) => {
+            try {
+                localStorage.setItem(timerStorageKey, JSON.stringify({
+                    savedAt: Date.now(),
+                    timeLeft,
+                }));
+            } catch { /* ignore */ }
+            e.preventDefault();
+            e.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isSubmitted, timeLeft, timerStorageKey]);
+
+    // ─── Block navigation when exam is in progress ───
+    const shouldBlock = useCallback(
+        ({ nextLocation }: { currentLocation: any; nextLocation: any }) => {
+            // Don't block if exam is already submitted
+            if (isSubmitted) return false;
+            // Don't block if navigating to the result page (submit already handled it)
+            if (nextLocation.pathname === '/mock-exam/result') return false;
+            return true;
+        },
+        [isSubmitted]
+    );
+
+    const blocker = useBlocker(shouldBlock);
+
+    useEffect(() => {
+        if (blocker.state !== 'blocked') return;
+
+        Swal.fire({
+            title: 'Are you sure?',
+            text: 'You have unsaved answers. If you leave now, your exam will be submitted automatically.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#9B51E0',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, submit & leave',
+            cancelButtonText: 'No, stay here',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Submit the exam then reset the blocker (handleSubmit navigates to result)
+                blocker.reset();
+                handleSubmit(false);
+            } else {
+                blocker.reset();
+            }
+        });
+    }, [blocker, handleSubmit]);
 
     // Loading & empty states
     if (attemptsLoading || questionsLoading || isStarting) {
@@ -614,7 +846,7 @@ const Omer: React.FC<ExamPaperProps> = ({
 
     return (
         <div className="min-h-screen bg-[#1c1f26] py-4 sm:py-6 px-2 sm:px-4 text-slate-900 font-sans print:bg-white print:p-0">
-             {!isSubmitted && <Watermark userId={userId} examId={examId} />}
+            {/* {!isSubmitted && <Watermark userId={userId} examId={examId} />} */}
             {/* ──────────────────────────────────────────────────────────── */}
             {/* TOP CONTROLS & TOOLBAR (Hidden in Print)                     */}
             {/* ──────────────────────────────────────────────────────────── */}
@@ -639,8 +871,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                         {/* Live Countdown Timer */}
                         <div
                             className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg border font-mono font-bold text-xs sm:text-sm ${timeLeft < 300
-                                    ? 'bg-rose-950/70 border-rose-600/50 text-rose-400 animate-pulse'
-                                    : 'bg-[#1e222b] border-[#2e333d] text-emerald-400'
+                                ? 'bg-rose-950/70 border-rose-600/50 text-rose-400 animate-pulse'
+                                : 'bg-[#1e222b] border-[#2e333d] text-emerald-400'
                                 }`}
                         >
                             <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -678,8 +910,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                         type="button"
                         onClick={() => setMobileTab('questions')}
                         className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${mobileTab === 'questions'
-                                ? 'bg-emerald-600 text-white shadow-md'
-                                : 'text-gray-400 hover:text-white'
+                            ? 'bg-emerald-600 text-white shadow-md'
+                            : 'text-gray-400 hover:text-white'
                             }`}
                     >
                         <span>📝 প্রশ্নসমূহ ({answeredCount}/{totalQuestions})</span>
@@ -688,8 +920,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                         type="button"
                         onClick={() => setMobileTab('omr')}
                         className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${mobileTab === 'omr'
-                                ? 'bg-emerald-600 text-white shadow-md'
-                                : 'text-gray-400 hover:text-white'
+                            ? 'bg-emerald-600 text-white shadow-md'
+                            : 'text-gray-400 hover:text-white'
                             }`}
                     >
                         <span>📄 OMR শিট (OMR Sheet)</span>
@@ -722,39 +954,46 @@ const Omer: React.FC<ExamPaperProps> = ({
                                     <div
                                         key={q.id || qIndex}
                                         className={`bg-[#1e222b] border rounded-lg p-3.5 transition-colors ${selectedOptIdx !== undefined
-                                                ? 'border-emerald-500/50 bg-[#1e272b]'
-                                                : 'border-[#2e333d] hover:border-[#4a5568]'
+                                            ? 'border-emerald-500/50 bg-[#1e272b]'
+                                            : 'border-[#2e333d] hover:border-[#4a5568]'
                                             }`}
                                     >
                                         {/* Question Header & Text */}
                                         <div className="flex items-start gap-2.5 mb-2.5">
                                             <span
                                                 className={`text-xs font-bold px-2 py-0.5 rounded flex-shrink-0 font-mono ${selectedOptIdx !== undefined
-                                                        ? 'bg-emerald-600 text-white'
-                                                        : 'bg-[#2a2f3d] text-gray-300'
+                                                    ? 'bg-emerald-600 text-white'
+                                                    : 'bg-[#2a2f3d] text-gray-300'
                                                     }`}
                                             >
                                                 {String(displayQNum).padStart(2, '0')}
                                             </span>
-                                            <div className="flex-1 min-w-0">
-                                                {q.scenarioText && (
-                                                    <p className="text-[14px] text-gray-400 italic mb-1 bg-[#151820] p-2 rounded border border-[#23262d]">
-                                                        {q.scenarioText}
-                                                    </p>
-                                                )}
+
+                                            <div>
                                                 <p className="text-gray-200 text-[16px] leading-relaxed font-medium">
                                                     {q.question}
                                                 </p>
-                                                {q.imageUrl && (
-                                                    <img
-                                                        src={q.imageUrl}
-                                                        alt={`Question ${displayQNum}`}
-                                                        className="mt-2 max-h-36 rounded border border-gray-700 object-contain"
-                                                    />
-                                                )}
-                                            </div>
-                                        </div>
 
+                                                <div className="flex-1 min-w-0">
+                                                    {q.scenarioText && (
+                                                        <div className="mb-5 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 mt-5 p-4">
+                                                            <p className="text-sm leading-relaxed text-[#C9D0DA] whitespace-pre-line">
+                                                                {q.scenarioText}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {q.imageUrl && (
+                                                        <img
+                                                            src={q.imageUrl}
+                                                            alt={`Question ${displayQNum}`}
+                                                            className="mt-2 max-h-36 rounded border border-gray-700 object-contain"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                        </div>
                                         {/* Options Grid */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                                             {q.options.map((optText, oIdx) => {
@@ -765,16 +1004,16 @@ const Omer: React.FC<ExamPaperProps> = ({
                                                     <button
                                                         key={oIdx}
                                                         type="button"
-                                                        onClick={() => handleAnswerSelect(qIndex, oIdx)}
+
                                                         className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium text-left transition-all ${isSelected
-                                                                ? 'bg-emerald-600 text-white border border-emerald-500 shadow-md scale-[1.01]'
-                                                                : 'bg-[#222734] border border-[#373e4f] text-gray-300 hover:bg-[#2c3345] hover:text-white'
+                                                            ? 'bg-emerald-600 text-white border border-emerald-500 shadow-md scale-[1.01]'
+                                                            : 'bg-[#222734] border border-[#373e4f] text-gray-300 hover:bg-[#2c3345] hover:text-white'
                                                             }`}
                                                     >
                                                         <span
                                                             className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 transition-colors ${isSelected
-                                                                    ? 'bg-white text-emerald-600'
-                                                                    : 'bg-[#373e4f] text-gray-300'
+                                                                ? 'bg-white text-emerald-600'
+                                                                : 'bg-[#373e4f] text-gray-300'
                                                                 }`}
                                                         >
                                                             {optLetter}
@@ -952,8 +1191,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                                                                     onClick={() => handleAnswerSelect(targetIndex, oIdx)}
                                                                     aria-label={`Question ${slotNum} option ${optLetter}`}
                                                                     className={`w-[16px] h-[16px] rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-75 ${isFilled
-                                                                            ? 'bg-black text-white border border-black scale-105'
-                                                                            : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
+                                                                        ? 'bg-black text-white border border-black scale-105'
+                                                                        : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
                                                                         }`}
                                                                 >
                                                                     {optLetter}
@@ -999,8 +1238,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                                                                     onClick={() => handleAnswerSelect(targetIndex, oIdx)}
                                                                     aria-label={`Question ${slotNum} option ${optLetter}`}
                                                                     className={`w-[16px] h-[16px] rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-75 ${isFilled
-                                                                            ? 'bg-black text-white border border-black scale-105'
-                                                                            : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
+                                                                        ? 'bg-black text-white border border-black scale-105'
+                                                                        : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
                                                                         }`}
                                                                 >
                                                                     {optLetter}
@@ -1038,8 +1277,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                                                                     type="button"
                                                                     onClick={() => toggleSubjectDigit(col, row)}
                                                                     className={`w-[13px] h-[13px] rounded-full flex items-center justify-center text-[8px] font-bold transition-all ${sel === row
-                                                                            ? 'bg-black text-white border border-black'
-                                                                            : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
+                                                                        ? 'bg-black text-white border border-black'
+                                                                        : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
                                                                         }`}
                                                                 >
                                                                     {row}
@@ -1065,8 +1304,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                                                             type="button"
                                                             onClick={() => togglePaperCode(row)}
                                                             className={`w-[13px] h-[13px] rounded-full flex items-center justify-center text-[8px] font-bold transition-all ${paperCode === row
-                                                                    ? 'bg-black text-white border border-black'
-                                                                    : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
+                                                                ? 'bg-black text-white border border-black'
+                                                                : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
                                                                 }`}
                                                         >
                                                             {row}
@@ -1109,8 +1348,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                                                                     type="button"
                                                                     onClick={() => toggleExtraDigit(col, row)}
                                                                     className={`w-[13px] h-[13px] rounded-full flex items-center justify-center text-[8px] font-bold transition-all ${sel === row
-                                                                            ? 'bg-black text-white border border-black'
-                                                                            : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
+                                                                        ? 'bg-black text-white border border-black'
+                                                                        : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
                                                                         }`}
                                                                 >
                                                                     {row}
@@ -1142,8 +1381,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                                                                     type="button"
                                                                     onClick={() => toggleSetDigit(col, row)}
                                                                     className={`w-[13px] h-[13px] rounded-full flex items-center justify-center text-[8px] font-bold transition-all ${sel === row
-                                                                            ? 'bg-black text-white border border-black'
-                                                                            : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
+                                                                        ? 'bg-black text-white border border-black'
+                                                                        : 'border border-[#a82329] text-[#a82329] hover:bg-rose-50'
                                                                         }`}
                                                                 >
                                                                     {row}
