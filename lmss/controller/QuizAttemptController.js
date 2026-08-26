@@ -961,3 +961,136 @@ export const getAllAttempts = async (req, res) => {
     res.status(500).json({ message: "Unable to fetch attempts" });
   }
 };
+
+// ─── FORCE-SUBMIT an attempt (designed for navigator.sendBeacon) ─────────
+// sendBeacon cannot set custom headers, so this endpoint accepts the auth
+// token inside the JSON body instead of from the Authorization header.
+// It batch-saves answers AND completes the attempt in a single request.
+export const forceSubmit = async (req, res) => {
+  try {
+    const { attemptId, answers, token } = req.body;
+
+    if (!attemptId) {
+      return res.status(400).json({ message: "attemptId is required" });
+    }
+
+    // Authenticate via body token (sendBeacon can't send headers)
+    // If req.user is already populated (normal auth middleware), skip.
+    if (!req.user && token) {
+      const jwt = await import('jsonwebtoken');
+      const { JWT_SECRET } = await import('../config/jwt.js');
+      try {
+        req.user = jwt.default.verify(token, JWT_SECRET);
+      } catch {
+        return res.status(401).json({ message: "Invalid token" });
+      }
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const attempt = await QuizAttempt.findById(attemptId)
+      .populate("scheduleExam", "duration");
+
+    if (!attempt) {
+      return res.status(404).json({ message: "Attempt not found" });
+    }
+
+    // Only the owner may force-submit
+    if (req.user.role !== "admin" && String(attempt.user) !== String(req.user.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    // If already completed, nothing to do
+    if (attempt.isCompleted) {
+      return res.status(200).json({ message: "Already completed" });
+    }
+
+    // ── Batch-save answers if provided ──
+    if (Array.isArray(answers) && answers.length > 0) {
+      for (const ans of answers) {
+        const { questionNumber, selectedOption, timeTaken } = ans;
+        if (!questionNumber) continue;
+
+        const existingIndex = attempt.questions.findIndex(
+          (q) => Number(q.questionNumber) === Number(questionNumber)
+        );
+
+        // Look up correct answer from the question bank
+        const bankData = await findQuestionFromBank(
+          attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board
+        );
+        const correctAnswer = bankData?.correctAnswer || null;
+        const isCorrect = selectedOption && correctAnswer
+          ? String(selectedOption).trim().toLowerCase() === String(correctAnswer).trim().toLowerCase()
+          : null;
+
+        if (existingIndex >= 0) {
+          if (selectedOption) {
+            attempt.questions[existingIndex].selectedOption = selectedOption;
+            attempt.questions[existingIndex].isCorrect = isCorrect;
+          }
+          if (timeTaken !== undefined) {
+            attempt.questions[existingIndex].timeTaken = timeTaken;
+          }
+        } else {
+          attempt.questions.push({
+            questionNumber,
+            selectedOption: selectedOption || null,
+            correctAnswer,
+            isCorrect,
+            timeTaken: timeTaken || 0,
+          });
+        }
+      }
+    }
+
+    // ── Complete the attempt ──
+    attempt.questions = deduplicateQuestions(attempt.questions);
+
+    let correctCount = 0;
+    let incorrectCount = 0;
+    for (const q of attempt.questions) {
+      if (q.isCorrect === true) correctCount++;
+      else if (q.isCorrect === false) incorrectCount++;
+    }
+
+    attempt.totalQuestions = attempt.questions.length || attempt.totalQuestions;
+    attempt.correctCount = correctCount;
+    attempt.incorrectCount = incorrectCount;
+    attempt.unansweredCount = Math.max(0, attempt.totalQuestions - correctCount - incorrectCount);
+    attempt.score = correctCount;
+    attempt.percentage = attempt.totalQuestions > 0
+      ? Math.round((correctCount / attempt.totalQuestions) * 100)
+      : 0;
+    attempt.isCompleted = true;
+    attempt.isActive = false;
+    attempt.completedAt = new Date();
+
+    const elapsedSeconds = Math.max(
+      1,
+      Math.round((attempt.completedAt - new Date(attempt.startedAt)) / 1000)
+    );
+    const durationSeconds = attempt.scheduleExam?.duration > 0
+      ? attempt.scheduleExam.duration * 60
+      : null;
+    attempt.timeTaken = durationSeconds
+      ? Math.min(elapsedSeconds, durationSeconds)
+      : elapsedSeconds;
+
+    await attempt.save();
+    await invalidatePrefix('cache:quiz-attempt');
+
+    // Also clean up temporary exam submission
+    try {
+      const TempExamSubmission = (await import('../models/TempExamSubmission.js')).default;
+      await TempExamSubmission.deleteMany({ user: attempt.user, exam: attempt.exam });
+    } catch { /* ignore */ }
+
+    res.status(200).json({ message: "Force-submitted successfully" });
+  } catch (err) {
+    console.error("Error in forceSubmit:", err);
+    res.status(500).json({ message: "Unable to force-submit", error: err.message });
+  }
+};

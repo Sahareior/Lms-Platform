@@ -17,6 +17,7 @@ import {
   useGetTempExamSubmissionQuery,
   useSaveTempExamSubmissionMutation,
   useDeleteTempExamSubmissionMutation,
+  getAuthToken,
 } from "@my-monorepo/store";
 import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
 import QuestionCard from "./_components/QuestionCard";
@@ -640,27 +641,84 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
 
 
-  // ─── Block browser refresh / tab close during exam ───
-  // Also save the ACTUAL current timeLeft to localStorage so refresh
-  // restores the correct remaining time (not the stale initial duration).
+  // ─── Auto-submit via sendBeacon when the user closes the tab ───
+  // visibilitychange fires reliably on tab close / app quit;
+  // beforeunload is the fallback. Both use navigator.sendBeacon
+  // to fire-and-forget a force-submit to the backend.
   useEffect(() => {
     if (isSubmitted) return;
 
-    const handler = (e: BeforeUnloadEvent) => {
-      // Persist the exact timeLeft right before the page unloads
+    const beaconSubmittedRef = { current: false };
+
+    const fireBeaconSubmit = () => {
+      if (beaconSubmittedRef.current) return;
+      if (!attemptIdRef.current) return;
+
+      beaconSubmittedRef.current = true;
+
+      const token = getAuthToken();
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/';
+      const url = `${apiUrl.replace(/\/$/, '')}/quiz-attempts/force-submit`;
+
+      const answers = allQuestions.map((q, idx) => {
+        const selIdx = selectedAnswers[idx];
+        return {
+          questionNumber: q.questionNumber || idx + 1,
+          selectedOption:
+            selIdx !== undefined
+              ? (q.optionKeys?.[selIdx] ?? q.options[selIdx] ?? '')
+              : null,
+          timeTaken: questionStartTimes.current[idx]
+            ? Math.max(1, Math.round((Date.now() - questionStartTimes.current[idx]) / 1000))
+            : 1,
+        };
+      });
+
+      const blob = new Blob(
+        [JSON.stringify({ attemptId: attemptIdRef.current, answers, token })],
+        { type: 'application/json' }
+      );
+
+      navigator.sendBeacon(url, blob);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Save timer to localStorage for potential refresh restoration
+        try {
+          localStorage.setItem(timerStorageKey, JSON.stringify({
+            savedAt: Date.now(),
+            timeLeft,
+          }));
+        } catch { /* ignore */ }
+
+        fireBeaconSubmit();
+      }
+    };
+
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Save timer to localStorage
       try {
         localStorage.setItem(timerStorageKey, JSON.stringify({
           savedAt: Date.now(),
           timeLeft,
         }));
       } catch { /* ignore */ }
+
+      fireBeaconSubmit();
+
       e.preventDefault();
       e.returnValue = '';
     };
 
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [isSubmitted, timeLeft, timerStorageKey]);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [isSubmitted, timeLeft, timerStorageKey, allQuestions, selectedAnswers]);
 
   // ─── Block navigation when exam is in progress ───
   const shouldBlock = useCallback(
