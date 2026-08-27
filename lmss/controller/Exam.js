@@ -1,11 +1,13 @@
 import Exam from '../models/Exam.js';
 import User from '../models/User.js';
+import { invalidatePrefix } from '../middleware/cache.js';
 
 export const createExam = async (req, res) => {
   try {
     const { name, image, applicants, description, category } = req.body;
     const exam = new Exam({ name, image, applicants, description, category });
     await exam.save();
+    await invalidatePrefix('cache:exam');
     res.status(201).json(exam);
   } catch (err) {
     console.error(err);
@@ -35,7 +37,6 @@ export const listExams = async (req, res) => {
 };
 
 export const selectExamForUser = async (req, res) => {
-  console.log('Request body:', req.body); // Log the request body for debugging
   try {
     const {
       userId,
@@ -138,7 +139,6 @@ export const selectExamForUser = async (req, res) => {
 export const updateExam = async (req, res) => {
   const { examId } = req.params;
   const { name, image, applicants, description, category } = req.body;
-  console.log(req.body,'yjos')
 
   // Explicitly whitelist updatable fields (keeps category safe to persist)
   const updateData = {};
@@ -156,6 +156,7 @@ export const updateExam = async (req, res) => {
     if (!updatedExam) {
       return res.status(404).json({ message: 'Exam not found' });
     }
+    await invalidatePrefix('cache:exam');
     res.status(200).json(updatedExam);
   } catch (err) {
     console.error(err);
@@ -170,6 +171,7 @@ export const deleteExam = async (req, res) => {
     if (!deletedExam) {
       return res.status(404).json({ message: 'Exam not found' });
     }
+    await invalidatePrefix('cache:exam');
     res.status(200).json({ message: 'Exam deleted successfully' });
   } catch (err) {
     console.error(err);

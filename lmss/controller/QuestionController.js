@@ -1,9 +1,21 @@
 import QuestionModel from "../models/QuestionModel.js";
 import QuestionPatternModel from "../models/QuestionPatternModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
+
+// Mark every stored question document matching exam/version/subject/board as
+// analyzed so the Question Bank can show a Yes/No analyzed badge and let
+// admins retry a failed analysis from the stored set.
+const markQuestionsAnalyzed = async (exam, versionLabel, subjectRef, boardRef) => {
+    const filter = { exam };
+    if (versionLabel) filter.examVersion = versionLabel;
+    if (subjectRef) filter.subject = subjectRef;
+    if (boardRef) filter.board = boardRef;
+    await QuestionModel.updateMany(filter, { $set: { analyzed: true } });
+};
 
 export const saveQuestionsInDb = async (req, res) => {
     try {
-        const { exam, examVersion, subject, data } = req.body;
+        const { exam, examVersion, subject, board, division, data } = req.body;
 
         if (!exam || !examVersion || !Array.isArray(data) || data.length === 0) {
             return res.status(400).json({
@@ -11,39 +23,30 @@ export const saveQuestionsInDb = async (req, res) => {
             });
         }
 
-        // Prevent duplicate document
-        const existing = await QuestionModel.findOne({
-            exam,
-            examVersion,
-            subject: subject || null
-        });
-
-        if (existing) {
-            return res.status(409).json({
-                message: "Questions already exist for this exam/version/subject."
-            });
-        }
-
-        // Prevent duplicate question numbers inside uploaded data
+        // Prevent duplicate question numbers inside the same upload
         const numbers = new Set();
-
         for (const q of data) {
             if (numbers.has(q.question_number)) {
                 return res.status(400).json({
-                    message: `Duplicate question number ${q.question_number}`
+                    message: `Duplicate question number ${q.question_number} in uploaded data`
                 });
             }
-
             numbers.add(q.question_number);
         }
 
-        const saved = await QuestionModel.create({
+        // Always create a new document — each scrape is a separate question set
+        const createPayload = {
             exam,
             examVersion,
             subject,
-            data
-        });
+            data,
+        };
+        if (board) createPayload.board = board;
+        if (division) createPayload.division = division;
 
+        const saved = await QuestionModel.create(createPayload);
+
+        await invalidatePrefix('cache:question');
         res.status(201).json(saved);
 
     } catch (err) {
@@ -98,21 +101,25 @@ export const postQuestionPattern = async(req, res) => {
             });
         }
 
-        // Accept examVersion from either patternData (res) or top-level req.body
+        // Accept examVersion and board from either patternData (res) or top-level req.body
         const versionLabel = patternData?.examVersion || bodyExamVersion || '';
         const subjectRef = bodySubject || '';
+        const boardRef = patternData?.board || req.body.board || '';
         
-        // Build query filter: include subject if provided
+        // Build query filter: include subject and board if provided
         const queryFilter = { exam };
         if (versionLabel) queryFilter.examVersion = versionLabel;
         if (subjectRef) queryFilter.subject = subjectRef;
+        if (boardRef) queryFilter.board = boardRef;
         
         const existingPattern = await QuestionPatternModel.findOne(queryFilter);
 
         if (existingPattern) {
+            // The pattern already exists — the set is effectively analyzed.
+            await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef);
             return res.status(409).json({
                 status: 'DUPLICATE',
-                message: `Question pattern for exam "${exam}"${versionLabel ? ` version "${versionLabel}"` : ''}${subjectRef ? ` subject "${subjectRef}"` : ''} already exists.`,
+                message: `Question pattern for exam "${exam}"${versionLabel ? ` version "${versionLabel}"` : ''}${subjectRef ? ` subject "${subjectRef}"` : ''}${boardRef ? ` board "${boardRef}"` : ''} already exists.`,
                 data: existingPattern
             });
         }
@@ -128,8 +135,14 @@ export const postQuestionPattern = async(req, res) => {
         // Only set if provided (optional fields)
         if (versionLabel) questionPattern.examVersion = versionLabel;
         if (subjectRef) questionPattern.subject = subjectRef;
+        if (boardRef) questionPattern.board = boardRef;
 
         await questionPattern.save();
+
+        // The analysis succeeded and was stored — reflect that on the question set.
+        await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef);
+
+        await invalidatePrefix('cache:question-pattern');
 
         const displayName = versionLabel ? `${exam} ${versionLabel}` : exam;
         return res.status(201).json({
@@ -140,6 +153,7 @@ export const postQuestionPattern = async(req, res) => {
                 exam: questionPattern.exam,
                 examVersion: questionPattern.examVersion,
                 subject: questionPattern.subject,
+                board: questionPattern.board,
                 totalQuestions: questionPattern.totalQuestions,
                 topicsCount: questionPattern.topics.size,
                 subjectsCount: questionPattern.subjects.size,
@@ -154,6 +168,7 @@ export const postQuestionPattern = async(req, res) => {
         
         // Handle duplicate key error
         if (err.code === 11000) {
+            await markQuestionsAnalyzed(req.body.exam, req.body.examVersion || '', req.body.subject || '', req.body.board || '');
             return res.status(409).json({
                 status: 'DUPLICATE_ERROR',
                 message: `Question pattern for "${req.body.exam}" already exists.`,
@@ -198,12 +213,14 @@ export const getQuestionsByExam = async (req, res) => {
   try {
     const { examId } = req.params;
     const { versionId } = req.query;
-
+    const {board} = req.query
+    console.log(board,'ffff')
     const filter = { exam: examId };
     if (versionId) filter.examVersion = versionId;
+    if(board) filter.board = board
 
     const questions = await QuestionModel.find(filter)
-      .populate('exam', 'name')
+      .populate('exam', 'name category')
       .populate('examVersion', 'examVersion')
       .populate('subject', 'name');
 
@@ -231,6 +248,7 @@ export const updateQuestionDocument = async (req, res) => {
         if (!updated) {
             return res.status(404).json({ message: 'Question document not found' });
         }
+        await invalidatePrefix('cache:question');
         res.status(200).json(updated);
     } catch (err) {
         console.error(err);
@@ -246,6 +264,7 @@ export const deleteQuestionDocument = async (req, res) => {
         if (!deleted) {
             return res.status(404).json({ message: 'Question document not found' });
         }
+        await invalidatePrefix('cache:question');
         res.status(200).json({ message: 'Question document deleted successfully' });
     } catch (err) {
         console.error(err);
@@ -280,6 +299,8 @@ export const updateSingleQuestion = async (req, res) => {
 
     await doc.save();
 
+    await invalidatePrefix('cache:question');
+
     const populated = await doc.populate(['exam', 'examVersion', 'subject']);
     res.status(200).json(populated);
   } catch (err) {
@@ -306,6 +327,8 @@ export const deleteSingleQuestion = async (req, res) => {
 
     doc.data.splice(targetIndex, 1);
     await doc.save();
+
+    await invalidatePrefix('cache:question');
 
     res.status(200).json({
       message: 'Question deleted successfully',

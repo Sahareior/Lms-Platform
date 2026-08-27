@@ -26,6 +26,9 @@ import {
   BookOutlined,
   PictureOutlined,
   FileTextOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -36,8 +39,10 @@ import {
   useDeleteAdminQuestionDocumentMutation,
   useDeleteAdminSingleQuestionMutation,
   useUpdateAdminSingleQuestionMutation,
+  useQuestionAnalyzerMutation,
   type AdminQuestion,
 } from '@my-monorepo/store';
+import { usePostQuestionPatternMutation } from '@my-monorepo/store/src/redux/api/examApi';
 import MediaUpload from '../../reusable/MediaUpload';
 
 const { TextArea } = Input;
@@ -52,6 +57,8 @@ const QuestionBank: React.FC = () => {
   const [deleteDocument] = useDeleteAdminQuestionDocumentMutation();
   const [deleteSingleQuestion] = useDeleteAdminSingleQuestionMutation();
   const [updateSingleQuestion] = useUpdateAdminSingleQuestionMutation();
+  const [questionAnalyzer] = useQuestionAnalyzerMutation();
+  const [postQuestionPattern] = usePostQuestionPatternMutation();
 
   // ── View/Edit states ───────────────────────────────────────
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -67,6 +74,24 @@ const QuestionBank: React.FC = () => {
   } | null>(null);
   const [editForm] = Form.useForm();
   const imageUrl = Form.useWatch('image_url', editForm);
+
+  // ── Pattern analysis state ─────────────────────────────────
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+
+  // Transform a stored question document into the AI analyzer payload.
+  const transformStoredToAnalyzer = (data: AdminQuestion['data'], year: number) => ({
+    questions: data.map((item) => {
+      const optionKeys = Object.keys(item.options || {});
+      const optionValues = optionKeys.map((k) => item.options[k]);
+      const correctAnswer = item.options[item.correct_answer || ''] || item.correct_answer || '';
+      return {
+        year,
+        question: item.question_text || '',
+        options: optionValues,
+        answer: correctAnswer,
+      };
+    }),
+  });
 
   // ── Lookup helpers ─────────────────────────────────────────
   const getExamName = (examId: string) =>
@@ -90,6 +115,42 @@ const QuestionBank: React.FC = () => {
       refetch();
     } catch (err: any) {
       message.error(err?.data?.message || 'Failed to delete');
+    }
+  };
+
+  // ── Run AI pattern analysis on a stored set and save it to the DB ──
+  // This is the retry path: if the analysis failed during scraping, admins can
+  // re-run it from the Question Bank without re-uploading the PDF.
+  const handleAnalyzePattern = async (record: AdminQuestion) => {
+    if (!record.data?.length) {
+      message.warning('This question set has no questions to analyze.');
+      return;
+    }
+    setAnalyzingId(record._id);
+    try {
+      const analyzerPayload = transformStoredToAnalyzer(record.data, new Date().getFullYear());
+      const res = await questionAnalyzer(analyzerPayload).unwrap();
+
+      const patternPayload: any = { exam: record.exam, res };
+      if (record.examVersion) patternPayload.examVersion = record.examVersion;
+      if (record.subject) patternPayload.subject = record.subject;
+
+      try {
+        await postQuestionPattern(patternPayload).unwrap();
+        message.success('Question pattern analyzed and stored successfully!');
+      } catch (err: any) {
+        if (err?.status === 409) {
+          // Pattern already exists — the set is considered analyzed.
+          message.info('Question pattern already exists for this set (marked as analyzed).');
+        } else {
+          throw err;
+        }
+      }
+      refetch();
+    } catch (err: any) {
+      message.error(err?.data?.message || 'Analysis failed. Please retry when the AI service is available.');
+    } finally {
+      setAnalyzingId(null);
     }
   };
 
@@ -328,6 +389,18 @@ const QuestionBank: React.FC = () => {
       ),
     },
     {
+      title: 'Board',
+      dataIndex: 'board',
+      key: 'board',
+      render: (board?: string) => (
+        board ? (
+          <Tag color="orange" className="font-medium">{board}</Tag>
+        ) : (
+          <span className="text-sm text-[#5F6B64]">—</span>
+        )
+      ),
+    },
+    {
       title: 'Questions',
       dataIndex: 'data',
       key: 'dataCount',
@@ -336,11 +409,38 @@ const QuestionBank: React.FC = () => {
       ),
     },
     {
+      title: 'Analyzed',
+      dataIndex: 'analyzed',
+      key: 'analyzed',
+      render: (analyzed: boolean) =>
+        analyzed ? (
+          <Tag color="green" icon={<CheckCircleOutlined />} className="font-medium">
+            Yes
+          </Tag>
+        ) : (
+          <Tag color="red" icon={<CloseCircleOutlined />} className="font-medium">
+            No
+          </Tag>
+        ),
+    },
+    {
       title: 'Actions',
       key: 'actions',
-      width: 200,
+      width: 320,
       render: (_: unknown, record: AdminQuestion) => (
         <Space>
+          <Tooltip title="Run AI pattern analysis on this stored set and save it">
+            <Button
+              type="link"
+              size="small"
+              icon={<RobotOutlined />}
+              loading={analyzingId === record._id}
+              disabled={!!analyzingId}
+              onClick={() => handleAnalyzePattern(record)}
+            >
+              {analyzingId === record._id ? 'Analyzing...' : 'Analyze & Save'}
+            </Button>
+          </Tooltip>
           <Button
             type="link"
             size="small"

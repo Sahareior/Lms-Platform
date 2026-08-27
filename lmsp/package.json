@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "turbo run build",
+    "build:force": "turbo run build --force",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
@@ -25,6 +26,7 @@
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "react-native-web": "^0.21.2",
+    "sweetalert2": "^11.26.25",
     "tailwindcss": "^4.3.0"
   },
   "overrides": {

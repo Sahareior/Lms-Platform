@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Table, Card, Avatar, Tag, Modal, Descriptions, Spin, Alert, Input, Button, Space, Popconfirm, message } from 'antd';
-import { SearchOutlined, ReloadOutlined, MailOutlined, PhoneOutlined, DeleteOutlined } from '@ant-design/icons';
+import { SearchOutlined, ReloadOutlined, MailOutlined, PhoneOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useGetAdminUsersQuery, useGetAdminUserByIdQuery, useDeleteAdminUserMutation, type AdminUser } from '@my-monorepo/store';
+import { downloadCsv } from '../../reusable/downloadCsv';
 
 const UserManagement: React.FC = () => {
   const { data: users, isLoading, error, refetch } = useGetAdminUsersQuery();
@@ -19,6 +20,15 @@ const UserManagement: React.FC = () => {
       refetch();
     } catch (err: any) {
       message.error(err?.data?.message || 'Failed to delete user');
+    }
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      await downloadCsv('/auth/users/export', 'users.csv');
+      message.success('Users exported');
+    } catch (err: any) {
+      message.error(err?.message || 'Failed to export users');
     }
   };
 
@@ -163,6 +173,9 @@ const UserManagement: React.FC = () => {
             style={{ width: 250 }}
             allowClear
           />
+          <Button icon={<DownloadOutlined />} onClick={handleExportCsv}>
+            Export CSV
+          </Button>
           <Button icon={<ReloadOutlined />} onClick={refetch}>
             Refresh
           </Button>

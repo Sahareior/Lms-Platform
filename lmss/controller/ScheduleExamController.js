@@ -1,4 +1,5 @@
 import ScheduleExam from "../models/ScheduleExamModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
 
 // ─── Helper: compute status from dates ─────────────────────
 const computeStatus = (startDate, endDate, overrideStatus) => {
@@ -112,7 +113,7 @@ export const getScheduleExamById = async (req, res) => {
 // ─── CREATE scheduled exam ─────────────────────────────────
 export const createScheduleExam = async (req, res) => {
   try {
-    const { exam, examVersion, title, description, startDate, endDate, duration, totalQuestions } = req.body;
+    const { exam, examVersion, title, description, startDate, endDate, duration, totalQuestions, board } = req.body;
 
     if (!exam || !examVersion || !title || !startDate || !endDate) {
       return res.status(400).json({ message: 'Exam, examVersion, title, startDate, and endDate are required' });
@@ -130,9 +131,11 @@ export const createScheduleExam = async (req, res) => {
       duration: duration || 120,
       totalQuestions: totalQuestions || 0,
       status,
+      board: board || null,
     });
 
     await newExam.save();
+    await invalidatePrefix('cache:schedule-exam');
     const populated = await newExam.populate(['exam', 'examVersion']);
     res.status(201).json(populated);
   } catch (err) {
@@ -166,6 +169,7 @@ export const updateScheduleExam = async (req, res) => {
       .populate('examVersion', 'examVersion');
 
     if (!updated) return res.status(404).json({ message: 'Scheduled exam not found' });
+    await invalidatePrefix('cache:schedule-exam');
     res.status(200).json(updated);
   } catch (err) {
     console.error(err);
@@ -179,6 +183,7 @@ export const deleteScheduleExam = async (req, res) => {
     const { examId } = req.params;
     const deleted = await ScheduleExam.findByIdAndDelete(examId);
     if (!deleted) return res.status(404).json({ message: 'Scheduled exam not found' });
+    await invalidatePrefix('cache:schedule-exam');
     res.status(200).json({ message: 'Scheduled exam deleted successfully' });
   } catch (err) {
     console.error(err);
@@ -232,6 +237,7 @@ export const setFeaturedScheduleExam = async (req, res) => {
         .populate('exam', 'name image')
         .populate('examVersion', 'examVersion');
       if (!featured) return res.status(404).json({ message: 'Scheduled exam not found' });
+      await invalidatePrefix('cache:schedule-exam');
       return res.status(200).json(featured);
     }
 
@@ -243,6 +249,7 @@ export const setFeaturedScheduleExam = async (req, res) => {
       .populate('exam', 'name image')
       .populate('examVersion', 'examVersion');
     if (!unfeatured) return res.status(404).json({ message: 'Scheduled exam not found' });
+    await invalidatePrefix('cache:schedule-exam');
     res.status(200).json(unfeatured);
   } catch (err) {
     console.error(err);

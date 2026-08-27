@@ -23,12 +23,17 @@
   }
 
   body {
-    font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Space Grotesk', 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background: linear-gradient(180deg, #0B0D12 0%, #0E1016 60%, #12141B 100%);
     color: var(--text-primary);
     min-height: 100vh;
     min-height: 100dvh;
+      -webkit-user-select: none; /* Safari */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Standard */
     margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
@@ -130,4 +135,30 @@ html {
 
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PRINT — show only the certificate when printing
+   (used by the course-certificate modal)
+   ═══════════════════════════════════════════════════════════ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #certificate-print-area,
+  #certificate-print-area *,
+  #omr-print-area,
+  #omr-print-area * {
+    visibility: visible;
+  }
+
+  #certificate-print-area,
+  #omr-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none !important;
+  }
 }

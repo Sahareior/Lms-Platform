@@ -1,27 +1,139 @@
 import QuizAttempt from "../models/QuizAttempt.js";
 import QuestionModel from "../models/QuestionModel.js";
-import UserData from "../models/UserDataModel.js";
+import ScheduleExam from "../models/ScheduleExamModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
 
-// ─── Helper: read question fields from a flat Question document ──────────
-function findCorrectAnswer(questionDoc) {
-  return questionDoc?.correct_answer || null;
+// ─── Helper: look up a single question from the QuestionModel data[] array ──
+// QuestionModel stores questions in a `data` subdocument array. Each element
+// has question_number, question_text, options, correct_answer, etc.
+async function findQuestionFromBank(examId, versionId, subjectId, questionNumber, board) {
+  if (!examId && !versionId) return null;
+
+  const filter = {};
+  if (examId) filter.exam = examId;
+  if (versionId) filter.examVersion = versionId;
+  if (subjectId) filter.subject = subjectId;
+  if (board) filter.board = board;
+  // Query into the embedded data[] array
+  filter["data.question_number"] = questionNumber;
+
+  const doc = await QuestionModel.findOne(filter);
+  if (!doc || !doc.data) return null;
+
+  // Find the specific question inside the data array
+  const q = doc.data.find((d) => d.question_number === questionNumber);
+  if (!q) return null;
+
+  return {
+    correctAnswer: q.correct_answer || null,
+    questionText: q.question_text || "",
+    questionOptions: q.options || {},
+  };
 }
 
-function findQuestionText(questionDoc) {
-  return questionDoc?.question_text || "";
-}
-
-function findQuestionOptions(questionDoc) {
-  return questionDoc?.options || {};
+// Helper: deduplicate questions by questionNumber
+function deduplicateQuestions(questions) {
+  if (!Array.isArray(questions)) return [];
+  const map = new Map();
+  for (const q of questions) {
+    const rawNum = q.questionNumber !== undefined ? q.questionNumber : q.question_number;
+    const num = Number(rawNum);
+    if (!map.has(num)) {
+      map.set(num, q);
+    } else {
+      const existing = map.get(num);
+      if (!existing.selectedOption && q.selectedOption) {
+        map.set(num, q);
+      } else if (q.selectedOption && existing.selectedOption && (q.timeTaken || 0) > (existing.timeTaken || 0)) {
+        map.set(num, q);
+      }
+      if (!existing.questionText && q.questionText) {
+        existing.questionText = q.questionText;
+        existing.options = q.options;
+        existing.correctAnswer = q.correctAnswer;
+        existing.isCorrect = q.isCorrect;
+      }
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => Number(a.questionNumber) - Number(b.questionNumber));
 }
 
 // ─── START / CREATE a new attempt ───────────────────────────
 export const startAttempt = async (req, res) => {
   try {
-    const { userId, examId, examVersionId, subjectId, type, source, totalQuestions } = req.body;
+    const { userId, examId, examVersionId, scheduleExamId, subjectId, type, source, totalQuestions, board } = req.body;
 
     if (!userId) {
       return res.status(400).json({ message: "userId is required" });
+    }
+
+    // Only the owner may start an attempt for a user (admins exempt).
+    if (req.user?.role !== "admin" && String(userId) !== String(req.user?.userId)) {
+      return res.status(403).json({ message: "You can only start attempts for yourself." });
+    }
+
+    let scheduleExam;
+    if (scheduleExamId) {
+      scheduleExam = await ScheduleExam.findOne({
+        _id: scheduleExamId,
+        ...(examId ? { exam: examId } : {}),
+        ...(examVersionId ? { examVersion: examVersionId } : {}),
+      }).select("duration");
+      if (!scheduleExam) {
+        return res.status(400).json({ message: "Invalid scheduled exam." });
+      }
+    }
+
+    // ── One-attempt-per-exam guard ────────────────────────────────
+    // If a completed attempt already exists for this user + specific exam/version/board/schedule,
+    // block a new attempt. Only enforced for mock_exam source.
+    if (examId && (source === 'mock_exam' || type === 'mock_exam')) {
+      const guardFilter = {
+        user: userId,
+        exam: examId,
+        isCompleted: true,
+      };
+      if (scheduleExamId) {
+        guardFilter.scheduleExam = scheduleExamId;
+      }
+      if (examVersionId) {
+        guardFilter.examVersion = examVersionId;
+      }
+      if (board && board !== 'undefined' && board !== 'null') {
+        guardFilter.board = board;
+      }
+      if (subjectId) {
+        guardFilter.subject = subjectId;
+      }
+
+      const existingCompleted = await QuizAttempt.findOne(guardFilter);
+      if (existingCompleted) {
+        return res.status(409).json({
+          message: "You have already completed this mock exam. Each exam can only be attempted once.",
+          existingAttemptId: existingCompleted._id,
+        });
+      }
+    }
+
+    // ── Reuse existing active uncompleted attempt if already started ──
+    const activeFilter = {
+      user: userId,
+      isActive: true,
+      isCompleted: false,
+      ...(examId ? { exam: examId } : {}),
+    };
+    if (scheduleExamId) activeFilter.scheduleExam = scheduleExamId;
+    if (examVersionId) activeFilter.examVersion = examVersionId;
+    if (board && board !== 'undefined' && board !== 'null') activeFilter.board = board;
+    if (subjectId) activeFilter.subject = subjectId;
+
+    const existingActive = await QuizAttempt.findOne(activeFilter)
+      .populate("exam", "name")
+      .populate("examVersion", "examVersion")
+      .populate("scheduleExam", "title startDate endDate duration");
+
+    if (existingActive) {
+      return res.status(200).json(existingActive);
     }
 
     // Deactivate any existing active attempt for this user + type + exam
@@ -34,7 +146,9 @@ export const startAttempt = async (req, res) => {
       user: userId,
       exam: examId || undefined,
       examVersion: examVersionId || undefined,
+      scheduleExam: scheduleExamId || undefined,
       subject: subjectId || undefined,
+      board: board || null,
       type: type || "practice",
       source: source || "question_center",
       totalQuestions: totalQuestions || 0,
@@ -44,6 +158,8 @@ export const startAttempt = async (req, res) => {
     });
 
     await attempt.save();
+
+    await invalidatePrefix('cache:quiz-attempt');
 
     // Populate exam name for response
     const populated = await QuizAttempt.findById(attempt._id)
@@ -71,6 +187,11 @@ export const saveAnswer = async (req, res) => {
       return res.status(404).json({ message: "Attempt not found" });
     }
 
+    // Only the owner may modify an attempt (admins exempt).
+    if (req.user?.role !== "admin" && String(attempt.user) !== String(req.user?.userId)) {
+      return res.status(403).json({ message: "You can only modify your own attempts." });
+    }
+
     if (attempt.isCompleted) {
       return res.status(400).json({ message: "Cannot modify a completed attempt" });
     }
@@ -80,19 +201,13 @@ export const saveAnswer = async (req, res) => {
     let questionText = "";
     let questionOptions = {};
 
-    if (attempt.exam || attempt.examVersion) {
-      const filter = {};
-      if (attempt.exam) filter.exam = attempt.exam;
-      if (attempt.examVersion) filter.examVersion = attempt.examVersion;
-      if (attempt.subject) filter.subject = attempt.subject;
-      filter.question_number = questionNumber;
-
-      const questionDoc = await QuestionModel.findOne(filter);
-      if (questionDoc) {
-        correctAnswer = findCorrectAnswer(questionDoc);
-        questionText = findQuestionText(questionDoc);
-        questionOptions = findQuestionOptions(questionDoc);
-      }
+    const bankQ = await findQuestionFromBank(
+      attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board
+    );
+    if (bankQ) {
+      correctAnswer = bankQ.correctAnswer;
+      questionText = bankQ.questionText;
+      questionOptions = bankQ.questionOptions;
     }
 
     const isCorrect =
@@ -102,7 +217,7 @@ export const saveAnswer = async (req, res) => {
 
     // Find and update or add the question response
     const existingIndex = attempt.questions.findIndex(
-      (q) => q.questionNumber === questionNumber
+      (q) => Number(q.questionNumber) === Number(questionNumber)
     );
 
     if (existingIndex >= 0) {
@@ -164,7 +279,6 @@ export const saveAnswer = async (req, res) => {
       attempt.totalQuestions > 0
         ? Math.round((correctCount / attempt.totalQuestions) * 100)
         : 0;
-    attempt.timeTaken = timeTaken || attempt.timeTaken;
 
     await attempt.save();
 
@@ -201,6 +315,11 @@ export const batchSaveAnswers = async (req, res) => {
       return res.status(404).json({ message: "Attempt not found" });
     }
 
+    // Only the owner may modify an attempt (admins exempt).
+    if (req.user?.role !== "admin" && String(attempt.user) !== String(req.user?.userId)) {
+      return res.status(403).json({ message: "You can only modify your own attempts." });
+    }
+
     // Process each answer
     for (const answer of answers) {
       const { questionNumber, selectedOption, timeTaken } = answer;
@@ -209,19 +328,13 @@ export const batchSaveAnswers = async (req, res) => {
       let questionText = "";
       let questionOptions = {};
 
-      if (attempt.exam || attempt.examVersion) {
-        const filter = {};
-        if (attempt.exam) filter.exam = attempt.exam;
-        if (attempt.examVersion) filter.examVersion = attempt.examVersion;
-        if (attempt.subject) filter.subject = attempt.subject;
-        filter.question_number = questionNumber;
-
-        const questionDoc = await QuestionModel.findOne(filter);
-        if (questionDoc) {
-          correctAnswer = findCorrectAnswer(questionDoc);
-          questionText = findQuestionText(questionDoc);
-          questionOptions = findQuestionOptions(questionDoc);
-        }
+      const bankQ = await findQuestionFromBank(
+        attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board
+      );
+      if (bankQ) {
+        correctAnswer = bankQ.correctAnswer;
+        questionText = bankQ.questionText;
+        questionOptions = bankQ.questionOptions;
       }
 
       const isCorrect =
@@ -230,7 +343,7 @@ export const batchSaveAnswers = async (req, res) => {
           : null;
 
       const existingIndex = attempt.questions.findIndex(
-        (q) => q.questionNumber === questionNumber
+        (q) => Number(q.questionNumber) === Number(questionNumber)
       );
 
       if (existingIndex >= 0) {
@@ -257,6 +370,9 @@ export const batchSaveAnswers = async (req, res) => {
       }
     }
 
+    // Deduplicate any duplicates before saving
+    attempt.questions = deduplicateQuestions(attempt.questions);
+
     // Recalculate all counts
     let correctCount = 0;
     let incorrectCount = 0;
@@ -265,6 +381,8 @@ export const batchSaveAnswers = async (req, res) => {
       else if (q.isCorrect === false) incorrectCount++;
     }
 
+    // Recalculate totalQuestions from actual questions array
+    attempt.totalQuestions = attempt.questions.length || attempt.totalQuestions;
     attempt.correctCount = correctCount;
     attempt.incorrectCount = incorrectCount;
     attempt.unansweredCount = Math.max(0, attempt.totalQuestions - correctCount - incorrectCount);
@@ -273,6 +391,17 @@ export const batchSaveAnswers = async (req, res) => {
       attempt.totalQuestions > 0
         ? Math.round((correctCount / attempt.totalQuestions) * 100)
         : 0;
+    // Sum per-question times for attempt-level duration, but never let the
+    // client-reported sum exceed real wall-clock elapsed time (clients can
+    // report overlapping per-question windows that inflate the total).
+    const totalTime = attempt.questions.reduce((sum, q) => sum + (q.timeTaken || 0), 0);
+    if (totalTime > 0) {
+      const wallClockSeconds = Math.max(
+        1,
+        Math.round((Date.now() - new Date(attempt.startedAt).getTime()) / 1000)
+      );
+      attempt.timeTaken = Math.min(totalTime, wallClockSeconds);
+    }
 
     await attempt.save();
 
@@ -310,15 +439,24 @@ export const completeAttempt = async (req, res) => {
     const attempt = await QuizAttempt.findById(targetId)
       .populate("exam", "name")
       .populate("examVersion", "examVersion")
+      .populate("scheduleExam", "duration")
       .populate("user", "username email");
 
     if (!attempt) {
       return res.status(404).json({ message: "Attempt not found" });
     }
 
+    // Only the owner may complete an attempt (admins exempt).
+    if (req.user?.role !== "admin" && String(attempt.user?._id || attempt.user) !== String(req.user?.userId)) {
+      return res.status(403).json({ message: "You can only complete your own attempts." });
+    }
+
     if (attempt.isCompleted) {
       return res.status(400).json({ message: "Attempt already completed", attempt });
     }
+
+    // Deduplicate questions before final calculation
+    attempt.questions = deduplicateQuestions(attempt.questions);
 
     // Final recalculation
     let correctCount = 0;
@@ -328,12 +466,11 @@ export const completeAttempt = async (req, res) => {
       else if (q.isCorrect === false) incorrectCount++;
     }
 
+    // Ensure totalQuestions matches actual question count from the attempt
+    attempt.totalQuestions = attempt.questions.length || attempt.totalQuestions;
     attempt.correctCount = correctCount;
     attempt.incorrectCount = incorrectCount;
-    attempt.unansweredCount = Math.max(
-      0,
-      attempt.totalQuestions - correctCount - incorrectCount
-    );
+    attempt.unansweredCount = Math.max(0, attempt.totalQuestions - correctCount - incorrectCount);
     attempt.score = correctCount;
     attempt.percentage =
       attempt.totalQuestions > 0
@@ -343,66 +480,25 @@ export const completeAttempt = async (req, res) => {
     attempt.isActive = false;
     attempt.completedAt = new Date();
 
+    // Use server timestamps for the total; question timers can overlap.
+    const elapsedSeconds = Math.max(
+      1,
+      Math.round((attempt.completedAt - new Date(attempt.startedAt)) / 1000)
+    );
+    const durationSeconds = attempt.scheduleExam?.duration > 0
+      ? attempt.scheduleExam.duration * 60
+      : null;
+    attempt.timeTaken = durationSeconds
+      ? Math.min(elapsedSeconds, durationSeconds)
+      : elapsedSeconds;
+
     await attempt.save();
 
-    // ─── Update User Performance Arrays ─────────────────────────
-    try {
-      // Determine the performance array type based on attempt source
-      const performanceType = attempt.source === "mock_exam" ? "mockExam" : "questionPreatise";
+    await invalidatePrefix('cache:quiz-attempt');
 
-      let userData = await UserData.findOne({ user: attempt.user });
-      if (!userData) {
-        userData = new UserData({ user: attempt.user, mockExam: [], questionPreatise: [] });
-      }
-
-      const performanceArray = userData[performanceType];
-
-      // Process each question response and update performance stats
-      for (const q of attempt.questions) {
-        const questionId = `${attempt.exam || "unknown"}-${q.questionNumber}`;
-        const isCorrect = q.isCorrect === true;
-        const hasAnswered = q.selectedOption !== null && q.selectedOption !== undefined;
-
-        // Find existing entry for this question
-        const existingIndex = performanceArray.findIndex(
-          (item) => item.questionId === questionId || item.questionNumber === q.questionNumber
-        );
-
-        if (existingIndex >= 0) {
-          // Update existing entry
-          const existing = performanceArray[existingIndex];
-          existing.attempts += 1;
-          if (isCorrect) {
-            existing.successes += 1;
-          } else if (hasAnswered) {
-            existing.failures += 1;
-          }
-          existing.lastAttemptedAt = new Date();
-        } else {
-          // Create new entry
-          const newEntry = {
-            questionId,
-            questionNumber: q.questionNumber,
-            questionText: q.questionText || "",
-            options: q.options || {},
-            correctAnswer: q.correctAnswer || null,
-            attempts: 1,
-            failures: isCorrect ? 0 : hasAnswered ? 1 : 0,
-            successes: isCorrect ? 1 : 0,
-            lastAttemptedAt: new Date(),
-            examId: attempt.exam || undefined,
-            examVersionId: attempt.examVersion || undefined,
-            subjectId: attempt.subject || undefined,
-          };
-          performanceArray.push(newEntry);
-        }
-      }
-
-      await userData.save();
-    } catch (perfErr) {
-      console.error("Error updating user performance:", perfErr);
-      // Don't fail the attempt completion if performance update fails
-    }
+    // Performance data is now computed from QuizAttempt on-the-fly by
+    // getQuizOverview. The old UserData mockExam/questionPreatise dual-write
+    // has been removed to prevent sync issues.
 
     res.status(200).json({
       message: "Attempt completed",
@@ -454,11 +550,222 @@ export const getActiveAttempt = async (req, res) => {
   }
 };
 
+// ─── GET performance overview (dashboard at-a-glance) ────────
+// Aggregates the user's completed quiz attempts across ALL their exams and
+// subjects. This is the reliable source of truth for the dashboard because it
+// is recorded for every quiz the user finishes, independent of the AI report
+// (which is generated once per day from QuizPerformance records).
+export const getQuizOverview = async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+
+    // ── Single aggregation pipeline: computes everything in MongoDB ──
+    const [aggregated] = await QuizAttempt.aggregate([
+      { $match: { user: userId, isCompleted: true } },
+
+      // Unwind questions to count per-question results
+      { $unwind: { path: "$questions", preserveNullAndEmptyArrays: false } },
+
+      // Classify each question response
+      {
+        $addFields: {
+          "questions._answered": {
+            $or: [
+              { $eq: ["$questions.isCorrect", true] },
+              { $eq: ["$questions.isCorrect", false] },
+            ],
+          },
+          "questions._correct": { $eq: ["$questions.isCorrect", true] },
+          "questions._incorrect": { $eq: ["$questions.isCorrect", false] },
+        },
+      },
+
+      // Group by user (overall)
+      {
+        $group: {
+          _id: null,
+          totalAttempts: { $sum: 1 },
+          // Use first attempt's exam/subject since we unwind per-question
+          examId: { $first: "$exam" },
+          subjectId: { $first: "$subject" },
+          // Collect per-attempt data for exam grouping
+          attemptData: {
+            $push: {
+              attemptId: "$_id",
+              exam: "$exam",
+              subject: "$subject",
+              correct: { $sum: { $cond: ["$questions._correct", 1, 0] } },
+              incorrect: { $sum: { $cond: ["$questions._incorrect", 1, 0] } },
+              answered: { $sum: { $cond: ["$questions._answered", 1, 0] } },
+            },
+          },
+          overallCorrect: { $sum: { $cond: ["$questions._correct", 1, 0] } },
+          overallIncorrect: { $sum: { $cond: ["$questions._incorrect", 1, 0] } },
+          overallAnswered: { $sum: { $cond: ["$questions._answered", 1, 0] } },
+        },
+      },
+
+      // Second stage: build exam-level aggregation
+      {
+        $facet: {
+          overall: [
+            {
+              $project: {
+                _id: 0,
+                attempts: "$totalAttempts",
+                questions: "$overallAnswered",
+                correct: "$overallCorrect",
+                incorrect: "$overallIncorrect",
+                accuracy: {
+                  $cond: [
+                    { $gt: ["$overallAnswered", 0] },
+                    { $round: [{ $multiply: [{ $divide: ["$overallCorrect", "$overallAnswered"] }, 100] }, 1] },
+                    0,
+                  ],
+                },
+              },
+            },
+          ],
+          byExam: [
+            { $unwind: "$attemptData" },
+            {
+              $group: {
+                _id: "$attemptData.exam",
+                attempts: { $sum: 1 },
+                questions: { $sum: "$attemptData.answered" },
+                correct: { $sum: "$attemptData.correct" },
+                incorrect: { $sum: "$attemptData.incorrect" },
+              },
+            },
+            {
+              $lookup: {
+                from: "exams",
+                localField: "_id",
+                foreignField: "_id",
+                as: "examDoc",
+              },
+            },
+            { $unwind: { path: "$examDoc", preserveNullAndEmptyArrays: true } },
+            {
+              $project: {
+                _id: 0,
+                examId: "$_id",
+                examName: { $ifNull: ["$examDoc.name", "Unknown"] },
+                attempts: 1,
+                questions: 1,
+                correct: 1,
+                incorrect: 1,
+                accuracy: {
+                  $cond: [
+                    { $gt: ["$questions", 0] },
+                    { $round: [{ $multiply: [{ $divide: ["$correct", "$questions"] }, 100] }, 1] },
+                    0,
+                  ],
+                },
+              },
+            },
+            { $sort: { accuracy: -1 } },
+          ],
+        },
+      },
+    ]);
+
+    const overall = aggregated?.overall?.[0] || { attempts: 0, questions: 0, correct: 0, incorrect: 0, accuracy: 0 };
+    const byExam = aggregated?.byExam || [];
+
+    // ── Subject breakdown: unwind from per-attempt grouping ──
+    const subjectAgg = await QuizAttempt.aggregate([
+      { $match: { user: userId, isCompleted: true } },
+      { $unwind: "$questions" },
+      { $match: { "questions.isCorrect": { $ne: null } } },
+      {
+        $lookup: {
+          from: "subjects",
+          localField: "subject",
+          foreignField: "_id",
+          as: "subjectDoc",
+        },
+      },
+      { $unwind: { path: "$subjectDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: "$subject",
+          subject: { $first: { $ifNull: ["$subjectDoc.name", "General"] } },
+          attempted: { $sum: 1 },
+          correct: { $sum: { $cond: [{ $eq: ["$questions.isCorrect", true] }, 1, 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          subject: 1,
+          attempted: 1,
+          correct: 1,
+          accuracy: {
+            $cond: [
+              { $gt: ["$attempted", 0] },
+              { $round: [{ $multiply: [{ $divide: ["$correct", "$attempted"] }, 100] }, 1] },
+              0,
+            ],
+          },
+          isWeak: {
+            $lt: [{ $round: [{ $multiply: [{ $divide: ["$correct", "$attempted"] }, 100] }, 1] }, 60],
+          },
+          isCritical: {
+            $lt: [{ $round: [{ $multiply: [{ $divide: ["$correct", "$attempted"] }, 100] }, 1] }, 40],
+          },
+        },
+      },
+      { $sort: { accuracy: -1 } },
+    ]);
+
+    res.status(200).json({ overall, byExam, bySubject: subjectAgg });
+  } catch (err) {
+    console.error("Error building quiz overview:", err);
+    res.status(500).json({ message: "Unable to build quiz overview" });
+  }
+};
+
+// ─── GET weekly activity (for the dashboard chart) ────────────
+// Returns the user's completed attempts from the last 8 days with only the
+// fields the chart needs. The client buckets them into its own local week
+// (Mon–Sun) so day labels are correct in the user's timezone.
+export const getWeeklyActivity = async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+
+    // 8 days of slack covers any timezone offset from the client's local week.
+    const since = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+
+    const attempts = await QuizAttempt.find({
+      user: userId,
+      isCompleted: true,
+      createdAt: { $gte: since },
+    })
+      .select("createdAt percentage totalQuestions correctCount type source")
+      .sort({ createdAt: 1 })
+      .lean();
+
+    res.status(200).json({ attempts });
+  } catch (err) {
+    console.error("Error fetching weekly activity:", err);
+    res.status(500).json({ message: "Unable to fetch weekly activity" });
+  }
+};
+
 // ─── GET attempts by user ───────────────────────────────────
 export const getUserAttempts = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { type, limit } = req.query;
+    const { type, source, limit } = req.query;
 
     if (!userId) {
       return res.status(400).json({ message: "userId is required" });
@@ -466,10 +773,12 @@ export const getUserAttempts = async (req, res) => {
 
     const filter = { user: userId };
     if (type) filter.type = type;
+    if (source) filter.source = source;
 
     const attempts = await QuizAttempt.find(filter)
       .populate("exam", "name image")
       .populate("examVersion", "examVersion")
+      .populate("scheduleExam", "title startDate endDate duration")
       .sort({ createdAt: -1 })
       .limit(limit ? parseInt(limit) : 50);
 
@@ -488,39 +797,118 @@ export const getAttemptById = async (req, res) => {
     const attempt = await QuizAttempt.findById(id)
       .populate("exam", "name image")
       .populate("examVersion", "examVersion")
-      .populate("user", "username email phone division district");
+      .populate("scheduleExam", "duration")
+      .populate("user", "name username email phone division district");
 
     if (!attempt) {
       return res.status(404).json({ message: "Attempt not found" });
     }
 
-    res.status(200).json(attempt);
+    // Only the owner may read an attempt (admins exempt).
+    if (req.user?.role !== "admin" && String(attempt.user?._id || attempt.user) !== String(req.user?.userId)) {
+      return res.status(403).json({ message: "You can only view your own attempts." });
+    }
+
+    // Enrich: compute accurate counts and timeTaken from questions array
+    const obj = attempt.toObject();
+    obj.questions = deduplicateQuestions(obj.questions || []);
+    const correctCount = (obj.questions || []).filter((q) => q.isCorrect === true).length;
+    const incorrectCount = (obj.questions || []).filter((q) => q.isCorrect === false).length;
+    const totalQ = obj.questions?.length || obj.totalQuestions || 0;
+    const elapsedSeconds = obj.completedAt && obj.startedAt
+      ? Math.max(0, Math.round((new Date(obj.completedAt) - new Date(obj.startedAt)) / 1000))
+      : obj.timeTaken || 0;
+    const durationSeconds = obj.scheduleExam?.duration > 0
+      ? obj.scheduleExam.duration * 60
+      : null;
+    const timeTaken = durationSeconds ? Math.min(elapsedSeconds, durationSeconds) : elapsedSeconds;
+    obj.correctCount = correctCount;
+    obj.incorrectCount = incorrectCount;
+    obj.unansweredCount = Math.max(0, totalQ - correctCount - incorrectCount);
+    obj.totalQuestions = totalQ;
+    obj.score = correctCount;
+    obj.percentage = totalQ > 0 ? Math.round((correctCount / totalQ) * 100) : 0;
+    obj.timeTaken = timeTaken;
+
+    res.status(200).json(obj);
   } catch (err) {
     console.error("Error fetching attempt:", err);
     res.status(500).json({ message: "Unable to fetch attempt" });
   }
 };
 
-// ─── GET all attempts (admin) ───────────────────────────────
-export const getAllAttempts = async (req, res) => {
+// ─── GET all attempts as CSV (admin export) ─────────────────
+export const exportAttemptsCsv = async (req, res) => {
   try {
-    const { type, examId, userId, page = 1, limit = 20 } = req.query;
-
-    const filter = {};
+    const { type, examId, userId } = req.query;
+    const filter = { isCompleted: true };
     if (type) filter.type = type;
     if (examId) filter.exam = examId;
     if (userId) filter.user = userId;
+
+    const attempts = await QuizAttempt.find(filter)
+      .populate("user", "username email")
+      .populate("exam", "name")
+      .lean();
+
+    const headers = ['user', 'email', 'exam', 'type', 'source', 'score', 'totalQuestions', 'correctCount', 'incorrectCount', 'unansweredCount', 'percentage', 'startedAt', 'completedAt', 'isCompleted'];
+    const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = attempts.map((a) =>
+      headers.map((h) => {
+        switch (h) {
+          case 'user': return escape(a.user?.username || a.user?._id || '');
+          case 'email': return escape(a.user?.email || '');
+          case 'exam': return escape(a.exam?.name || '');
+          case 'startedAt': return escape(a.startedAt?.toISOString?.() || a.startedAt || '');
+          case 'completedAt': return escape(a.completedAt?.toISOString?.() || a.completedAt || '');
+          default: return escape(a[h]);
+        }
+      }).join(',')
+    );
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="quiz-attempts.csv"');
+    res.status(200).send(csv);
+  } catch (err) {
+    console.error("Error exporting attempts:", err);
+    res.status(500).json({ message: "Unable to export attempts" });
+  }
+};
+
+// ─── GET all attempts (admin) ───────────────────────────────
+export const getAllAttempts = async (req, res) => {
+  try {
+    const { type, examId, examVersionId, board, userId, startDate, endDate, page = 1, limit = 20 } = req.query;
+
+    const filter = { isCompleted: true };
+    if (type) filter.type = type;
+    if (examId) filter.exam = examId;
+    if (examVersionId) filter.examVersion = examVersionId;
+    if (board) filter.board = board;
+    if (userId) filter.user = userId;
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const [attempts, total] = await Promise.all([
       QuizAttempt.find(filter)
-        .populate("user", "username email phone division district")
+        .populate("user", "name username email phone division district")
         .populate("exam", "name image")
         .populate("examVersion", "examVersion")
+        .populate("scheduleExam", "duration")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(parseInt(limit))
+        .lean(),
       QuizAttempt.countDocuments(filter),
     ]);
 
@@ -538,8 +926,33 @@ export const getAllAttempts = async (req, res) => {
       },
     ]);
 
+    // Enrich attempts: compute timeTaken from questions if stale, ensure counts are accurate
+    const enrichedAttempts = attempts.map((a) => {
+      const cleanQuestions = deduplicateQuestions(a.questions || []);
+      const correctCount = cleanQuestions.filter((q) => q.isCorrect === true).length;
+      const incorrectCount = cleanQuestions.filter((q) => q.isCorrect === false).length;
+      const totalQ = cleanQuestions.length || a.totalQuestions || 0;
+      const elapsedSeconds = a.completedAt && a.startedAt
+        ? Math.max(0, Math.round((new Date(a.completedAt) - new Date(a.startedAt)) / 1000))
+        : a.timeTaken || 0;
+      const durationSeconds = a.scheduleExam?.duration > 0
+        ? a.scheduleExam.duration * 60
+        : null;
+      const timeTaken = durationSeconds ? Math.min(elapsedSeconds, durationSeconds) : elapsedSeconds;
+      return {
+        ...a,
+        questions: cleanQuestions,
+        correctCount,
+        incorrectCount,
+        totalQuestions: totalQ,
+        score: correctCount,
+        percentage: totalQ > 0 ? Math.round((correctCount / totalQ) * 100) : 0,
+        timeTaken,
+      };
+    });
+
     res.status(200).json({
-      attempts,
+      attempts: enrichedAttempts,
       total,
       page: parseInt(page),
       totalPages: Math.ceil(total / parseInt(limit)),
@@ -552,5 +965,138 @@ export const getAllAttempts = async (req, res) => {
   } catch (err) {
     console.error("Error fetching all attempts:", err);
     res.status(500).json({ message: "Unable to fetch attempts" });
+  }
+};
+
+// ─── FORCE-SUBMIT an attempt (designed for navigator.sendBeacon) ─────────
+// sendBeacon cannot set custom headers, so this endpoint accepts the auth
+// token inside the JSON body instead of from the Authorization header.
+// It batch-saves answers AND completes the attempt in a single request.
+export const forceSubmit = async (req, res) => {
+  try {
+    const { attemptId, answers, token } = req.body;
+
+    if (!attemptId) {
+      return res.status(400).json({ message: "attemptId is required" });
+    }
+
+    // Authenticate via body token (sendBeacon can't send headers)
+    // If req.user is already populated (normal auth middleware), skip.
+    if (!req.user && token) {
+      const jwt = await import('jsonwebtoken');
+      const { JWT_SECRET } = await import('../config/jwt.js');
+      try {
+        req.user = jwt.default.verify(token, JWT_SECRET);
+      } catch {
+        return res.status(401).json({ message: "Invalid token" });
+      }
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const attempt = await QuizAttempt.findById(attemptId)
+      .populate("scheduleExam", "duration");
+
+    if (!attempt) {
+      return res.status(404).json({ message: "Attempt not found" });
+    }
+
+    // Only the owner may force-submit
+    if (req.user.role !== "admin" && String(attempt.user) !== String(req.user.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    // If already completed, nothing to do
+    if (attempt.isCompleted) {
+      return res.status(200).json({ message: "Already completed" });
+    }
+
+    // ── Batch-save answers if provided ──
+    if (Array.isArray(answers) && answers.length > 0) {
+      for (const ans of answers) {
+        const { questionNumber, selectedOption, timeTaken } = ans;
+        if (!questionNumber) continue;
+
+        const existingIndex = attempt.questions.findIndex(
+          (q) => Number(q.questionNumber) === Number(questionNumber)
+        );
+
+        // Look up correct answer from the question bank
+        const bankData = await findQuestionFromBank(
+          attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board
+        );
+        const correctAnswer = bankData?.correctAnswer || null;
+        const isCorrect = selectedOption && correctAnswer
+          ? String(selectedOption).trim().toLowerCase() === String(correctAnswer).trim().toLowerCase()
+          : null;
+
+        if (existingIndex >= 0) {
+          if (selectedOption) {
+            attempt.questions[existingIndex].selectedOption = selectedOption;
+            attempt.questions[existingIndex].isCorrect = isCorrect;
+          }
+          if (timeTaken !== undefined) {
+            attempt.questions[existingIndex].timeTaken = timeTaken;
+          }
+        } else {
+          attempt.questions.push({
+            questionNumber,
+            selectedOption: selectedOption || null,
+            correctAnswer,
+            isCorrect,
+            timeTaken: timeTaken || 0,
+          });
+        }
+      }
+    }
+
+    // ── Complete the attempt ──
+    attempt.questions = deduplicateQuestions(attempt.questions);
+
+    let correctCount = 0;
+    let incorrectCount = 0;
+    for (const q of attempt.questions) {
+      if (q.isCorrect === true) correctCount++;
+      else if (q.isCorrect === false) incorrectCount++;
+    }
+
+    attempt.totalQuestions = attempt.questions.length || attempt.totalQuestions;
+    attempt.correctCount = correctCount;
+    attempt.incorrectCount = incorrectCount;
+    attempt.unansweredCount = Math.max(0, attempt.totalQuestions - correctCount - incorrectCount);
+    attempt.score = correctCount;
+    attempt.percentage = attempt.totalQuestions > 0
+      ? Math.round((correctCount / attempt.totalQuestions) * 100)
+      : 0;
+    attempt.isCompleted = true;
+    attempt.isActive = false;
+    attempt.completedAt = new Date();
+
+    const elapsedSeconds = Math.max(
+      1,
+      Math.round((attempt.completedAt - new Date(attempt.startedAt)) / 1000)
+    );
+    const durationSeconds = attempt.scheduleExam?.duration > 0
+      ? attempt.scheduleExam.duration * 60
+      : null;
+    attempt.timeTaken = durationSeconds
+      ? Math.min(elapsedSeconds, durationSeconds)
+      : elapsedSeconds;
+
+    await attempt.save();
+    await invalidatePrefix('cache:quiz-attempt');
+
+    // Also clean up temporary exam submission
+    try {
+      const TempExamSubmission = (await import('../models/TempExamSubmission.js')).default;
+      await TempExamSubmission.deleteMany({ user: attempt.user, exam: attempt.exam });
+    } catch { /* ignore */ }
+
+    res.status(200).json({ message: "Force-submitted successfully" });
+  } catch (err) {
+    console.error("Error in forceSubmit:", err);
+    res.status(500).json({ message: "Unable to force-submit", error: err.message });
   }
 };
