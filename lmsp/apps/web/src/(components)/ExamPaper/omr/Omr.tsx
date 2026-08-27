@@ -758,74 +758,30 @@ const Omer: React.FC<ExamPaperProps> = ({
         onViolationLimitReached: () => handleSubmit(true),
     });
 
-    // ─── Auto-submit via sendBeacon when the user closes the tab ───
-    // visibilitychange fires reliably on tab close / app quit;
-    // beforeunload is the fallback. Both use navigator.sendBeacon
-    // to fire-and-forget a force-submit to the backend.
+    // ─── Save progress & timer snapshot when user leaves/switches tab ───
     useEffect(() => {
         if (isSubmitted) return;
 
-        const beaconSubmittedRef = { current: false };
-
-        const fireBeaconSubmit = () => {
-            if (beaconSubmittedRef.current) return;
-            if (!attemptIdRef.current) return;
-
-            beaconSubmittedRef.current = true;
-
-            const token = getAuthToken();
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/';
-            const url = `${apiUrl.replace(/\/$/, '')}/quiz-attempts/force-submit`;
-
-            const answers = allQuestions.map((q, idx) => {
-                const selIdx = selectedAnswers[idx];
-                return {
-                    questionNumber: q.questionNumber || idx + 1,
-                    selectedOption:
-                        selIdx !== undefined
-                            ? (q.optionKeys?.[selIdx] ?? q.options[selIdx] ?? '')
-                            : null,
-                    timeTaken: questionStartTimes.current[idx]
-                        ? Math.max(1, Math.round((Date.now() - questionStartTimes.current[idx]) / 1000))
-                        : 1,
-                };
-            });
-
-            const blob = new Blob(
-                [JSON.stringify({ attemptId: attemptIdRef.current, answers, token })],
-                { type: 'application/json' }
-            );
-
-            navigator.sendBeacon(url, blob);
+        const saveTimerSnapshot = () => {
+            try {
+                localStorage.setItem(
+                    timerStorageKey,
+                    JSON.stringify({
+                        savedAt: Date.now(),
+                        timeLeft,
+                    })
+                );
+            } catch { /* ignore */ }
         };
 
         const onVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
-                // Save timer to localStorage for potential refresh restoration
-                try {
-                    localStorage.setItem(timerStorageKey, JSON.stringify({
-                        savedAt: Date.now(),
-                        timeLeft,
-                    }));
-                } catch { /* ignore */ }
-
-                fireBeaconSubmit();
+                saveTimerSnapshot();
             }
         };
 
-        const onBeforeUnload = (e: BeforeUnloadEvent) => {
-            // Save timer to localStorage
-            try {
-                localStorage.setItem(timerStorageKey, JSON.stringify({
-                    savedAt: Date.now(),
-                    timeLeft,
-                }));
-            } catch { /* ignore */ }
-
-            fireBeaconSubmit();
-
-            e.preventDefault();
-            e.returnValue = '';
+        const onBeforeUnload = () => {
+            saveTimerSnapshot();
         };
 
         document.addEventListener('visibilitychange', onVisibilityChange);
@@ -835,7 +791,7 @@ const Omer: React.FC<ExamPaperProps> = ({
             document.removeEventListener('visibilitychange', onVisibilityChange);
             window.removeEventListener('beforeunload', onBeforeUnload);
         };
-    }, [isSubmitted, timeLeft, timerStorageKey, allQuestions, selectedAnswers]);
+    }, [isSubmitted, timeLeft, timerStorageKey]);
 
     // ─── Block navigation when exam is in progress ───
     const shouldBlock = useCallback(
@@ -855,24 +811,37 @@ const Omer: React.FC<ExamPaperProps> = ({
         if (blocker.state !== 'blocked') return;
 
         Swal.fire({
-            title: 'Are you sure?',
-            text: 'You have unsaved answers. If you leave now, your exam will be submitted automatically.',
-            icon: 'warning',
+            title: 'Leave Exam?',
+            text: 'Your progress is saved. You can continue this exam while the scheduled exam is still ongoing.',
+            icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: '#9B51E0',
+            showDenyButton: true,
+            confirmButtonColor: '#2F80ED',
+            denyButtonColor: '#9B51E0',
             cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Yes, submit & leave',
-            cancelButtonText: 'No, stay here',
+            confirmButtonText: 'Leave & continue later',
+            denyButtonText: 'Submit & finish now',
+            cancelButtonText: 'Stay in exam',
         }).then((result) => {
             if (result.isConfirmed) {
-                // Submit the exam then reset the blocker (handleSubmit navigates to result)
+                try {
+                    localStorage.setItem(
+                        timerStorageKey,
+                        JSON.stringify({
+                            savedAt: Date.now(),
+                            timeLeft,
+                        })
+                    );
+                } catch { /* ignore */ }
+                blocker.proceed?.();
+            } else if (result.isDenied) {
                 blocker.reset();
                 handleSubmit(false);
             } else {
                 blocker.reset();
             }
         });
-    }, [blocker, handleSubmit]);
+    }, [blocker, handleSubmit, timerStorageKey, timeLeft]);
 
     // Loading & empty states
     if (attemptsLoading || questionsLoading || isStarting) {

@@ -122,13 +122,15 @@ export const startAttempt = async (req, res) => {
       isCompleted: false,
       ...(examId ? { exam: examId } : {}),
     };
+    if (scheduleExamId) activeFilter.scheduleExam = scheduleExamId;
     if (examVersionId) activeFilter.examVersion = examVersionId;
     if (board && board !== 'undefined' && board !== 'null') activeFilter.board = board;
     if (subjectId) activeFilter.subject = subjectId;
 
     const existingActive = await QuizAttempt.findOne(activeFilter)
       .populate("exam", "name")
-      .populate("examVersion", "examVersion");
+      .populate("examVersion", "examVersion")
+      .populate("scheduleExam", "title startDate endDate duration");
 
     if (existingActive) {
       return res.status(200).json(existingActive);
