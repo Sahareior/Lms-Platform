@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams, useBlocker } from 'react-router-dom';
 import Swal from 'sweetalert2';
-import { Send, Clock, AlertCircle } from 'lucide-react';
+import { Send, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import {
     useGetExamsQuery,
     useGetQuestionsByExamQuery,
@@ -287,6 +287,7 @@ const Omer: React.FC<ExamPaperProps> = ({
     const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
     const [timeLeft, setTimeLeft] = useState<number>(restoredTimeLeft ?? 7200);
     const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
     // Fetch the active attempt to restore saved answers (answers are saved
@@ -458,6 +459,7 @@ const Omer: React.FC<ExamPaperProps> = ({
     useEffect(() => {
         setSelectedAnswers({});
         setIsSubmitted(false);
+        setIsSubmitting(false);
         setError(null);
         setTimeLeft(restoredTimeLeft ?? durationSeconds);
         attemptIdRef.current = null;
@@ -469,7 +471,7 @@ const Omer: React.FC<ExamPaperProps> = ({
     // ─── Helper to persist temporary exam progress ───
     const persistTempProgress = useCallback(
         (answersMap: Record<number, number>, overrides: Record<string, any> = {}) => {
-            if (!userId || !examId || isSubmitted) return;
+            if (!userId || !examId || isSubmitted || isSubmitting) return;
 
             const submittedList = Object.entries(answersMap).map(([idxStr, optIdx]) => {
                 const q = allQuestions[Number(idxStr)];
@@ -490,41 +492,20 @@ const Omer: React.FC<ExamPaperProps> = ({
                 paperType: 'Type1',
                 selectedAnswers: answersMap,
                 submittedAnswers: submittedList,
-                rollDigits: overrides.rollDigits ?? rollDigits,
-                candidateName: overrides.candidateName ?? candidateName,
-                subjectDigits: overrides.subjectDigits ?? subjectDigits,
-                paperCode: overrides.paperCode !== undefined ? overrides.paperCode : paperCode,
-                extraDigits: overrides.extraDigits ?? extraDigits,
-                setDigits: overrides.setDigits ?? setDigits,
                 timeLeft,
                 attemptId: attemptIdRef.current || undefined,
+                ...overrides,
             }).catch((err) => {
                 console.warn('Temporary exam submission save failed:', err);
             });
         },
-        [
-            userId,
-            examId,
-            versionId,
-            scheduleId,
-            board,
-            allQuestions,
-            saveTempExamSubmission,
-            rollDigits,
-            candidateName,
-            subjectDigits,
-            paperCode,
-            extraDigits,
-            setDigits,
-            timeLeft,
-            isSubmitted,
-        ]
+        [userId, examId, isSubmitted, isSubmitting, allQuestions, versionId, scheduleId, board, timeLeft, saveTempExamSubmission]
     );
 
     // ─── Handle answer selection ───
     const handleAnswerSelect = useCallback(
         (qIndex: number, oIndex: number) => {
-            if (isSubmitted) return;
+            if (isSubmitted || isSubmitting) return;
 
             const qItem = allQuestions[qIndex];
             if (!qItem) return;
@@ -585,13 +566,13 @@ const Omer: React.FC<ExamPaperProps> = ({
                 return updated;
             });
         },
-        [isSubmitted, userId, allQuestions, saveAnswer, postUserQuizs, selectedAnswers, persistTempProgress, examId, versionId]
+        [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, postUserQuizs, selectedAnswers, persistTempProgress, examId, versionId]
     );
 
     // ─── Handle Submit ───
     const handleSubmit = useCallback(
         async (auto = false) => {
-            if (isSubmitted || isCompleting) return;
+            if (isSubmitted || isCompleting || isSubmitting) return;
             if (submitInFlightRef.current) return;
             submitInFlightRef.current = true;
 
@@ -604,6 +585,8 @@ const Omer: React.FC<ExamPaperProps> = ({
                     return;
                 }
             }
+
+            setIsSubmitting(true);
 
             const localCorrect = computeLocalScore(allQuestions, selectedAnswers);
             setIsSubmitted(true);
@@ -630,67 +613,68 @@ const Omer: React.FC<ExamPaperProps> = ({
                 questions: buildLocalReview(allQuestions, selectedAnswers),
             };
 
-            // Persist in background
-            const attemptId = attemptIdRef.current;
-            if (attemptId) {
-                batchSaveAnswers({
-                    attemptId,
-                    answers: allQuestions.map((q, idx) => {
-                        const selIdx = selectedAnswers[idx];
-                        const startedAt = questionStartTimes.current[idx];
-                        return {
-                            questionNumber: q.questionNumber || idx + 1,
-                            selectedOption:
-                                selIdx !== undefined
-                                    ? (q.optionKeys?.[selIdx] ?? q.options[selIdx] ?? '')
-                                    : null,
-                            timeTaken: startedAt
-                                ? Math.max(1, Math.round((Date.now() - startedAt) / 1000))
-                                : 1,
-                        };
-                    }),
-                })
-                    .unwrap()
-                    .then(() => completeAttempt({ attemptId }).unwrap())
-                    .catch((err) => {
-                        console.error('Failed to persist attempt to server:', err);
-                    });
-            }
+            try {
+                const attemptId = attemptIdRef.current;
+                if (attemptId) {
+                    await batchSaveAnswers({
+                        attemptId,
+                        answers: allQuestions.map((q, idx) => {
+                            const selIdx = selectedAnswers[idx];
+                            const startedAt = questionStartTimes.current[idx];
+                            return {
+                                questionNumber: q.questionNumber || idx + 1,
+                                selectedOption:
+                                    selIdx !== undefined
+                                        ? (q.optionKeys?.[selIdx] ?? q.options[selIdx] ?? '')
+                                        : null,
+                                timeTaken: startedAt
+                                    ? Math.max(1, Math.round((Date.now() - startedAt) / 1000))
+                                    : 1,
+                            };
+                        }),
+                    }).unwrap();
 
-            // Delete temporary exam submission upon completion
-            if (userId && examId) {
-                deleteTempExamSubmission({
-                    userId,
-                    examId,
-                    versionId: versionId || undefined,
-                    board: board || undefined,
-                }).catch((err) => {
-                    console.warn('Failed to delete temp exam submission:', err);
+                    await completeAttempt({ attemptId }).unwrap();
+                }
+
+                // Delete temporary exam submission upon completion
+                if (userId && examId) {
+                    await deleteTempExamSubmission({
+                        userId,
+                        examId,
+                        versionId: versionId || undefined,
+                        board: board || undefined,
+                    }).unwrap().catch((err) => {
+                        console.warn('Failed to delete temp exam submission:', err);
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to persist attempt to server:', err);
+            } finally {
+                const qs = new URLSearchParams({
+                    examName: result.examName,
+                    versionName: result.versionName,
+                    title: result.title,
+                    correct: String(result.correctCount),
+                    incorrect: String(result.incorrectCount),
+                    unanswered: String(result.unansweredCount),
+                    total: String(result.totalQuestions),
+                    percentage: String(result.percentage),
+                    score: String(result.score),
+                    timeTaken: String(result.timeTaken),
+                    duration: String(result.durationSeconds),
+                }).toString();
+
+                navigate(`/mock-exam/result?${qs}`, {
+                    state: result,
+                    replace: true,
                 });
             }
-
-            const qs = new URLSearchParams({
-                examName: result.examName,
-                versionName: result.versionName,
-                title: result.title,
-                correct: String(result.correctCount),
-                incorrect: String(result.incorrectCount),
-                unanswered: String(result.unansweredCount),
-                total: String(result.totalQuestions),
-                percentage: String(result.percentage),
-                score: String(result.score),
-                timeTaken: String(result.timeTaken),
-                duration: String(result.durationSeconds),
-            }).toString();
-
-            navigate(`/mock-exam/result?${qs}`, {
-                state: result,
-                replace: true,
-            });
         },
         [
             isSubmitted,
             isCompleting,
+            isSubmitting,
             totalQuestions,
             answeredCount,
             allQuestions,
@@ -904,7 +888,16 @@ const Omer: React.FC<ExamPaperProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-[#1c1f26] py-4 sm:py-6 px-2 sm:px-4 text-slate-900 font-sans print:bg-white print:p-0">
+        <div className="min-h-screen bg-[#1c1f26] py-4 sm:py-6 px-2 sm:px-4 text-slate-900 font-sans print:bg-white print:p-0 relative">
+            {/* Submitting Overlay */}
+            {(isSubmitting || isCompleting) && (
+                <div className="fixed inset-0 z-50 bg-[#0B0D12]/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                    <p className="text-base sm:text-lg font-bold text-white tracking-wide">
+                        Submitting OMR sheet and finalizing results...
+                    </p>
+                </div>
+            )}
             {/* {!isSubmitted && <Watermark userId={userId} examId={examId} />} */}
             {/* ──────────────────────────────────────────────────────────── */}
             {/* TOP CONTROLS & TOOLBAR (Hidden in Print)                     */}

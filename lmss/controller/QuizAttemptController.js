@@ -85,7 +85,7 @@ export const startAttempt = async (req, res) => {
     }
 
     // ── One-attempt-per-exam guard ────────────────────────────────
-    // If a completed attempt already exists for this user + specific exam/version/board,
+    // If a completed attempt already exists for this user + specific exam/version/board/schedule,
     // block a new attempt. Only enforced for mock_exam source.
     if (examId && (source === 'mock_exam' || type === 'mock_exam')) {
       const guardFilter = {
@@ -93,6 +93,9 @@ export const startAttempt = async (req, res) => {
         exam: examId,
         isCompleted: true,
       };
+      if (scheduleExamId) {
+        guardFilter.scheduleExam = scheduleExamId;
+      }
       if (examVersionId) {
         guardFilter.examVersion = examVersionId;
       }
@@ -773,6 +776,7 @@ export const getUserAttempts = async (req, res) => {
     const attempts = await QuizAttempt.find(filter)
       .populate("exam", "name image")
       .populate("examVersion", "examVersion")
+      .populate("scheduleExam", "title startDate endDate duration")
       .sort({ createdAt: -1 })
       .limit(limit ? parseInt(limit) : 50);
 
