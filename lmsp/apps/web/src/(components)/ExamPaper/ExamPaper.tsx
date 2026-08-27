@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams, useBlocker } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import Swal from 'sweetalert2';
 import {
   useGetExamsQuery,
@@ -17,6 +18,7 @@ import {
   useGetTempExamSubmissionQuery,
   useSaveTempExamSubmissionMutation,
   useDeleteTempExamSubmissionMutation,
+  getAuthToken,
 } from "@my-monorepo/store";
 import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
 import QuestionCard from "./_components/QuestionCard";
@@ -220,6 +222,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [timeLeft, setTimeLeft] = useState(restoredTimeLeft ?? 7200);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch the active attempt to restore saved answers (answers are saved
@@ -349,10 +352,11 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [tempSubmission, isSubmitted, restoredTimeLeft]);
 
-  // ─── Restore answers from the active attempt once it loads ───
+  // ─── Restore saved answers from active attempt ───
   useEffect(() => {
-    if (!activeAttempt?.questions || activeAttempt.questions.length === 0) return;
-    if (Object.keys(selectedAnswers).length > 0) return; // already restored
+    if (!activeAttempt || isSubmitted) return;
+    if (Object.keys(selectedAnswers).length > 0) return;
+    if (!activeAttempt.questions || activeAttempt.questions.length === 0) return;
 
     const restored: Record<number, number> = {};
     activeAttempt.questions.forEach((q: any) => {
@@ -369,12 +373,13 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     if (Object.keys(restored).length > 0) {
       setSelectedAnswers(restored);
     }
-  }, [activeAttempt, allQuestions, selectedAnswers]);
+  }, [activeAttempt, allQuestions, selectedAnswers, isSubmitted]);
 
   // ─── Reset state on exam change ───
   useEffect(() => {
     setSelectedAnswers({});
     setIsSubmitted(false);
+    setIsSubmitting(false);
     setError(null);
     setTimeLeft(restoredTimeLeft ?? durationSeconds);
     attemptIdRef.current = null;
@@ -392,7 +397,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   // questions.
   const handleAnswerSelect = useCallback(
     (qIndex: number, oIndex: number) => {
-      if (isSubmitted) return;
+      if (isSubmitted || isSubmitting) return;
 
       const qItem = allQuestions[qIndex];
       if (!qItem) return;
@@ -430,42 +435,28 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           });
         }
 
-        // Auto-save to Temporary Exam Submission API (fire-and-forget)
+        // Save to temporary exam submission in the background
         if (userId && examId) {
-          const submittedList = Object.entries(updated).map(([idxStr, optIdx]) => {
-            const q = allQuestions[Number(idxStr)];
-            return {
-              questionId: q?.id,
-              questionNumber: q?.questionNumber || Number(idxStr) + 1,
-              selectedOption: q?.optionKeys?.[optIdx] ?? q?.options[optIdx] ?? "",
-              selectedIndex: optIdx,
-            };
-          });
-
           saveTempExamSubmission({
             userId,
             examId,
-            examVersionId: versionId || undefined,
-            scheduleExamId: scheduleId || undefined,
+            examVersion: versionId || undefined,
+            scheduleExam: scheduleId || undefined,
             board: board || undefined,
-            paperType: "Type2",
-            selectedAnswers: updated,
-            submittedAnswers: submittedList,
-            timeLeft,
             attemptId: attemptIdRef.current || undefined,
+            selectedAnswers: updated,
+            timeLeft,
           }).catch((err) => {
-            console.warn("Temporary exam submission save failed:", err);
+            console.warn("Failed to persist temp progress:", err);
           });
         }
 
-        // Persist quiz performance (fire-and-forget)
-        if (userId && qItem.id && examId && versionId) {
+        // Dual-write to user performance for analytics (fire-and-forget)
+        if (qId && userId) {
           postUserQuizs({
-            user: userId,
             exam: examId,
-            examVersion: versionId,
-            subject: null,
-            submittedQuestions: [
+            examVersion: versionId || undefined,
+            quizPreatise: [
               {
                 question: qItem.id,
                 providedAnswer: qItem.optionKeys?.[oIndex] ?? "",
@@ -481,12 +472,12 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         return updated;
       });
     },
-    [isSubmitted, userId, allQuestions, saveAnswer, saveTempExamSubmission, postUserQuizs, examId, versionId, scheduleId, board, timeLeft]
+    [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, saveTempExamSubmission, postUserQuizs, examId, versionId, scheduleId, board, timeLeft]
   );
 
   const handleSubmit = useCallback(
     async (auto = false) => {
-      if (isSubmitted || isCompleting) return;
+      if (isSubmitted || isCompleting || isSubmitting) return;
       if (submitInFlightRef.current) return;
       submitInFlightRef.current = true;
 
@@ -500,9 +491,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         }
       }
 
-      // ── Locally-verified score (this is the single source of truth —
-      // see the note below on why we don't wait on / trust the server for
-      // grading) ──
+      setIsSubmitting(true);
+
+      // ── Locally-verified score (this is the single source of truth) ──
       const localCorrect = computeLocalScore(allQuestions, selectedAnswers);
       setIsSubmitted(true);
 
@@ -528,83 +519,67 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         questions: buildLocalReview(allQuestions, selectedAnswers),
       };
 
-      // Persist the attempt to the server in the BACKGROUND — this is not
-      // awaited, and does not block navigation. Two reasons:
-      //
-      // 1. UX: navigation used to wait on this network round-trip, which
-      //    left ExamPaper sitting in its `isSubmitted` state (showing
-      //    the full green/red answer review) for as long as the request
-      //    took. That's the "report" flash you were seeing — the user
-      //    should go straight to the result page, no in-between screen.
-      //
-      // 2. Correctness: the server's own grading (completeAttempt's
-      //    correctCount/isCorrect fields) has been unreliable — it's
-      //    previously marked answers "incorrect" that were provably
-      //    correct against the locally-computed correctAnswer index. The
-      //    frontend already grades deterministically and correctly (see
-      //    getCorrectAnswerIndex / computeLocalScore), so it stays the
-      //    single source of truth for what the user sees, regardless of
-      //    what the server responds with. This call only exists to
-      //    persist the attempt for your backend's own records/analytics.
-      const attemptId = attemptIdRef.current;
-      if (attemptId) {
-        batchSaveAnswers({
-          attemptId,
-          answers: allQuestions.map((q, idx) => {
-            const selIdx = selectedAnswers[idx];
-            const startedAt = questionStartTimes.current[idx];
-            return {
-              questionNumber: q.questionNumber || idx + 1,
-              selectedOption:
-                selIdx !== undefined
-                  ? (q.optionKeys?.[selIdx] ?? q.options[selIdx] ?? "")
-                  : null,
-              timeTaken: startedAt
-                ? Math.max(1, Math.round((Date.now() - startedAt) / 1000))
-                : 1,
-            };
-          }),
-        })
-          .unwrap()
-          .then(() => completeAttempt({ attemptId }).unwrap())
-          .catch((err) => {
-            console.error("Failed to persist attempt to server:", err);
-          });
-      }
+      try {
+        const attemptId = attemptIdRef.current;
+        if (attemptId) {
+          await batchSaveAnswers({
+            attemptId,
+            answers: allQuestions.map((q, idx) => {
+              const selIdx = selectedAnswers[idx];
+              const startedAt = questionStartTimes.current[idx];
+              return {
+                questionNumber: q.questionNumber || idx + 1,
+                selectedOption:
+                  selIdx !== undefined
+                    ? (q.optionKeys?.[selIdx] ?? q.options[selIdx] ?? "")
+                    : null,
+                timeTaken: startedAt
+                  ? Math.max(1, Math.round((Date.now() - startedAt) / 1000))
+                  : 1,
+              };
+            }),
+          }).unwrap();
 
-      // Delete temporary exam submission upon completion
-      if (userId && examId) {
-        deleteTempExamSubmission({
-          userId,
-          examId,
-          versionId: versionId || undefined,
-          board: board || undefined,
-        }).catch((err) => {
-          console.warn("Failed to delete temp exam submission:", err);
+          await completeAttempt({ attemptId }).unwrap();
+        }
+
+        // Delete temporary exam submission upon completion
+        if (userId && examId) {
+          await deleteTempExamSubmission({
+            userId,
+            examId,
+            versionId: versionId || undefined,
+            board: board || undefined,
+          }).unwrap().catch((err) => {
+            console.warn("Failed to delete temp exam submission:", err);
+          });
+        }
+      } catch (err) {
+        console.error("Failed to persist attempt to server:", err);
+      } finally {
+        const qs = new URLSearchParams({
+          examName: result.examName,
+          versionName: result.versionName,
+          title: result.title,
+          correct: String(result.correctCount),
+          incorrect: String(result.incorrectCount),
+          unanswered: String(result.unansweredCount),
+          total: String(result.totalQuestions),
+          percentage: String(result.percentage),
+          score: String(result.score),
+          timeTaken: String(result.timeTaken),
+          duration: String(result.durationSeconds),
+        }).toString();
+        navigate(`/mock-exam/result?${qs}`, {
+          state: result,
+          replace: true,
         });
       }
-
-      const qs = new URLSearchParams({
-        examName: result.examName,
-        versionName: result.versionName,
-        title: result.title,
-        correct: String(result.correctCount),
-        incorrect: String(result.incorrectCount),
-        unanswered: String(result.unansweredCount),
-        total: String(result.totalQuestions),
-        percentage: String(result.percentage),
-        score: String(result.score),
-        timeTaken: String(result.timeTaken),
-        duration: String(result.durationSeconds),
-      }).toString();
-      navigate(`/mock-exam/result?${qs}`, {
-        state: result,
-        replace: true,
-      });
     },
     [
       isSubmitted,
       isCompleting,
+      isSubmitting,
       totalQuestions,
       answeredCount,
       allQuestions,
@@ -640,27 +615,84 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
 
 
-  // ─── Block browser refresh / tab close during exam ───
-  // Also save the ACTUAL current timeLeft to localStorage so refresh
-  // restores the correct remaining time (not the stale initial duration).
+  // ─── Auto-submit via sendBeacon when the user closes the tab ───
+  // visibilitychange fires reliably on tab close / app quit;
+  // beforeunload is the fallback. Both use navigator.sendBeacon
+  // to fire-and-forget a force-submit to the backend.
   useEffect(() => {
     if (isSubmitted) return;
 
-    const handler = (e: BeforeUnloadEvent) => {
-      // Persist the exact timeLeft right before the page unloads
+    const beaconSubmittedRef = { current: false };
+
+    const fireBeaconSubmit = () => {
+      if (beaconSubmittedRef.current) return;
+      if (!attemptIdRef.current) return;
+
+      beaconSubmittedRef.current = true;
+
+      const token = getAuthToken();
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/';
+      const url = `${apiUrl.replace(/\/$/, '')}/quiz-attempts/force-submit`;
+
+      const answers = allQuestions.map((q, idx) => {
+        const selIdx = selectedAnswers[idx];
+        return {
+          questionNumber: q.questionNumber || idx + 1,
+          selectedOption:
+            selIdx !== undefined
+              ? (q.optionKeys?.[selIdx] ?? q.options[selIdx] ?? '')
+              : null,
+          timeTaken: questionStartTimes.current[idx]
+            ? Math.max(1, Math.round((Date.now() - questionStartTimes.current[idx]) / 1000))
+            : 1,
+        };
+      });
+
+      const blob = new Blob(
+        [JSON.stringify({ attemptId: attemptIdRef.current, answers, token })],
+        { type: 'application/json' }
+      );
+
+      navigator.sendBeacon(url, blob);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Save timer to localStorage for potential refresh restoration
+        try {
+          localStorage.setItem(timerStorageKey, JSON.stringify({
+            savedAt: Date.now(),
+            timeLeft,
+          }));
+        } catch { /* ignore */ }
+
+        fireBeaconSubmit();
+      }
+    };
+
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Save timer to localStorage
       try {
         localStorage.setItem(timerStorageKey, JSON.stringify({
           savedAt: Date.now(),
           timeLeft,
         }));
       } catch { /* ignore */ }
+
+      fireBeaconSubmit();
+
       e.preventDefault();
       e.returnValue = '';
     };
 
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [isSubmitted, timeLeft, timerStorageKey]);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [isSubmitted, timeLeft, timerStorageKey, allQuestions, selectedAnswers]);
 
   // ─── Block navigation when exam is in progress ───
   const shouldBlock = useCallback(
@@ -719,7 +751,16 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] pb-12">
+    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] pb-12 relative">
+      {/* Submitting Overlay */}
+      {(isSubmitting || isCompleting) && (
+        <div className="fixed inset-0 z-50 bg-[#0B0D12]/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <Loader2 className="w-10 h-10 text-[#9B51E0] animate-spin" />
+          <p className="text-base sm:text-lg font-bold text-white tracking-wide">
+            Submitting exam and finalizing results...
+          </p>
+        </div>
+      )}
       {/* {!isSubmitted && <Watermark userId={userId} examId={examId} />} */}
       <QuizHeader
         examName={currentExam?.name || ""}

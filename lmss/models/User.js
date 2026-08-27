@@ -70,7 +70,11 @@ const userSchema = new mongoose.Schema({
     selectedExams: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Exam'
-    }]
+    }],
+    // perticipatedExams:[{
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: ''
+    // }]
 });
 
 const User = mongoose.model('User', userSchema);

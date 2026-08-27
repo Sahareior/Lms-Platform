@@ -6,6 +6,7 @@ import {
   saveAnswer,
   batchSaveAnswers,
   completeAttempt,
+  forceSubmit,
   getActiveAttempt,
   getWeeklyActivity,
   getQuizOverview,
@@ -33,5 +34,9 @@ router.post('/start', authenticate, startAttempt);
 router.post('/save-answer', authenticate, saveAnswer);
 router.post('/batch-save', authenticate, batchSaveAnswers);
 router.post('/:id/complete', authenticate, completeAttempt);
+
+// Force-submit: used by sendBeacon when the user closes the tab.
+// No auth middleware — the token is verified from the request body.
+router.post('/force-submit', forceSubmit);
 
 export default router;

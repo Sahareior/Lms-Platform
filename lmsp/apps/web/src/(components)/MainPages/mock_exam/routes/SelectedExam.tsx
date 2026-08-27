@@ -91,10 +91,11 @@ const SelectedExam = () => {
   const { data: exams } = useGetExamsQuery();
   const { data: scheduleExams, isLoading } = useGetScheduleExamsByExamQuery(examId!, {
     skip: !examId,
+    refetchOnMountOrArgChange: true,
   });
   const { data: userAttempts } = useGetUserAttemptsQuery(
     { userId, source: "mock_exam", limit: 50 },
-    { skip: !userId || !examId }
+    { skip: !userId || !examId, refetchOnMountOrArgChange: true }
   );
 
   const currentExam = exams?.find((e: any) => e._id === examId);
@@ -107,36 +108,37 @@ const SelectedExam = () => {
 
   const isExamParticipated = (scheduled: ScheduleExam) => {
     if (!userAttempts || !examId) return false;
-    const versionId =
+    const scheduledVersionId = String(
       typeof scheduled.examVersion === "object"
         ? scheduled.examVersion?._id
-        : scheduled.examVersion;
-    const board =
+        : scheduled.examVersion || ""
+    );
+    const scheduledBoard =
       scheduled.board && scheduled.board !== "undefined" && scheduled.board !== "null"
-        ? scheduled.board
+        ? String(scheduled.board)
         : "";
 
     return userAttempts.some((a: any) => {
       if (!a.isCompleted) return false;
 
-      // Match scheduleExam if present
+      // If attempt is linked to a scheduled exam, match against this schedule ID
       const attemptScheduleId = String(a.scheduleExam?._id || a.scheduleExam || "");
-      if (attemptScheduleId && attemptScheduleId === String(scheduled._id)) return true;
+      if (attemptScheduleId && scheduled._id) {
+        return attemptScheduleId === String(scheduled._id);
+      }
 
-      // Must match exam
+      // Fallback matching by exam, version, and board
       const attemptExamId = String(a.exam?._id || a.exam || "");
       if (attemptExamId !== String(examId)) return false;
 
-      // If versionId is specified, must match
-      if (versionId) {
+      if (scheduledVersionId) {
         const attemptVersionId = String(a.examVersion?._id || a.examVersion || "");
-        if (attemptVersionId && attemptVersionId !== String(versionId)) return false;
+        if (attemptVersionId && attemptVersionId !== scheduledVersionId) return false;
       }
 
-      // If board is specified, must match
-      if (board) {
+      if (scheduledBoard) {
         const attemptBoard = String(a.board || "");
-        if (attemptBoard && attemptBoard !== String(board)) return false;
+        if (attemptBoard && attemptBoard !== scheduledBoard) return false;
       }
 
       return true;

@@ -11,6 +11,7 @@ interface PaperTypeSelectionProps {
 const STORAGE_KEY = 'selectedPaperType';
 
 const PaperTypeSelection: React.FC<PaperTypeSelectionProps> = ({ examId, board, versionId }) => {
+ 
   const [selectedType, setSelectedType] = useState<string | null>(() => {
     // Restore from localStorage on mount
     try {
