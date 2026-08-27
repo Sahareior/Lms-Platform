@@ -361,11 +361,11 @@ export const SignUp: React.FC = () => {
         </div>
 
         {/* Terms & Conditions */}
-        <div className="flex items-start gap-3 pt-1">
+        <div className="flex justify-center items-start gap-3 pt-1">
           <button
             type="button"
             onClick={() => setAgreed(!agreed)}
-            className={`mt-1 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+            className={` w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${
               agreed
                 ? 'bg-[#00E5B3] border-[#00E5B3]'
                 : 'border-[#323742] bg-[#161920]'

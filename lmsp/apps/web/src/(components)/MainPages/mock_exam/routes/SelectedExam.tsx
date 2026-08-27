@@ -106,6 +106,46 @@ const SelectedExam = () => {
       return eff === "active" || eff === "upcoming";
     }) ?? [];
 
+  const isExamOngoing = (scheduled: ScheduleExam) => {
+    if (!userAttempts || !examId) return false;
+    if (!isExamActive(scheduled)) return false;
+
+    const scheduledVersionId = String(
+      typeof scheduled.examVersion === "object"
+        ? scheduled.examVersion?._id
+        : scheduled.examVersion || ""
+    );
+    const scheduledBoard =
+      scheduled.board && scheduled.board !== "undefined" && scheduled.board !== "null"
+        ? String(scheduled.board)
+        : "";
+
+    return userAttempts.some((a: any) => {
+      // Must be an active / uncompleted attempt
+      if (a.isCompleted) return false;
+
+      const attemptScheduleId = String(a.scheduleExam?._id || a.scheduleExam || "");
+      if (attemptScheduleId && scheduled._id) {
+        return attemptScheduleId === String(scheduled._id);
+      }
+
+      const attemptExamId = String(a.exam?._id || a.exam || "");
+      if (attemptExamId !== String(examId)) return false;
+
+      if (scheduledVersionId) {
+        const attemptVersionId = String(a.examVersion?._id || a.examVersion || "");
+        if (attemptVersionId && attemptVersionId !== scheduledVersionId) return false;
+      }
+
+      if (scheduledBoard) {
+        const attemptBoard = String(a.board || "");
+        if (attemptBoard && attemptBoard !== scheduledBoard) return false;
+      }
+
+      return true;
+    });
+  };
+
   const isExamParticipated = (scheduled: ScheduleExam) => {
     if (!userAttempts || !examId) return false;
     const scheduledVersionId = String(
@@ -146,7 +186,7 @@ const SelectedExam = () => {
   };
 
   const handleExamClick = (scheduled: ScheduleExam) => {
-    // If user already participated, disable navigation
+    // If user already completed/participated, disable navigation
     if (isExamParticipated(scheduled)) {
       return;
     }
@@ -216,6 +256,7 @@ const SelectedExam = () => {
               <div className="space-y-3 sm:space-y-4">
                 {availableExams.map((scheduled: ScheduleExam) => {
                   const isParticipated = isExamParticipated(scheduled);
+                  const isOngoing = !isParticipated && isExamOngoing(scheduled);
                   const isActive = isExamActive(scheduled) && !isParticipated;
                   const effectiveStatus = getEffectiveStatus(scheduled);
                   const timeRemaining = getTimeRemaining(scheduled.startDate);
@@ -227,6 +268,8 @@ const SelectedExam = () => {
                       className={`bg-[#111318] rounded-xl sm:rounded-2xl border transition-all duration-200 group ${
                         isParticipated
                           ? "border-emerald-500/30 bg-[#111318]/90 opacity-80 cursor-not-allowed"
+                          : isOngoing
+                          ? "border-[#F2994A]/50 bg-[#111318] hover:border-[#F2994A] hover:shadow-[0_0_20px_-5px_rgba(242,153,74,0.35)] cursor-pointer"
                           : isActive
                           ? "border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.25)] cursor-pointer"
                           : "border-[#23262D] opacity-50 cursor-not-allowed hover:border-[#EB5757]/30"
@@ -239,6 +282,8 @@ const SelectedExam = () => {
                             className={`h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${
                               isParticipated
                                 ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                                : isOngoing
+                                ? "bg-[#F2994A]/15 border border-[#F2994A]/40 text-[#F2994A]"
                                 : isActive
                                 ? effectiveStatus === "active"
                                   ? "bg-[#9B51E0]/10 border border-[#9B51E0]/30 text-[#9B51E0]"
@@ -248,6 +293,8 @@ const SelectedExam = () => {
                           >
                             {isParticipated ? (
                               <CheckCircle2 size={22} className="sm:w-6 sm:h-6 md:w-7 md:h-7 text-emerald-400" />
+                            ) : isOngoing ? (
+                              <PlayCircle size={22} className="sm:w-6 sm:h-6 md:w-7 md:h-7 text-[#F2994A] animate-pulse" />
                             ) : isActive ? (
                               effectiveStatus === "active" ? (
                                 <PlayCircle size={22} className="sm:w-6 sm:h-6 md:w-7 md:h-7" />
@@ -265,7 +312,7 @@ const SelectedExam = () => {
                               <h2 className="text-sm sm:text-base md:text-lg font-bold text-[#F5F7FA] truncate max-w-full">
                                 {scheduled.title}
                               </h2>
-                              {!isParticipated && timeRemaining && (
+                              {!isParticipated && !isOngoing && timeRemaining && (
                                 <span className="text-[10px] sm:text-xs font-medium text-[#F2994A] bg-[#F2994A]/10 px-1.5 sm:px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
                                   <Timer size={10} className="sm:w-3 sm:h-3" />
                                   {timeRemaining}
@@ -278,6 +325,10 @@ const SelectedExam = () => {
                               {isParticipated ? (
                                 <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap flex items-center gap-1">
                                   <CheckCircle2 size={10} /> Participated
+                                </span>
+                              ) : isOngoing ? (
+                                <span className="bg-[#F2994A]/15 text-[#F2994A] border border-[#F2994A]/40 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap flex items-center gap-1 animate-pulse">
+                                  <PlayCircle size={10} /> Ongoing (Continue)
                                 </span>
                               ) : (
                                 <>
@@ -332,6 +383,10 @@ const SelectedExam = () => {
                             <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1.5">
                               <CheckCircle2 size={14} /> Participated
                             </span>
+                          ) : isOngoing ? (
+                            <span className="bg-[#F2994A]/15 text-[#F2994A] border border-[#F2994A]/40 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 animate-pulse">
+                              <PlayCircle size={14} /> Ongoing
+                            </span>
                           ) : (
                             <>
                               {isActive && effectiveStatus === "active" && (
@@ -370,12 +425,19 @@ const SelectedExam = () => {
                         />
                       </div>
                       
-                      {/* Sub message for participated or locked exams */}
+                      {/* Sub message for participated, ongoing, or locked exams */}
                       {isParticipated ? (
                         <div className="px-3 sm:px-5 pb-3 sm:pb-4">
                           <p className="text-[10px] sm:text-xs text-emerald-400/90 flex items-center gap-1">
                             <CheckCircle2 size={12} className="sm:w-3.5 sm:h-3.5" />
                             You have already participated in this exam.
+                          </p>
+                        </div>
+                      ) : isOngoing ? (
+                        <div className="px-3 sm:px-5 pb-3 sm:pb-4">
+                          <p className="text-[10px] sm:text-xs text-[#F2994A] flex items-center gap-1 font-medium">
+                            <PlayCircle size={12} className="sm:w-3.5 sm:h-3.5" />
+                            Exam in progress. Click to continue your exam.
                           </p>
                         </div>
                       ) : !isActive && (
