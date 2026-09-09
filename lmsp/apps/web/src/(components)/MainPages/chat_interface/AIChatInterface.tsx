@@ -275,7 +275,7 @@ const AIChatInterface = () => {
                                  <span className="text-xs font-bold text-[#F5F7FA]">AI Assistant</span>
                               </div>
                            )}
-                           <p className={`text-sm leading-relaxed ${message.sender === 'user' ? 'font-semibold' : 'text-[#A1A8B3]'}`}>
+                           <p className={`text-[16px] leading-relaxed ${message.sender === 'user' ? 'font-semibold' : 'text-[#A1A8B3]'}`}>
                               {message.text}
                            </p>
                            <div className={`mt-2 text-[10px] ${message.sender === 'user' ? 'text-white/60 text-right' : 'text-[#6B7280] text-left'} font-medium`}>

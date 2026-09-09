@@ -634,8 +634,16 @@ const adminApi = api.injectEndpoints({
     }),
 
     // ── Question Bank Management ────────────────────────────
-    getAdminQuestions: build.query<AdminQuestion[], void>({
-      query: () => ({ url: '/questions' }),
+    getAdminQuestions: build.query<AdminQuestion[], { exam?: string; examVersion?: string; subject?: string; board?: string } | void>({
+      query: (params) => {
+        const queryParams = new URLSearchParams();
+        if (params?.exam) queryParams.set('exam', params.exam);
+        if (params?.examVersion) queryParams.set('examVersion', params.examVersion);
+        if (params?.subject) queryParams.set('subject', params.subject);
+        if (params?.board) queryParams.set('board', params.board);
+        const qs = queryParams.toString();
+        return { url: qs ? `/questions?${qs}` : '/questions' };
+      },
       providesTags: ['Question'],
     }),
 

@@ -2,10 +2,15 @@ import QuestionModel from "../models/QuestionModel.js";
 import QuestionPatternModel from "../models/QuestionPatternModel.js";
 import { invalidatePrefix } from "../middleware/cache.js";
 
-// Mark every stored question document matching exam/version/subject/board as
-// analyzed so the Question Bank can show a Yes/No analyzed badge and let
-// admins retry a failed analysis from the stored set.
-const markQuestionsAnalyzed = async (exam, versionLabel, subjectRef, boardRef) => {
+// Mark a question document as analyzed so the Question Bank can show a Yes/No
+// analyzed badge and let admins retry a failed analysis from the stored set.
+// When questionDocumentId is provided, ONLY that single document is marked —
+// otherwise the broad exam/version/subject/board filter is used (legacy path).
+const markQuestionsAnalyzed = async (exam, versionLabel, subjectRef, boardRef, questionDocumentId) => {
+    if (questionDocumentId) {
+        await QuestionModel.updateOne({ _id: questionDocumentId }, { $set: { analyzed: true } });
+        return;
+    }
     const filter = { exam };
     if (versionLabel) filter.examVersion = versionLabel;
     if (subjectRef) filter.subject = subjectRef;
@@ -57,14 +62,23 @@ export const saveQuestionsInDb = async (req, res) => {
     }
 };
 
-export const getAllQuestions = async (req,res) => {
-try {
-    const questions = await QuestionModel.find();
-    res.status(200).json(questions);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Unable to fetch exams' });
-  }}
+export const getAllQuestions = async (req, res) => {
+    try {
+        // Optional filters: exam / examVersion / subject / board
+        const { exam, examVersion, subject, board } = req.query;
+        const filter = {};
+        if (exam) filter.exam = exam;
+        if (examVersion) filter.examVersion = examVersion;
+        if (subject) filter.subject = subject;
+        if (board) filter.board = board;
+
+        const questions = await QuestionModel.find(filter);
+        res.status(200).json(questions);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Unable to fetch exams' });
+    }
+}
 
 export const postQuestionPattern = async(req, res) => {
     try {
@@ -105,6 +119,7 @@ export const postQuestionPattern = async(req, res) => {
         const versionLabel = patternData?.examVersion || bodyExamVersion || '';
         const subjectRef = bodySubject || '';
         const boardRef = patternData?.board || req.body.board || '';
+        const questionDocumentId = req.body.questionDocumentId || '';
         
         // Build query filter: include subject and board if provided
         const queryFilter = { exam };
@@ -116,7 +131,7 @@ export const postQuestionPattern = async(req, res) => {
 
         if (existingPattern) {
             // The pattern already exists — the set is effectively analyzed.
-            await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef);
+            await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef, questionDocumentId);
             return res.status(409).json({
                 status: 'DUPLICATE',
                 message: `Question pattern for exam "${exam}"${versionLabel ? ` version "${versionLabel}"` : ''}${subjectRef ? ` subject "${subjectRef}"` : ''}${boardRef ? ` board "${boardRef}"` : ''} already exists.`,
@@ -140,7 +155,7 @@ export const postQuestionPattern = async(req, res) => {
         await questionPattern.save();
 
         // The analysis succeeded and was stored — reflect that on the question set.
-        await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef);
+        await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef, questionDocumentId);
 
         await invalidatePrefix('cache:question-pattern');
 
@@ -168,7 +183,7 @@ export const postQuestionPattern = async(req, res) => {
         
         // Handle duplicate key error
         if (err.code === 11000) {
-            await markQuestionsAnalyzed(req.body.exam, req.body.examVersion || '', req.body.subject || '', req.body.board || '');
+            await markQuestionsAnalyzed(req.body.exam, req.body.examVersion || '', req.body.subject || '', req.body.board || '', req.body.questionDocumentId || '');
             return res.status(409).json({
                 status: 'DUPLICATE_ERROR',
                 message: `Question pattern for "${req.body.exam}" already exists.`,

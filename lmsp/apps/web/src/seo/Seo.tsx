@@ -39,6 +39,11 @@ const ROUTE_CONFIG: Record<string, SeoConfig> = {
     title: 'Reset Password – Geneseon LMS',
     description: 'Set a new password for your Geneseon LMS account.',
   },
+  '/privacy-policy': {
+    title: 'Privacy Policy – Geneseon LMS',
+    description:
+      'Learn how Geneseon LMS collects, uses, and protects your personal information — including your learning data, AI interactions, and the rights you have over your data.',
+  },
   '/onboarding': {
     title: 'Get Started – Geneseon LMS',
     description: 'Pick your exams and start preparing with Geneseon LMS.',

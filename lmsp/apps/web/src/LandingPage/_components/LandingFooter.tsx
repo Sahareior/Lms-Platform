@@ -159,14 +159,38 @@ const LandingFooter = () => {
             text-center
           "
         >
-          <p
+          <div
             className="
-              text-xs
-              text-gray-600
+              flex
+              flex-col
+              items-center
+              justify-center
+              gap-2
+              sm:flex-row
+              sm:gap-6
             "
           >
-            © 2024 Geneseon. All rights reserved.
-          </p>
+            <p
+              className="
+                text-xs
+                text-gray-600
+              "
+            >
+              © 2026 Geneseon. All rights reserved.
+            </p>
+
+            <Link
+              to="/privacy-policy"
+              className="
+                text-xs
+                text-gray-600
+                transition-colors
+                hover:text-gray-300
+              "
+            >
+              Privacy Policy
+            </Link>
+          </div>
         </div>
 
       </div>

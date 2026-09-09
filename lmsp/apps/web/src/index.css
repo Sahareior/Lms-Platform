@@ -149,12 +149,15 @@ html {
   #certificate-print-area,
   #certificate-print-area *,
   #omr-print-area,
-  #omr-print-area * {
+  #omr-print-area *,
+  #privacy-policy-root,
+  #privacy-policy-root * {
     visibility: visible;
   }
 
   #certificate-print-area,
-  #omr-print-area {
+  #omr-print-area,
+  #privacy-policy-root {
     position: absolute;
     left: 0;
     top: 0;

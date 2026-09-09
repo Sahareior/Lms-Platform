@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Table,
   Card,
@@ -29,6 +29,8 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   RobotOutlined,
+  FilterOutlined,
+  ClearOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -41,6 +43,7 @@ import {
   useUpdateAdminSingleQuestionMutation,
   useQuestionAnalyzerMutation,
   type AdminQuestion,
+  BANGLADESH_BOARDS,
 } from '@my-monorepo/store';
 import { usePostQuestionPatternMutation } from '@my-monorepo/store/src/redux/api/examApi';
 import MediaUpload from '../../reusable/MediaUpload';
@@ -49,10 +52,57 @@ const { TextArea } = Input;
 const { Text } = Typography;
 
 const QuestionBank: React.FC = () => {
-  const { data: questions, isLoading, error, refetch } = useGetAdminQuestionsQuery();
+  // ── Filter states ─────────────────────────────────────────
+  const [examFilter, setExamFilter] = useState<string>('');
+  const [versionFilter, setVersionFilter] = useState<string>('');
+  const [subjectFilter, setSubjectFilter] = useState<string>('');
+  const [boardFilter, setBoardFilter] = useState<string>('');
+
+  const filterParams = useMemo(() => {
+    const params: { exam?: string; examVersion?: string; subject?: string; board?: string } = {};
+    if (examFilter) params.exam = examFilter;
+    if (versionFilter) params.examVersion = versionFilter;
+    if (subjectFilter) params.subject = subjectFilter;
+    if (boardFilter) params.board = boardFilter;
+    return Object.keys(params).length ? params : undefined;
+  }, [examFilter, versionFilter, subjectFilter, boardFilter]);
+
+  const { data: questions, isLoading, error, refetch } = useGetAdminQuestionsQuery(filterParams);
   const { data: exams } = useGetAdminExamsQuery();
   const { data: examVersions } = useGetAdminExamVersionsQuery();
   const { data: subjects } = useGetAdminSubjectsQuery();
+
+  // ── Dependent filter options ─────────────────────────────
+  const filteredExamVersions = useMemo(() => {
+    if (!examVersions) return [];
+    if (!examFilter) return examVersions;
+    return examVersions.filter((v) => v.exam === examFilter);
+  }, [examVersions, examFilter]);
+
+  const filteredSubjects = useMemo(() => {
+    if (!subjects) return [];
+    if (!examFilter) return subjects;
+    return subjects.filter((s) => {
+      const examId = typeof s.exam === 'object' && s.exam ? s.exam._id : s.exam;
+      return examId === examFilter;
+    });
+  }, [subjects, examFilter]);
+
+  const activeFilterCount =
+    (examFilter ? 1 : 0) + (versionFilter ? 1 : 0) + (subjectFilter ? 1 : 0) + (boardFilter ? 1 : 0);
+
+  const handleExamChange = (val: string) => {
+    setExamFilter(val || '');
+    setVersionFilter(''); // reset dependent filters when exam changes
+    setSubjectFilter('');
+  };
+
+  const clearAllFilters = () => {
+    setExamFilter('');
+    setVersionFilter('');
+    setSubjectFilter('');
+    setBoardFilter('');
+  };
 
   const [deleteDocument] = useDeleteAdminQuestionDocumentMutation();
   const [deleteSingleQuestion] = useDeleteAdminSingleQuestionMutation();
@@ -131,9 +181,10 @@ const QuestionBank: React.FC = () => {
       const analyzerPayload = transformStoredToAnalyzer(record.data, new Date().getFullYear());
       const res = await questionAnalyzer(analyzerPayload).unwrap();
 
-      const patternPayload: any = { exam: record.exam, res };
+      const patternPayload: any = { exam: record.exam, res, questionDocumentId: record._id };
       if (record.examVersion) patternPayload.examVersion = record.examVersion;
       if (record.subject) patternPayload.subject = record.subject;
+      if (record.board) patternPayload.board = record.board;
 
       try {
         await postQuestionPattern(patternPayload).unwrap();
@@ -532,6 +583,116 @@ const QuestionBank: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Filters ───────────────────────────────────────── */}
+      <Card
+        style={{ borderRadius: 12, marginBottom: 16, background: '#0B0B0B' }}
+        className="!shadow-[0_0_0_1px_#1A1A1A]"
+        title={
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FilterOutlined style={{ color: '#22C55E' }} />
+              <span className="text-sm font-semibold" style={{ color: '#E8F5EC' }}>Filters</span>
+              {activeFilterCount > 0 && (
+                <Tag color="green" className="!text-xs !ml-1">{activeFilterCount} active</Tag>
+              )}
+            </div>
+            {activeFilterCount > 0 && (
+              <Button
+                type="text"
+                size="small"
+                icon={<ClearOutlined />}
+                onClick={clearAllFilters}
+                className="!text-[#9BA8A0] hover:!text-[#EB5757]"
+              >
+                Clear all
+              </Button>
+            )}
+          </div>
+        }
+        styles={{ header: { borderBottom: '1px solid #1A1A1A', padding: '12px 16px' } }}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Exam */}
+          <div>
+            <label className="block mb-1 text-xs font-semibold text-[#9BA8A0]">Exam</label>
+            <Select
+              allowClear
+              showSearch
+              placeholder="All Exams"
+              style={{ width: '100%' }}
+              value={examFilter || undefined}
+              onChange={handleExamChange}
+              optionFilterProp="label"
+              options={(exams || []).map((e) => ({ label: e.name, value: e._id }))}
+            />
+          </div>
+
+          {/* Exam Version */}
+          <div>
+            <label className="block mb-1 text-xs font-semibold text-[#9BA8A0]">
+              Exam Version
+              {!examFilter && (
+                <span className="text-[#5F6B64] font-normal ml-1">(select exam first)</span>
+              )}
+            </label>
+            <Select
+              allowClear
+              showSearch
+              placeholder="All Versions"
+              style={{ width: '100%' }}
+              value={versionFilter || undefined}
+              onChange={(val) => setVersionFilter(val || '')}
+              disabled={!examFilter}
+              optionFilterProp="label"
+              options={filteredExamVersions.map((v) => ({ label: v.examVersion, value: v._id }))}
+            />
+          </div>
+
+          {/* Subject */}
+          <div>
+            <label className="block mb-1 text-xs font-semibold text-[#9BA8A0]">
+              Subject
+              {!examFilter && (
+                <span className="text-[#5F6B64] font-normal ml-1">(select exam first)</span>
+              )}
+            </label>
+            <Select
+              allowClear
+              showSearch
+              placeholder="All Subjects"
+              style={{ width: '100%' }}
+              value={subjectFilter || undefined}
+              onChange={(val) => setSubjectFilter(val || '')}
+              disabled={!examFilter}
+              optionFilterProp="label"
+              options={filteredSubjects.map((s) => ({ label: s.name, value: s._id }))}
+            />
+          </div>
+
+          {/* Board */}
+          <div>
+            <label className="block mb-1 text-xs font-semibold text-[#9BA8A0]">Board</label>
+            <Select
+              allowClear
+              showSearch
+              placeholder="All Boards"
+              style={{ width: '100%' }}
+              value={boardFilter || undefined}
+              onChange={(val) => setBoardFilter(val || '')}
+              optionFilterProp="label"
+              options={BANGLADESH_BOARDS.map((b) => ({ label: b, value: b }))}
+            />
+          </div>
+
+          {/* Result count */}
+          <div className="flex items-end justify-end pb-1">
+            <Text type="secondary" style={{ fontSize: 12 }} className="whitespace-nowrap">
+              <strong style={{ color: '#E8F5EC' }}>{questions?.length || 0}</strong> documents
+            </Text>
+          </div>
+        </div>
+      </Card>
 
       {/* ── Main Table ──────────────────────────────────────── */}
       <Card style={{ borderRadius: 12, overflow: 'hidden' }}>

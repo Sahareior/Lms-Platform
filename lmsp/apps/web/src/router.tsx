@@ -7,6 +7,7 @@ import { Login, SignUp, ForgotPassword, ResetPassword } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
 import HomeRedirect from './auth/HomeRedirect';
 import Omer from './(components)/ExamPaper/omr/Omr';
+import PrivacyPolicy from './legal/PrivacyPolicy';
 
 // ─── Lazy page imports (route-level code splitting) ─────────
 // Each page ships in its own chunk, loaded on first visit, so the
@@ -91,6 +92,10 @@ const router = createBrowserRouter([
       {
         path: 'reset-password',
         element: <ResetPassword />,
+      },
+      {
+        path: 'privacy-policy',
+        element: <PrivacyPolicy />,
       },
 
       // ── Onboarding (auth required, first-time exam selection) ──
