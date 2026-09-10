@@ -671,14 +671,13 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       title: 'Leave Exam?',
       text: 'Your progress is saved. You can continue this exam while the scheduled exam is still ongoing.',
       icon: 'question',
-      showCancelButton: true,
       showDenyButton: true,
       confirmButtonColor: '#2F80ED',
       denyButtonColor: '#9B51E0',
       cancelButtonColor: '#6b7280',
       confirmButtonText: 'Leave & continue later',
       denyButtonText: 'Submit & finish now',
-      cancelButtonText: 'Stay in exam',
+
     }).then((result) => {
       if (result.isConfirmed) {
         try {
@@ -720,7 +719,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] pb-12 relative">
+    <div className="min-h-screen bg-[#0B0D12] w-full text-[#F5F7FA] pb-12 relative">
       {/* Submitting Overlay */}
       {(isSubmitting || isCompleting) && (
         <div className="fixed inset-0 z-50 bg-[#0B0D12]/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
@@ -749,7 +748,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       />
 
       {/* ────── QUESTIONS ────── */}
-      <main className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 mt-6 sm:mt-8 space-y-4 sm:space-y-6 pb-16">
+      <main className="w-full mx-auto px-3 sm:px-4 md:px-6 mt-6 sm:mt-8 space-y-4 sm:space-y-6 pb-16">
         {allQuestions.map((q, index) => (
           <QuestionCard
             key={q.questionNumber ?? index}
