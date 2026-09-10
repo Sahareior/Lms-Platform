@@ -171,7 +171,7 @@ export interface UpdateSubjectRequest {
 export interface ScheduleExam {
   _id: string;
   exam: { _id: string; name: string; image?: string } | string;
-  examVersion: { _id: string; examVersion: string } | string;
+  examVersion?: { _id: string; examVersion: string } | string | null;
   board?: BangladeshBoard;
   title: string;
   description?: string;
@@ -181,13 +181,15 @@ export interface ScheduleExam {
   totalQuestions: number;
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
   isFeatured?: boolean;
+  isLevelingRandom?: boolean;
+  generatedQuestions?: any[];
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface CreateScheduleExamRequest {
   exam: string;
-  examVersion: string;
+  examVersion?: string;
   board?: BangladeshBoard;
   title: string;
   description?: string;
@@ -195,6 +197,7 @@ export interface CreateScheduleExamRequest {
   endDate: string;
   duration?: number;
   totalQuestions?: number;
+  isLevelingRandom?: boolean;
 }
 
 export interface UpdateScheduleExamRequest {
@@ -208,6 +211,7 @@ export interface UpdateScheduleExamRequest {
   duration?: number;
   totalQuestions?: number;
   status?: 'upcoming' | 'active' | 'completed' | 'cancelled';
+  isLevelingRandom?: boolean;
 }
 
 // ─── Quiz Attempt Types (for admin performance) ─────────────

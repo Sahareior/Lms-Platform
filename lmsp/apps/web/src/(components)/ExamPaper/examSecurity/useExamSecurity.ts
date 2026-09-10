@@ -5,10 +5,28 @@ import Swal from "sweetalert2";
 interface SecurityOptions {
   isSubmitted: boolean;
   onViolationLimitReached: () => void;
+  storageKey?: string;
+  maxViolations?: number;
 }
 
-export const useExamSecurity = ({ isSubmitted, onViolationLimitReached }: SecurityOptions) => {
-  const [violations, setViolations] = useState(0);
+export const useExamSecurity = ({
+  isSubmitted,
+  onViolationLimitReached,
+  storageKey,
+  maxViolations = 5,
+}: SecurityOptions) => {
+  const [violations, setViolations] = useState<number>(() => {
+    if (!storageKey) return 0;
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+    } catch { /* ignore */ }
+    return 0;
+  });
+
   const callbackRef = useRef(onViolationLimitReached);
   
   // Keep the ref updated with the latest callback without triggering re-renders
@@ -16,10 +34,18 @@ export const useExamSecurity = ({ isSubmitted, onViolationLimitReached }: Securi
     callbackRef.current = onViolationLimitReached;
   }, [onViolationLimitReached]);
 
+  // Clean up storage when exam is submitted
+  useEffect(() => {
+    if (isSubmitted && storageKey) {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch { /* ignore */ }
+    }
+  }, [isSubmitted, storageKey]);
+
   useEffect(() => {
     if (isSubmitted) return; // Stop monitoring once exam is submitted
 
-    const MAX_VIOLATIONS = 5;
     let swalOpen = false;
 
     const handleViolation = (reason: string) => {
@@ -27,14 +53,19 @@ export const useExamSecurity = ({ isSubmitted, onViolationLimitReached }: Securi
 
       setViolations((prev) => {
         const newCount = prev + 1;
+        if (storageKey) {
+          try {
+            localStorage.setItem(storageKey, String(newCount));
+          } catch { /* ignore */ }
+        }
         
-        if (newCount >= MAX_VIOLATIONS) {
+        if (newCount >= maxViolations) {
           callbackRef.current(); // Trigger auto-submit
         } else {
           swalOpen = true;
           Swal.fire({
             title: "Warning!",
-            text: `${reason}. Violation ${newCount} of ${MAX_VIOLATIONS}. Further violations will auto-submit your exam.`,
+            text: `${reason}. Violation ${newCount} of ${maxViolations}. Further violations will auto-submit your exam.`,
             icon: "warning",
             confirmButtonColor: "#9B51E0",
             allowOutsideClick: false,
@@ -73,7 +104,7 @@ export const useExamSecurity = ({ isSubmitted, onViolationLimitReached }: Securi
       window.removeEventListener("blur", handleBlur);
       document.removeEventListener("keyup", handleKeyUp);
     };
-  }, [isSubmitted]);
+  }, [isSubmitted, maxViolations, storageKey]);
 
   return violations;
 };

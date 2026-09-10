@@ -188,7 +188,8 @@ export {
   useRemoveExamMutation,
   useGetSubjectsByExamQuery,
   useGetExamVersionsByExamQuery,
-  useGetQuestionsByExamQuery
+  useGetQuestionsByExamQuery,
+  useGetScheduleExamQuestionsQuery,
 } from './redux/api/examApi';
 export type {
   courseResponse,

@@ -110,11 +110,10 @@ const SelectedExam = () => {
     if (!userAttempts || !examId) return false;
     if (!isExamActive(scheduled)) return false;
 
-    const scheduledVersionId = String(
-      typeof scheduled.examVersion === "object"
-        ? scheduled.examVersion?._id
-        : scheduled.examVersion || ""
-    );
+    const scheduledVersionId =
+      scheduled.examVersion && typeof scheduled.examVersion === "object"
+        ? String((scheduled.examVersion as any)._id || "")
+        : String(scheduled.examVersion || "");
     const scheduledBoard =
       scheduled.board && scheduled.board !== "undefined" && scheduled.board !== "null"
         ? String(scheduled.board)
@@ -148,11 +147,10 @@ const SelectedExam = () => {
 
   const isExamParticipated = (scheduled: ScheduleExam) => {
     if (!userAttempts || !examId) return false;
-    const scheduledVersionId = String(
-      typeof scheduled.examVersion === "object"
-        ? scheduled.examVersion?._id
-        : scheduled.examVersion || ""
-    );
+    const scheduledVersionId =
+      scheduled.examVersion && typeof scheduled.examVersion === "object"
+        ? String((scheduled.examVersion as any)._id || "")
+        : String(scheduled.examVersion || "");
     const scheduledBoard =
       scheduled.board && scheduled.board !== "undefined" && scheduled.board !== "null"
         ? String(scheduled.board)
@@ -197,17 +195,18 @@ const SelectedExam = () => {
     }
 
     const versionId =
-      typeof scheduled.examVersion === "object"
-        ? scheduled.examVersion._id
-        : scheduled.examVersion;
+      scheduled.examVersion && typeof scheduled.examVersion === "object"
+        ? (scheduled.examVersion as any)._id || ""
+        : (scheduled.examVersion as string) || "";
     
+    const versionParam = versionId ? `&versionId=${versionId}` : "";
     const boardParam =
       scheduled?.board && scheduled.board !== "undefined" && scheduled.board !== "null"
         ? `&board=${encodeURIComponent(scheduled.board)}`
         : "";
 
     navigate(
-      `/mock-exam/selected-exam/exam-page?examId=${examId}&versionId=${versionId}&scheduleId=${scheduled._id}${boardParam}`
+      `/mock-exam/selected-exam/exam-page?examId=${examId}${versionParam}&scheduleId=${scheduled._id}${boardParam}`
     );
   };
 

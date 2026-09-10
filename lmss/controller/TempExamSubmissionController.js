@@ -43,6 +43,13 @@ export const saveTempSubmission = async (req, res) => {
     };
     if (examVersionId) {
       filter.examVersion = examVersionId;
+    } else {
+      filter.examVersion = null;
+    }
+    if (scheduleExamId) {
+      filter.scheduleExam = scheduleExamId;
+    } else {
+      filter.scheduleExam = null;
     }
     if (board && board !== "undefined" && board !== "null") {
       filter.board = board;
@@ -87,7 +94,7 @@ export const saveTempSubmission = async (req, res) => {
 // ─── GET Temporary Exam Submission ───────────────────────────
 export const getTempSubmission = async (req, res) => {
   try {
-    const { userId, examId, versionId, board } = req.query;
+    const { userId, examId, versionId, scheduleExamId, board } = req.query;
     const targetUserId = userId || req.user?.userId;
 
     if (!targetUserId) {
@@ -109,6 +116,13 @@ export const getTempSubmission = async (req, res) => {
     };
     if (versionId) {
       filter.examVersion = versionId;
+    } else {
+      filter.examVersion = null;
+    }
+    if (scheduleExamId) {
+      filter.scheduleExam = scheduleExamId;
+    } else {
+      filter.scheduleExam = null;
     }
     if (board && board !== "undefined" && board !== "null") {
       filter.board = board;
@@ -129,6 +143,7 @@ export const deleteTempSubmission = async (req, res) => {
     const targetUserId = req.query.userId || req.body.userId || req.user?.userId;
     const examId = req.query.examId || req.body.examId;
     const versionId = req.query.versionId || req.body.versionId;
+    const scheduleExamId = req.query.scheduleExamId || req.body.scheduleExamId;
     const board = req.query.board || req.body.board;
 
     if (!targetUserId) {
@@ -150,6 +165,13 @@ export const deleteTempSubmission = async (req, res) => {
     };
     if (versionId) {
       filter.examVersion = versionId;
+    } else {
+      filter.examVersion = null;
+    }
+    if (scheduleExamId) {
+      filter.scheduleExam = scheduleExamId;
+    } else {
+      filter.scheduleExam = null;
     }
     if (board && board !== "undefined" && board !== "null") {
       filter.board = board;

@@ -9,6 +9,7 @@ import {
   createScheduleExam,
   updateScheduleExam,
   deleteScheduleExam,
+  getScheduleExamQuestions,
 } from '../controller/ScheduleExamController.js';
 
 const router = express.Router();
@@ -18,6 +19,7 @@ const router = express.Router();
 router.get('/', listScheduleExams);
 router.get('/featured', getFeaturedScheduleExam);
 router.get('/exam/:examId', getScheduleExamsByExam);
+router.get('/:examId/questions', getScheduleExamQuestions);
 router.get('/:examId', getScheduleExamById);
 
 // Admin only: create, update, delete

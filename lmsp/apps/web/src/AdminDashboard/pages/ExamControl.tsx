@@ -17,6 +17,8 @@ import {
   Popconfirm,
   Statistic,
   Descriptions,
+  Switch,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -93,6 +95,7 @@ const ExamControl: React.FC = () => {
   // Watch exam selection to load versions
   const selectedExamId = Form.useWatch('exam', form);
   const editSelectedExamId = Form.useWatch('exam', editForm);
+  const isLevelingRandom = Form.useWatch('isLevelingRandom', form);
 
   const filteredVersions = examVersions?.filter((v) => v.exam === selectedExamId) ?? [];
   const editFilteredVersions = examVersions?.filter((v) => v.exam === editSelectedExamId) ?? [];
@@ -136,7 +139,7 @@ const ExamControl: React.FC = () => {
     try {
       const payload: CreateScheduleExamRequest = {
         exam: values.exam,
-        examVersion: values.examVersion,
+        examVersion: values.isLevelingRandom ? (values.examVersion || undefined) : values.examVersion,
         board: values.board || undefined,
         title: values.title,
         description: values.description,
@@ -144,6 +147,7 @@ const ExamControl: React.FC = () => {
         endDate: values.endDate.toISOString(),
         duration: values.duration || 120,
         totalQuestions: values.totalQuestions || 0,
+        isLevelingRandom: Boolean(values.isLevelingRandom),
       };
       await createExam(payload).unwrap();
       message.success(`Scheduled exam "${values.title}" created!`);
@@ -220,8 +224,15 @@ const ExamControl: React.FC = () => {
       key: 'title',
       render: (title: string, record: ScheduleExam) => (
         <div>
-          <div className="font-medium" style={{ color: '#E8F5EC' }}>
-            {title}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-medium" style={{ color: '#E8F5EC' }}>
+              {title}
+            </span>
+            {record.isLevelingRandom && (
+              <Tag color="purple" style={{ margin: 0, fontSize: 11 }}>
+                🎲 Random
+              </Tag>
+            )}
           </div>
           {record.description && (
             <div className="text-xs text-[#5F6B64] truncate max-w-[220px] mt-0.5">
@@ -244,8 +255,10 @@ const ExamControl: React.FC = () => {
       title: 'Version',
       key: 'version',
       render: (_: unknown, record: ScheduleExam) => {
-        const v = typeof record.examVersion === 'object' ? record.examVersion.examVersion : record.examVersion;
-        return <Tag color="purple">{v || '—'}</Tag>;
+        const v = typeof record.examVersion === 'object' ? record.examVersion?.examVersion : record.examVersion;
+        if (v) return <Tag color="purple">{v}</Tag>;
+        if (record.isLevelingRandom) return <Tag color="blue">All Topics</Tag>;
+        return <span className="text-sm text-[#5F6B64]">—</span>;
       },
     },
     {
@@ -614,12 +627,21 @@ const ExamControl: React.FC = () => {
               <Descriptions.Item label="Parent Exam">
                 {typeof viewingExam.exam === 'object' ? viewingExam.exam.name : viewingExam.exam || '—'}
               </Descriptions.Item>
+              <Descriptions.Item label="Generation Mode">
+                {viewingExam.isLevelingRandom ? (
+                  <Tag color="purple">🎲 Leveling Random (Topic-balanced Auto-generated)</Tag>
+                ) : (
+                  <Tag color="default">Standard (Manual / Version-linked)</Tag>
+                )}
+              </Descriptions.Item>
               <Descriptions.Item label="Version">
-                <Tag color="purple">
-                  {typeof viewingExam.examVersion === 'object'
-                    ? viewingExam.examVersion.examVersion
-                    : viewingExam.examVersion || '—'}
-                </Tag>
+                {typeof viewingExam.examVersion === 'object' && viewingExam.examVersion?.examVersion ? (
+                  <Tag color="purple">{viewingExam.examVersion.examVersion}</Tag>
+                ) : viewingExam.isLevelingRandom ? (
+                  <Tag color="blue">All Versions (Topic Distributed)</Tag>
+                ) : (
+                  <Tag color="purple">{String(viewingExam.examVersion || '—')}</Tag>
+                )}
               </Descriptions.Item>
               {(viewingExam as any).board && (
                 <Descriptions.Item label="Board">
@@ -675,10 +697,11 @@ const ExamControl: React.FC = () => {
         open={modalOpen}
         onCancel={() => { setModalOpen(false); form.resetFields(); }}
         footer={null}
-        width={650}
+        width={750}
         destroyOnClose
       >
-        <Form form={form} layout="vertical" onFinish={handleCreate} className="mt-4">
+<div className='h-[70vh] overflow-y-auto'>
+        <Form form={form} layout="vertical" onFinish={handleCreate} className="mt-4 py-12">
           <div className="text-xs uppercase tracking-wider text-[#5F6B64] font-medium mb-3 flex items-center gap-1.5">
             <FileTextOutlined /> Basic Information
           </div>
@@ -697,14 +720,68 @@ const ExamControl: React.FC = () => {
               placeholder="Select exam category"
               optionFilterProp="label"
               options={exams?.map((e) => ({ label: e.name, value: e._id }))}
+              onChange={() => {
+                form.setFieldsValue({ examVersion: undefined });
+              }}
             />
           </Form.Item>
 
-          <Form.Item name="examVersion" label="Exam Version" rules={[{ required: true, message: 'Please select a version' }]}>
+          {/* ── Leveling Random Toggle (appears once parent exam is selected) ── */}
+          {selectedExamId && (
+            <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-3.5 mb-4 transition-all">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm" style={{ color: '#E8F5EC' }}>
+                      🎲 Leveling Random Mode
+                    </span>
+                    <Tag color={isLevelingRandom ? 'purple' : 'default'} style={{ margin: 0, fontSize: 11 }}>
+                      {isLevelingRandom ? 'Topic-Balanced ON' : 'Off'}
+                    </Tag>
+                  </div>
+                  <p className="text-xs text-[#9BA8A0] m-0">
+                    Automatically balances and samples questions across all topics under this parent exam.
+                  </p>
+                </div>
+                <Form.Item name="isLevelingRandom" valuePropName="checked" noStyle initialValue={false}>
+                  <Switch />
+                </Form.Item>
+              </div>
+
+              {isLevelingRandom && (
+                <div className="mt-2.5 pt-2.5 border-t border-[#232323] flex items-center gap-2 text-xs text-[#A1A8B3]">
+                  <InfoCircleOutlined className="text-[#8B5CF6]" />
+                  <span>
+                    Questions will be sampled proportionally from each topic. Version selection becomes optional.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <Form.Item
+            name="examVersion"
+            label={
+              <Space>
+                <span>Exam Version</span>
+                {isLevelingRandom && (
+                  <span className="text-xs text-[#9BA8A0] font-normal">(Optional — All versions included)</span>
+                )}
+              </Space>
+            }
+            rules={[{ required: !isLevelingRandom, message: 'Please select a version' }]}
+          >
             <Select
               showSearch
-              placeholder={!selectedExamId ? 'Select a parent exam first' : 'Select version'}
+              placeholder={
+                !selectedExamId
+                  ? 'Select a parent exam first'
+                  : isLevelingRandom
+                  ? 'All versions included (or select specific version)'
+                  : 'Select version'
+              }
               disabled={!selectedExamId}
+              allowClear={isLevelingRandom}
               optionFilterProp="label"
               options={filteredVersions.map((v) => ({ label: v.examVersion, value: v._id }))}
             />
@@ -735,7 +812,11 @@ const ExamControl: React.FC = () => {
 
           <Space style={{ width: '100%' }} size={16}>
             <Form.Item name="startDate" label="Start Date" rules={[{ required: true, message: 'Please select start date' }]} style={{ flex: 1 }}>
-              <DatePicker showTime style={{ width: '100%' }} />
+              <DatePicker
+                showTime={{ use12Hours: true, format: 'hh:mm A' }}
+                format="YYYY-MM-DD hh:mm A"
+                style={{ width: '100%' }}
+              />
             </Form.Item>
             <Form.Item
               name="endDate"
@@ -753,7 +834,11 @@ const ExamControl: React.FC = () => {
               style={{ flex: 1 }}
               dependencies={['startDate']}
             >
-              <DatePicker showTime style={{ width: '100%' }} />
+              <DatePicker
+                showTime={{ use12Hours: true, format: 'hh:mm A' }}
+                format="YYYY-MM-DD hh:mm A"
+                style={{ width: '100%' }}
+              />
             </Form.Item>
           </Space>
 
@@ -761,8 +846,19 @@ const ExamControl: React.FC = () => {
             <Form.Item name="duration" label="Duration (min)" initialValue={120} style={{ width: 160 }}>
               <InputNumber min={1} max={600} style={{ width: '100%' }} />
             </Form.Item>
-            <Form.Item name="totalQuestions" label="Total Questions" initialValue={0} style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
+            <Form.Item
+              name="totalQuestions"
+              label={
+                <Space>
+                  <span>{isLevelingRandom ? 'Questions to Auto-Generate' : 'Total Questions'}</span>
+                  {isLevelingRandom && <Tag color="purple" style={{ margin: 0, fontSize: 11 }}>Balanced by Topic</Tag>}
+                </Space>
+              }
+              initialValue={isLevelingRandom ? 50 : 0}
+              rules={[{ required: isLevelingRandom, message: 'Please enter question count' }]}
+              style={{ flex: 1 }}
+            >
+              <InputNumber min={isLevelingRandom ? 1 : 0} max={500} style={{ width: '100%' }} />
             </Form.Item>
           </Space>
 
@@ -773,6 +869,7 @@ const ExamControl: React.FC = () => {
             </Space>
           </Form.Item>
         </Form>
+</div>
       </Modal>
 
       {/* ── Edit Modal ── */}
@@ -836,7 +933,11 @@ const ExamControl: React.FC = () => {
 
           <Space style={{ width: '100%' }} size={16}>
             <Form.Item name="startDate" label="Start Date" rules={[{ required: true }]} style={{ flex: 1 }}>
-              <DatePicker showTime style={{ width: '100%' }} />
+              <DatePicker
+                showTime={{ use12Hours: true, format: 'hh:mm A' }}
+                format="YYYY-MM-DD hh:mm A"
+                style={{ width: '100%' }}
+              />
             </Form.Item>
             <Form.Item
               name="endDate"
@@ -854,7 +955,11 @@ const ExamControl: React.FC = () => {
               style={{ flex: 1 }}
               dependencies={['startDate']}
             >
-              <DatePicker showTime style={{ width: '100%' }} />
+              <DatePicker
+                showTime={{ use12Hours: true, format: 'hh:mm A' }}
+                format="YYYY-MM-DD hh:mm A"
+                style={{ width: '100%' }}
+              />
             </Form.Item>
           </Space>
 
