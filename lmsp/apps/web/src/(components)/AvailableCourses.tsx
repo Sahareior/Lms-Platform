@@ -304,7 +304,7 @@ export default function AvailableCourses() {
       {/* ────── FOOTER BACK LINK ────── */}
       <div className="pt-2 pb-4">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/dashboard")}
           className="text-xs font-bold text-[#A1A8B3] hover:text-[#00E5B3] transition-all"
         >
           ← Back to Dashboard

@@ -1,16 +1,18 @@
 import express from 'express';
 import multer from 'multer';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
 import { uploadImage as uploadImageMulter, uploadVideo as uploadVideoMulter, uploadFile as uploadFileMulter } from '../middleware/upload.js';
 import { uploadImage, uploadVideo, uploadFile, getUploadSignature } from '../controller/uploadController.js';
 
 const router = express.Router();
 
-// All endpoints require a valid JWT. The multer middleware parses the
-// multipart body, then the controller streams the file to Cloudinary.
-router.post('/image', uploadImageMulter.single('file'), uploadImage);
-router.post('/video', uploadVideoMulter.single('file'), uploadVideo);
-router.post('/file', uploadFileMulter.single('file'), uploadFile);
+// Authenticated: profile pictures (students upload their avatar).
+router.post('/image', authenticate, uploadImageMulter.single('file'), uploadImage);
+
+// Admin only: course media (videos, PDFs, slides, ...). Prefer the signed
+// direct-to-Cloudinary flow (POST /upload/sign) for large files.
+router.post('/video', authenticate, requireRole('admin'), uploadVideoMulter.single('file'), uploadVideo);
+router.post('/file', authenticate, requireRole('admin'), uploadFileMulter.single('file'), uploadFile);
 
 // Returns signed upload params for direct browser → Cloudinary uploads.
 // The client streams the file straight to api.cloudinary.com, so large files

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import quizPerform from "../models/QuizPerformance.js";
 import QuestionModel from "../models/QuestionModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
 
 // Helper: resolve embedded question references (unchanged)
 export async function resolveSubmittedQuestions(performances) {
@@ -103,6 +104,7 @@ export const postQuizPerformance = async (req, res) => {
       { upsert: true, new: true, updatePipeline: true }
     );
 
+    await invalidatePrefix('cache:quiz-performance');
     return res.status(201).json(performance);
   } catch (err) {
     console.error(err);

@@ -112,7 +112,7 @@ const AdminDashboard: React.FC = () => {
   ];
 
   const handleBackToApp = () => {
-    navigate('/');
+    navigate('/dashboard');
   };
 
   const selectedKey = getSelectedKey();
