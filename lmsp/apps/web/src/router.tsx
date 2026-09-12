@@ -33,6 +33,7 @@ const QuestionMaster = lazy(() => import('./(components)/MainPages/Question_Mast
 const ExamDin = lazy(() => import('./(components)/MainPages/Question_Master/component/ExamDin'));
 const QuestionView = lazy(() => import('./(components)/MainPages/Question_Master/component/QuestionView'));
 const ExamCategorySelection = lazy(() => import('./(components)/MainPages/Question_Master/ExamCategorySelection'));
+const SubjectCategorySelection = lazy(() => import('./(components)/MainPages/Question_Master/SubjectCategorySelection'));
 const AdminDashboard = lazy(() => import('./AdminDashboard/AdminDashboard'));
 const DashboardOverview = lazy(() => import('./AdminDashboard/pages/DashboardOverview'));
 const UserManagement = lazy(() => import('./AdminDashboard/pages/UserManagement'));
@@ -156,6 +157,10 @@ const router = createBrowserRouter([
           { path: 'question-center', element: <ExamCategorySelection /> },
           {
             path: 'question-center/:examType',
+            element: <SubjectCategorySelection />,
+          },
+          {
+            path: 'question-center/:examType/:subjectId',
             element: <QuestionMaster />,
             children: [
               {

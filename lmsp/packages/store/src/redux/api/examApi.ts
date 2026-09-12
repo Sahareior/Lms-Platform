@@ -75,12 +75,13 @@ const examApi = api.injectEndpoints({
             query:(examId) => ({ url: `/important-topics?exam=${examId}` })
         }),
 
-        getQuestionsByExam: builder.query<any[], { examId: string; versionId?: string, board?: string }>({
-            query: ({ examId, versionId, board }) => {
+        getQuestionsByExam: builder.query<any[], { examId: string; versionId?: string; board?: string; subjectId?: string }>({
+            query: ({ examId, versionId, board, subjectId }) => {
                 let url = `/questions/exam/${examId}`;
                 const params = new URLSearchParams();
                 if (versionId) params.append("versionId", versionId);
                 if (board) params.append("board", board);
+                if (subjectId) params.append("subject", subjectId);
                 
                 const queryString = params.toString();
                 if (queryString) {

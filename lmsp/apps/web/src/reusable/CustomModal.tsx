@@ -12,6 +12,9 @@ import {
   ThumbsUp,
   MessageSquare,
   Loader2,
+  Lightbulb,
+  ListChecks,
+  XCircle,
 } from 'lucide-react';
 import { useAiQuestionExplainerMutation } from '@my-monorepo/store/src/redux/api/aiApi';
 import { useUpdateAdminQuestionExplanationMutation } from '@my-monorepo/store';
@@ -49,6 +52,246 @@ const letters = ['ক', 'খ', 'গ', 'ঘ'];
 // In-memory cache across modal open/close cycles in the current browser session
 const sessionExplanationCache: Record<string | number, string> = {};
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AI explanation parsing
+//
+// The backend returns explanations in a fixed plain-text structure:
+//
+//   মূল ধারণা: <rule / formula in one line>
+//
+//   যাচাই:
+//   i. <calculation> → x = 1 (সঠিক)
+//   ii. <calculation> → x = 0 (ভুল)
+//   iii. <calculation> → x = 1 (সঠিক)
+//
+//   সিদ্ধান্ত: <final sentence with the correct option>
+//
+// We parse that into sections and render each with proper styling.
+// Old explanations (markdown / LaTeX) fall back to plain preformatted text.
+// ═══════════════════════════════════════════════════════════════════════════
+
+type Verdict = 'correct' | 'wrong';
+
+interface StepItem {
+  label: string; // "i", "ii", "iii", "ধাপ ১", ...
+  text: string;  // calculation text
+  verdict?: Verdict;
+}
+
+interface ExplanationSection {
+  kind: 'concept' | 'steps' | 'conclusion' | 'plain';
+  body: string;
+  steps: StepItem[];
+}
+
+const SECTION_HEADERS = [
+  { kind: 'concept' as const, label: 'মূল ধারণা' },
+  { kind: 'steps' as const, label: 'যাচাই' },
+  { kind: 'conclusion' as const, label: 'সিদ্ধান্ত' },
+];
+
+const VERDICT_RE = /\(\s*(সঠিক|ভুল|হ্যাঁ|না)\s*\)\s*$/;
+// Roman numerals + "ধাপ ১" style labels (longer alternatives first so
+// "iv." doesn't get captured as label "i")
+const STEP_LABEL_RE = /^(iv|vi|v|i{1,3}|ধাপ\s*[০-৯0-9]+)\s*[.):\]]?\s*/i;
+
+const verdictOf = (word: string): Verdict =>
+  word === 'সঠিক' || word === 'হ্যাঁ' ? 'correct' : 'wrong';
+
+/** Light cleanup for legacy explanations saved before the backend prompt fix. */
+const cleanupLegacyText = (raw: string): string =>
+  raw
+    .replace(/\*\*/g, '')
+    .replace(/[$`]/g, '')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/\\oplus/g, '⊕')
+    .replace(/\\odot/g, '⊙')
+    .replace(/\\cdot/g, '·')
+    .replace(/\\times/g, '×')
+    .replace(/\\overline\{([^}]*)\}/g, 'NOT($1)')
+    .replace(/\\bar\{([^}]*)\}/g, 'NOT($1)');
+
+const parseStepLine = (line: string): StepItem => {
+  let text = line;
+  let verdict: Verdict | undefined;
+
+  const v = text.match(VERDICT_RE);
+  if (v && v.index !== undefined) {
+    verdict = verdictOf(v[1]);
+    text = text.slice(0, v.index).trim();
+  }
+
+  const l = text.match(STEP_LABEL_RE);
+  const label = l ? l[1] : '';
+  if (l) text = text.slice(l[0].length).trim();
+
+  return { label, text, verdict };
+};
+
+const parseExplanation = (raw: string): ExplanationSection[] => {
+  const lines = cleanupLegacyText(raw)
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const sections: ExplanationSection[] = [];
+  let current: ExplanationSection | null = null;
+
+  const pushPlain = (line: string) => {
+    const last = sections[sections.length - 1];
+    if (last && last.kind === 'plain') {
+      last.body += (last.body ? ' ' : '') + line;
+    } else {
+      sections.push({ kind: 'plain', body: line, steps: [] });
+    }
+  };
+
+  for (const line of lines) {
+    const header = SECTION_HEADERS.find(
+      (h) =>
+        line === h.label ||
+        line.startsWith(h.label + ':') ||
+        line.startsWith(h.label + ' :')
+    );
+
+    if (header) {
+      current = { kind: header.kind, body: '', steps: [] };
+      const rest = line
+        .slice(header.label.length)
+        .replace(/^\s*[:.।]?\s*/, '')
+        .trim();
+      if (rest) current.body = rest;
+      sections.push(current);
+      continue;
+    }
+
+    if (current?.kind === 'steps') {
+      current.steps.push(parseStepLine(line));
+    } else if (current && (current.kind === 'concept' || current.kind === 'conclusion')) {
+      current.body += (current.body ? ' ' : '') + line;
+    } else {
+      pushPlain(line);
+    }
+  }
+
+  return sections;
+};
+
+// ─── Structured renderer ──────────────────────────────────────────────────
+
+const VerdictPill: React.FC<{ verdict: Verdict }> = ({ verdict }) => {
+  const correct = verdict === 'correct';
+  return (
+    <span
+      className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
+        correct
+          ? 'text-[#00E5B3] bg-[#00E5B3]/10 border-[#00E5B3]/30'
+          : 'text-[#EB5757] bg-[#EB5757]/10 border-[#EB5757]/30'
+      }`}
+    >
+      {correct ? <CheckCircle size={12} /> : <XCircle size={12} />}
+      {correct ? 'সঠিক' : 'ভুল'}
+    </span>
+  );
+};
+
+const ExplanationView: React.FC<{ raw: string }> = ({ raw }) => {
+  const sections = parseExplanation(raw);
+  const hasStructured = sections.some((s) => s.kind !== 'plain');
+
+  // Legacy / unstructured explanation — keep line breaks, nothing fancy
+  if (!hasStructured) {
+    return (
+      <p className="text-base text-[#A1A8B3] leading-8 whitespace-pre-line break-words">
+        {cleanupLegacyText(raw)}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {sections.map((sec, idx) => {
+        // ── মূল ধারণা ──
+        if (sec.kind === 'concept') {
+          return (
+            <div
+              key={idx}
+              className="flex items-start gap-3 bg-[#2F80ED]/5 border border-[#2F80ED]/20 rounded-lg p-3.5"
+            >
+              <div className="w-8 h-8 shrink-0 rounded-full bg-[#2F80ED]/10 border border-[#2F80ED]/30 flex items-center justify-center">
+                <Lightbulb size={16} className="text-[#2F80ED]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#2F80ED] mb-0.5">মূল ধারণা</p>
+                <p className="text-base text-[#F5F7FA] leading-7 break-words">{sec.body}</p>
+              </div>
+            </div>
+          );
+        }
+
+        // ── যাচাই (step-by-step) ──
+        if (sec.kind === 'steps' && sec.steps.length > 0) {
+          return (
+            <div key={idx} className="space-y-2">
+              <p className="text-sm font-semibold text-[#A1A8B3] flex items-center gap-1.5">
+                <ListChecks size={15} className="text-[#9B51E0]" />
+                যাচাই
+              </p>
+              {sec.steps.map((step, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 bg-[#161920] border border-[#23262D] rounded-lg px-3.5 py-2.5"
+                >
+                  {step.label ? (
+                    <span className="shrink-0 h-7 px-2 inline-flex items-center justify-center rounded-md text-sm font-semibold text-[#9B51E0] bg-[#9B51E0]/10 border border-[#9B51E0]/30">
+                      {step.label}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-[#9B51E0]/60 mt-3" />
+                  )}
+                  <p className="flex-1 text-base text-[#A1A8B3] leading-7 break-words">
+                    {step.text}
+                  </p>
+                  {step.verdict && <VerdictPill verdict={step.verdict} />}
+                </div>
+              ))}
+            </div>
+          );
+        }
+
+        // ── সিদ্ধান্ত ──
+        if (sec.kind === 'conclusion') {
+          return (
+            <div
+              key={idx}
+              className="flex items-start gap-3 bg-[#00E5B3]/5 border border-[#00E5B3]/20 rounded-lg p-3.5"
+            >
+              <div className="w-8 h-8 shrink-0 rounded-full bg-[#00E5B3]/10 border border-[#00E5B3]/30 flex items-center justify-center">
+                <CheckCircle size={16} className="text-[#00E5B3]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#00E5B3] mb-0.5">সিদ্ধান্ত</p>
+                <p className="text-base text-[#F5F7FA] leading-7 break-words">{sec.body}</p>
+              </div>
+            </div>
+          );
+        }
+
+        // plain text before / between sections
+        return (
+          <p key={idx} className="text-base text-[#A1A8B3] leading-7 break-words">
+            {sec.body}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Modal component
+// ═══════════════════════════════════════════════════════════════════════════
+
 const CustomModal: React.FC<CustomModalProps> = ({
   isModalOpen,
   setIsModalOpen,
@@ -63,73 +306,76 @@ const CustomModal: React.FC<CustomModalProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
-  if (!modalType || !questionData) return null;
+  const cachedExplanation = questionData
+    ? sessionExplanationCache[questionData.id] ||
+      (questionData._id ? sessionExplanationCache[questionData._id] : undefined) ||
+      localExplanations[questionData.id]
+    : undefined;
 
-  const currentExplanation =
-    (questionData.explanation && questionData.explanation.trim() !== '')
-      ? questionData.explanation
-      : sessionExplanationCache[questionData.id] ||
-        (questionData._id ? sessionExplanationCache[questionData._id] : '') ||
-        localExplanations[questionData.id] ||
-        '';
+  const currentExplanation = questionData?.explanation?.trim() || cachedExplanation || '';
+
+  // NOTE: all hooks are declared above; the early return must stay below
+  // useEffect, otherwise React throws "Rendered fewer hooks than expected"
+  // when modalType/questionData toggles between renders.
 
   useEffect(() => {
-    if (isModalOpen && modalType === 'explanation' && questionData.id) {
-      setGenerationError(null);
-      // If we already have a stored or cached explanation, do NOT call AI
-      if (currentExplanation) {
-        return;
-      }
+    if (!isModalOpen || modalType !== 'explanation' || !questionData?.id) return;
 
-      const { explanation, stats, docId, questionSetId, _id, ...questionForAI } = questionData;
-      setIsGenerating(true);
+    setGenerationError(null);
 
-      aiQuestionExplainer(questionForAI)
-        .unwrap()
-        .then((res: any) => {
-          if (res?.explanation) {
-            const expText = res.explanation;
-            sessionExplanationCache[questionData.id] = expText;
-            if (questionData._id) {
-              sessionExplanationCache[questionData._id] = expText;
-            }
+    // If we already have a stored or cached explanation, do NOT call AI
+    if (currentExplanation) return;
 
-            setLocalExplanations((prev) => ({
-              ...prev,
-              [questionData.id]: expText,
-            }));
+    const { explanation, stats, docId, questionSetId, _id, ...questionForAI } = questionData;
+    setIsGenerating(true);
 
-            if (onExplanationSaved) {
-              onExplanationSaved(questionData.id, expText);
-            }
-
-            // Auto-save explanation to MongoDB database
-            const targetDocId = questionData.questionSetId || questionData.docId || questionData._id;
-            if (targetDocId) {
-              updateAdminQuestionExplanation({
-                questionId: String(targetDocId),
-                questionNumber: questionData.id,
-                explanation: expText,
-              })
-                .unwrap()
-                .then(() => {
-                  console.log(`[AI Explanation] Stored explanation for question #${questionData.id}`);
-                })
-                .catch((saveErr) => {
-                  console.warn('[AI Explanation] Auto-save to DB failed:', saveErr);
-                });
-            }
+    aiQuestionExplainer(questionForAI)
+      .unwrap()
+      .then((res: any) => {
+        if (res?.explanation) {
+          const expText = res.explanation;
+          sessionExplanationCache[questionData.id] = expText;
+          if (questionData._id) {
+            sessionExplanationCache[questionData._id] = expText;
           }
-        })
-        .catch((err: any) => {
-          console.error('[AI Explanation] Generation failed:', err);
-          setGenerationError('ব্যাখ্যা তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।');
-        })
-        .finally(() => {
-          setIsGenerating(false);
-        });
-    }
+
+          setLocalExplanations((prev) => ({
+            ...prev,
+            [questionData.id]: expText,
+          }));
+
+          if (onExplanationSaved) {
+            onExplanationSaved(questionData.id, expText);
+          }
+
+          // Auto-save explanation to MongoDB database
+          const targetDocId = questionData.questionSetId || questionData.docId || questionData._id;
+          if (targetDocId) {
+            updateAdminQuestionExplanation({
+              questionId: String(targetDocId),
+              questionNumber: questionData.id,
+              explanation: expText,
+            })
+              .unwrap()
+              .then(() => {
+                console.log(`[AI Explanation] Stored explanation for question #${questionData.id}`);
+              })
+              .catch((saveErr: any) => {
+                console.warn('[AI Explanation] Auto-save to DB failed:', saveErr);
+              });
+          }
+        }
+      })
+      .catch((err: any) => {
+        console.error('[AI Explanation] Generation failed:', err);
+        setGenerationError('ব্যাখ্যা তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।');
+      })
+      .finally(() => {
+        setIsGenerating(false);
+      });
   }, [isModalOpen, modalType, questionData?.id, currentExplanation]);
+
+  if (!modalType || !questionData) return null;
 
   const colors = {
     success: '#00E5B3',
@@ -179,7 +425,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
               </div>
             </div>
             <div className="bg-[#161920] border border-[#23262D] rounded-lg p-4">
-              <p className="text-base text-[#A1A8B3] leading-7">{questionData.explanation}</p>
+              <ExplanationView raw={questionData.explanation} />
             </div>
           </div>
         )}
@@ -299,13 +545,15 @@ const CustomModal: React.FC<CustomModalProps> = ({
             {loading ? (
               <div className="flex flex-col items-center justify-center py-4 space-y-3">
                 <Loader2 size={24} className="text-[#9B51E0] animate-spin" />
-                <p className="text-base text-[#A1A8B3]">এআই ব্যাখ্যা তৈরি করছে...</p>
+                <p className="text-base text-[#A1A8B3]">Please wait...</p>
               </div>
             ) : generationError ? (
               <p className="text-base text-[#EB5757] leading-8">{generationError}</p>
+            ) : currentExplanation ? (
+              <ExplanationView raw={currentExplanation} />
             ) : (
               <p className="text-base text-[#A1A8B3] leading-8">
-                {currentExplanation || 'এই প্রশ্নের জন্য কোনো ব্যাখ্যা পাওয়া যায়নি।'}
+                এই প্রশ্নের জন্য কোনো ব্যাখ্যা পাওয়া যায়নি।
               </p>
             )}
           </div>
@@ -344,7 +592,6 @@ const CustomModal: React.FC<CustomModalProps> = ({
     );
   };
 
-  // This is the missing function – must be declared before use
   const renderContent = () => {
     switch (modalType) {
       case 'answer':
@@ -401,6 +648,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
       closable
       open={isModalOpen}
       onCancel={() => setIsModalOpen(false)}
+      centered
       footer={
         <div className="flex justify-end gap-3 pt-2">
           <button
@@ -422,18 +670,13 @@ const CustomModal: React.FC<CustomModalProps> = ({
       styles={{
         header: {
           borderBottom: '1px solid #23262D',
-          paddingBottom: 16,
-        },
-        body: {
-          paddingTop: 20,
-          paddingBottom: 8,
-          maxHeight: 460,
-          overflowY: 'auto',
         },
       }}
       className="[&_.ant-modal-content]:!bg-[#111318] [&_.ant-modal-content]:!border-[#23262D] [&_.ant-modal-close]:!text-[#A1A8B3] [&_.ant-modal-close]:hover:!text-[#F5F7FA]"
     >
-      {renderContent()}
+      <div className="overflow-y-auto max-h-[65vh]">
+        {renderContent()}
+      </div>
     </Modal>
   );
 };
