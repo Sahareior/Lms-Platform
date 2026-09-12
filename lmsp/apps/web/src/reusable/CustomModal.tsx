@@ -217,12 +217,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 p-3 bg-[#F2C94C]/10 border border-[#F2C94C]/30 rounded-lg">
-          <AlertCircle size={16} className="text-[#F2C94C] shrink-0" />
-          <p className="text-xs text-[#F2C94C]">
-            টিপ: এই ধরনের প্রশ্ন প্রায়ই বিসিএস preliminary তে আসে। ভালোভাবে মনে রাখুন।
-          </p>
-        </div>
+
       </div>
     );
   };

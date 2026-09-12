@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   ArrowLeft,
   ChevronDown,
@@ -10,6 +10,7 @@ import {
   Flag,
   Share2,
   AlertCircle,
+  Clock,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import CustomModal from "../../../../reusable/CustomModal";
@@ -131,6 +132,32 @@ export default function ExamDin() {
   // Tracks which questions have already been persisted, so re-selecting an
   // option doesn't create duplicate quizPerformance documents.
   const postedRef = useRef<Set<number>>(new Set());
+
+  // ── Countdown timer (1 min per question) ─────────────────
+  const totalTime = totalQuestions * 60; // seconds
+  const [timeLeft, setTimeLeft] = useState(totalTime);
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  // Tick every second while the exam is active
+  useEffect(() => {
+    if (isSubmitted || totalQuestions === 0) return;
+    const id = setInterval(() => {
+      setTimeLeft((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isSubmitted, totalQuestions]);
+
+  // Auto-submit when time runs out (bypasses the confirm dialog)
+  useEffect(() => {
+    if (timeLeft === 0 && !isSubmitted) {
+      setIsSubmitted(true);
+    }
+  }, [timeLeft, isSubmitted]);
 
   const topics = subjectName
     ? [subjectName]
@@ -320,10 +347,27 @@ export default function ExamDin() {
               </div>
             )}
 
-            <div className="text-sm text-[#A1A8B3]">
-              {isSubmitted
-                ? `${localScore}/${totalQuestions} correct`
-                : `${getAnsweredCount()}/${totalQuestions} answered`}
+            {/* Timer + answered count */}
+            <div className="flex items-center gap-3">
+              {!isSubmitted && (
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-sm border transition-colors ${
+                    timeLeft <= totalTime * 0.1
+                      ? "bg-[#EB5757]/10 border-[#EB5757]/40 text-[#EB5757] animate-pulse"
+                      : timeLeft <= totalTime * 0.3
+                      ? "bg-[#F2C94C]/10 border-[#F2C94C]/40 text-[#F2C94C]"
+                      : "bg-[#161920] border-[#23262D] text-[#F5F7FA]"
+                  }`}
+                >
+                  <Clock size={13} />
+                  {formatTime(timeLeft)}
+                </div>
+              )}
+              <div className="text-sm text-[#A1A8B3]">
+                {isSubmitted
+                  ? `${localScore}/${totalQuestions} correct`
+                  : `${getAnsweredCount()}/${totalQuestions} answered`}
+              </div>
             </div>
           </div>
 

@@ -39,7 +39,9 @@ export default function QuestionMaster() {
   const [selectedYear, setSelectedYear] = useState<string>("All");
 
   // Determine if we're on a child route (exam-din)
-  const isChildRoute = location.pathname.includes("/exam-din");
+  const isChildRoute =
+    location.pathname.includes("/exam-din") ||
+    location.pathname.includes("/question-view");
 
   // Fetch question sets for this exam category
   const {
@@ -209,7 +211,26 @@ export default function QuestionMaster() {
 
               {/* Buttons */}
               <div className="grid grid-cols-2 gap-4">
-                <button className="border border-[#23262D] rounded-xl py-3 font-semibold text-sm text-[#A1A8B3] hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition-all">
+                <button
+                  onClick={() => {
+                    const matchedSet = questionSets?.find((s: any) => s._id === exam._id);
+                    navigate(
+                      `/question-center/${examType}/question-view?setId=${exam._id}`,
+                      {
+                        state: {
+                          questions: matchedSet?.data || [],
+                          examTitle: exam.title,
+                          subject: exam.subject,
+                          questionSetId: exam._id,
+                          examId: exam.examId,
+                          subjectId: exam.subjectId,
+                          examVersionId: exam.examVersionId,
+                        },
+                      }
+                    );
+                  }}
+                  className="border border-[#23262D] rounded-xl py-3 font-semibold text-sm text-[#A1A8B3] hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition-all"
+                >
                   প্রশ্ন দেখুন
                 </button>
                 <button

@@ -5,6 +5,7 @@ import { SharedProviders, configureApi } from '@my-monorepo/store'
 import AuthInitializer from './auth/AuthInitializer'
 import router from './router'
 import './index.css'
+import SmoothScroll from './tools/SmoothScroll'
 
 // Point the API client at the backend. Falls back to localhost for local dev.
 configureApi({ baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3000/' })
@@ -23,7 +24,9 @@ createRoot(document.getElementById('root')!).render(
     <SharedProviders>
       <AuthInitializer>
         <Suspense fallback={<PageFallback />}>
-          <RouterProvider router={router} />
+          <SmoothScroll>
+            <RouterProvider router={router} />
+          </SmoothScroll>
         </Suspense>
       </AuthInitializer>
     </SharedProviders>
