@@ -1,5 +1,114 @@
 import ScheduleExam from "../models/ScheduleExamModel.js";
+import QuestionModel from "../models/QuestionModel.js";
 import { invalidatePrefix } from "../middleware/cache.js";
+
+// ─── Helper: Fisher-Yates array shuffle ─────────────────────
+function shuffleArray(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ─── Helper: select leveling random questions by topic ──────
+function selectLevelingRandomQuestions(questionDocs, targetCount) {
+  const allItems = [];
+  const seenTexts = new Set();
+
+  for (const doc of questionDocs) {
+    if (!doc.data || !Array.isArray(doc.data)) continue;
+    for (const item of doc.data) {
+      if (!item.question_text) continue;
+      const normalizedKey = item.question_text.trim().toLowerCase();
+      if (seenTexts.has(normalizedKey)) continue;
+      seenTexts.add(normalizedKey);
+
+      allItems.push({
+        question_text: item.question_text,
+        scenario_text: item.scenario_text || "",
+        image_url: item.image_url || "",
+        options: item.options instanceof Map ? Object.fromEntries(item.options) : (item.options || {}),
+        subjectName: item.subjectName || (doc.subject?.name ? doc.subject.name : null),
+        topic: item.topic ? item.topic.trim() : "General",
+        correct_answer: item.correct_answer || "",
+        originalQuestionId: item._id,
+        questionDocId: doc._id,
+      });
+    }
+  }
+
+  if (allItems.length === 0) return [];
+
+  const actualTarget = Math.min(
+    targetCount > 0 ? targetCount : allItems.length,
+    allItems.length
+  );
+
+  // Group items by topic
+  const topicMap = new Map();
+  for (const item of allItems) {
+    const topic = item.topic || "General";
+    if (!topicMap.has(topic)) {
+      topicMap.set(topic, []);
+    }
+    topicMap.get(topic).push(item);
+  }
+
+  // Shuffle items in each topic bucket
+  for (const [topic, items] of topicMap.entries()) {
+    topicMap.set(topic, shuffleArray(items));
+  }
+
+  // Leveling selection: distribute questions across topics as evenly as possible
+  const topicNames = Array.from(topicMap.keys());
+  const topicRemaining = new Map();
+  for (const topic of topicNames) {
+    topicRemaining.set(topic, [...topicMap.get(topic)]);
+  }
+
+  const selected = [];
+  let remainingNeeded = actualTarget;
+
+  while (remainingNeeded > 0) {
+    const activeTopics = topicNames.filter((t) => (topicRemaining.get(t) || []).length > 0);
+    if (activeTopics.length === 0) break;
+
+    const perTopicQuota = Math.max(1, Math.floor(remainingNeeded / activeTopics.length));
+    let pickedThisRound = 0;
+
+    for (const topic of activeTopics) {
+      if (remainingNeeded <= 0) break;
+      const pool = topicRemaining.get(topic);
+      const toTake = Math.min(perTopicQuota, pool.length, remainingNeeded);
+      for (let i = 0; i < toTake; i++) {
+        selected.push(pool.shift());
+      }
+      remainingNeeded -= toTake;
+      pickedThisRound += toTake;
+    }
+
+    // Safety fallback to prevent infinite loop
+    if (pickedThisRound === 0) {
+      for (const topic of activeTopics) {
+        if (remainingNeeded <= 0) break;
+        const pool = topicRemaining.get(topic);
+        if (pool && pool.length > 0) {
+          selected.push(pool.shift());
+          remainingNeeded--;
+        }
+      }
+    }
+  }
+
+  // Shuffle final list so topics are interleaved throughout the paper
+  const finalShuffled = shuffleArray(selected);
+  return finalShuffled.map((item, index) => ({
+    ...item,
+    question_number: index + 1,
+  }));
+}
 
 // ─── Helper: compute status from dates ─────────────────────
 const computeStatus = (startDate, endDate, overrideStatus) => {
@@ -113,25 +222,71 @@ export const getScheduleExamById = async (req, res) => {
 // ─── CREATE scheduled exam ─────────────────────────────────
 export const createScheduleExam = async (req, res) => {
   try {
-    const { exam, examVersion, title, description, startDate, endDate, duration, totalQuestions, board } = req.body;
-
-    if (!exam || !examVersion || !title || !startDate || !endDate) {
-      return res.status(400).json({ message: 'Exam, examVersion, title, startDate, and endDate are required' });
-    }
-
-    const status = computeStatus(startDate, endDate);
-
-    const newExam = new ScheduleExam({
+    const {
       exam,
       examVersion,
       title,
       description,
       startDate,
       endDate,
+      duration,
+      totalQuestions,
+      board,
+      isLevelingRandom,
+    } = req.body;
+
+    if (!exam || !title || !startDate || !endDate) {
+      return res.status(400).json({ message: 'Exam, title, startDate, and endDate are required' });
+    }
+
+    if (!isLevelingRandom && !examVersion) {
+      return res.status(400).json({ message: 'examVersion is required when not using Leveling Random' });
+    }
+
+    const status = computeStatus(startDate, endDate);
+
+    let generatedQuestions = [];
+    let calculatedTotalQuestions = totalQuestions || 0;
+
+    if (isLevelingRandom) {
+      // Find all question documents for this parent exam (optionally filtered by board/version if provided)
+      const questionFilter = { exam };
+      if (examVersion) questionFilter.examVersion = examVersion;
+      if (board) questionFilter.board = board;
+
+      const questionDocs = await QuestionModel.find(questionFilter).populate('subject', 'name');
+
+      if (!questionDocs || questionDocs.length === 0) {
+        return res.status(400).json({
+          message: 'No questions found under this parent exam to generate questions from. Please add questions first.',
+        });
+      }
+
+      const targetCount = Number(totalQuestions) > 0 ? Number(totalQuestions) : 50;
+      generatedQuestions = selectLevelingRandomQuestions(questionDocs, targetCount);
+
+      if (generatedQuestions.length === 0) {
+        return res.status(400).json({
+          message: 'No valid questions found inside question documents for this parent exam.',
+        });
+      }
+
+      calculatedTotalQuestions = generatedQuestions.length;
+    }
+
+    const newExam = new ScheduleExam({
+      exam,
+      examVersion: examVersion || null,
+      title,
+      description,
+      startDate,
+      endDate,
       duration: duration || 120,
-      totalQuestions: totalQuestions || 0,
+      totalQuestions: calculatedTotalQuestions,
       status,
       board: board || null,
+      isLevelingRandom: Boolean(isLevelingRandom),
+      generatedQuestions,
     });
 
     await newExam.save();
@@ -140,7 +295,7 @@ export const createScheduleExam = async (req, res) => {
     res.status(201).json(populated);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Unable to create scheduled exam' });
+    res.status(500).json({ message: 'Unable to create scheduled exam', error: err.message });
   }
 };
 
@@ -254,5 +409,52 @@ export const setFeaturedScheduleExam = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Unable to update featured exam' });
+  }
+};
+
+// ─── GET questions for a scheduled exam ───────────────────
+export const getScheduleExamQuestions = async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const scheduleExam = await ScheduleExam.findById(examId)
+      .populate('exam', 'name category')
+      .populate('examVersion', 'examVersion');
+
+    if (!scheduleExam) {
+      return res.status(404).json({ message: 'Scheduled exam not found' });
+    }
+
+    if (scheduleExam.isLevelingRandom && scheduleExam.generatedQuestions?.length > 0) {
+      return res.status(200).json([
+        {
+          _id: scheduleExam._id,
+          exam: scheduleExam.exam,
+          examVersion: scheduleExam.examVersion || null,
+          board: scheduleExam.board || null,
+          data: scheduleExam.generatedQuestions,
+          isLevelingRandom: true,
+          totalQuestions: scheduleExam.totalQuestions,
+        },
+      ]);
+    }
+
+    // Standard fallback: query questions matching exam, examVersion, and board
+    const filter = { exam: scheduleExam.exam?._id || scheduleExam.exam };
+    if (scheduleExam.examVersion) {
+      filter.examVersion = scheduleExam.examVersion?._id || scheduleExam.examVersion;
+    }
+    if (scheduleExam.board) {
+      filter.board = scheduleExam.board;
+    }
+
+    const questions = await QuestionModel.find(filter)
+      .populate('exam', 'name category')
+      .populate('examVersion', 'examVersion')
+      .populate('subject', 'name');
+
+    res.status(200).json(questions);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Unable to fetch questions for scheduled exam' });
   }
 };

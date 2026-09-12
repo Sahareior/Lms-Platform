@@ -5,6 +5,7 @@ import { Send, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import {
     useGetExamsQuery,
     useGetQuestionsByExamQuery,
+    useGetScheduleExamQuestionsQuery,
     useGetExamVersionsByExamQuery,
     useGetScheduleExamsByExamQuery,
     useAppSelector,
@@ -18,9 +19,11 @@ import {
     useGetTempExamSubmissionQuery,
     useSaveTempExamSubmissionMutation,
     useDeleteTempExamSubmissionMutation,
+    useRecordQuestionStatsMutation,
     getAuthToken,
 } from '@my-monorepo/store';
 import { usePostUserQuizsMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
+import FormattedQuestion from '../_components/FormattedQuestion';
 import {
     computeLocalScore,
     buildLocalReview,
@@ -130,6 +133,16 @@ const Omer: React.FC<ExamPaperProps> = ({
         return userAttempts.some((a: any) => {
             if (!a.isCompleted) return false;
 
+            const attemptScheduleId = String(a.scheduleExam?._id || a.scheduleExam || '');
+
+            // If viewing a scheduled exam, only match attempts for this specific schedule
+            if (scheduleId) {
+                return attemptScheduleId === String(scheduleId);
+            }
+
+            // If viewing a standard mock exam, do not match attempts that belonged to a scheduled exam
+            if (attemptScheduleId) return false;
+
             // Must match exam
             const attemptExamId = String(a.exam?._id || a.exam || '');
             if (attemptExamId !== String(examId)) return false;
@@ -148,7 +161,7 @@ const Omer: React.FC<ExamPaperProps> = ({
 
             return true;
         });
-    }, [userAttempts, examId, versionId, board]);
+    }, [userAttempts, examId, versionId, board, scheduleId]);
 
     // Exam info & questions queries
     const { data: exams } = useGetExamsQuery();
@@ -158,11 +171,18 @@ const Omer: React.FC<ExamPaperProps> = ({
     const { data: scheduleExams } = useGetScheduleExamsByExamQuery(examId, {
         skip: !examId,
     });
-    const { data: questionsData, isLoading: questionsLoading } =
+    const { data: scheduleQuestionsData, isLoading: scheduleQuestionsLoading } =
+        useGetScheduleExamQuestionsQuery(scheduleId, {
+            skip: !scheduleId,
+        });
+    const { data: standardQuestionsData, isLoading: standardQuestionsLoading } =
         useGetQuestionsByExamQuery(
             { examId, versionId: versionId || undefined, board: board || undefined },
-            { skip: !examId }
+            { skip: !examId || Boolean(scheduleId) }
         );
+
+    const questionsData = scheduleId && scheduleQuestionsData ? scheduleQuestionsData : standardQuestionsData;
+    const questionsLoading = scheduleId ? scheduleQuestionsLoading : standardQuestionsLoading;
 
     // Mutations
     const [startAttempt, { isLoading: isStarting }] = useStartAttemptMutation();
@@ -172,11 +192,18 @@ const Omer: React.FC<ExamPaperProps> = ({
         useCompleteAttemptMutation();
     const [postUserQuizs] = usePostUserQuizsMutation();
     const { data: tempSubmission } = useGetTempExamSubmissionQuery(
-        { userId, examId, versionId: versionId || undefined, board: board || undefined },
+        {
+            userId,
+            examId,
+            versionId: versionId || undefined,
+            scheduleExamId: scheduleId || undefined,
+            board: board || undefined,
+        },
         { skip: !userId || !examId }
     );
     const [saveTempExamSubmission] = useSaveTempExamSubmissionMutation();
     const [deleteTempExamSubmission] = useDeleteTempExamSubmissionMutation();
+    const [recordQuestionStats] = useRecordQuestionStatsMutation();
 
     const attemptIdRef = useRef<string | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -293,7 +320,12 @@ const Omer: React.FC<ExamPaperProps> = ({
     // Fetch the active attempt to restore saved answers (answers are saved
     // separately via saveAnswer, so startAttempt's response has empty questions)
     const { data: activeAttempt } = useGetActiveAttemptQuery(
-        { userId, examId: examId || undefined },
+        {
+            userId,
+            examId: examId || undefined,
+            scheduleExamId: scheduleId || undefined,
+            versionId: versionId || undefined,
+        },
         { skip: !userId || !examId || !attemptIdRef.current || isSubmitted }
     );
 
@@ -331,12 +363,12 @@ const Omer: React.FC<ExamPaperProps> = ({
 
     // ─── Redirect when exam is already completed ───
     useEffect(() => {
-        if (attemptsLoading) return;
+        if (isSubmitted || isSubmitting || submitInFlightRef.current || attemptsLoading) return;
 
         if (hasCompletedAttempt) {
             navigate('/mock-exam', { replace: true });
         }
-    }, [hasCompletedAttempt, attemptsLoading, navigate]);
+    }, [hasCompletedAttempt, attemptsLoading, navigate, isSubmitted, isSubmitting]);
 
     // ─── Start Attempt ───
     useEffect(() => {
@@ -563,10 +595,22 @@ const Omer: React.FC<ExamPaperProps> = ({
                         });
                 }
 
+                // Record question statistics (fire-and-forget)
+                if (qItem.id) {
+                    const isCorr = oIndex === qItem.correctIndex;
+                    recordQuestionStats({
+                        questionId: String(qItem.id),
+                        isCorrect: isCorr,
+                        selectedOption: qItem.optionKeys?.[oIndex] ?? String(oIndex),
+                    }).catch((err) => {
+                        console.warn('Failed to record question stat in OMR:', err);
+                    });
+                }
+
                 return updated;
             });
         },
-        [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, postUserQuizs, selectedAnswers, persistTempProgress, examId, versionId]
+        [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, postUserQuizs, recordQuestionStats, selectedAnswers, persistTempProgress, examId, versionId]
     );
 
     // ─── Handle Submit ───
@@ -591,10 +635,11 @@ const Omer: React.FC<ExamPaperProps> = ({
             const localCorrect = computeLocalScore(allQuestions, selectedAnswers);
             setIsSubmitted(true);
 
-            // Clear saved paper-type selection and timer so the picker shows again next time
+            // Clear saved paper-type selection, timer, and violations so state is clean next time
             try {
                 localStorage.removeItem('selectedPaperType');
                 localStorage.removeItem(timerStorageKey);
+                localStorage.removeItem(violationStorageKey);
             } catch { /* ignore */ }
 
             const timeTaken = Math.max(1, durationSeconds - timeLeft);
@@ -643,6 +688,7 @@ const Omer: React.FC<ExamPaperProps> = ({
                         userId,
                         examId,
                         versionId: versionId || undefined,
+                        scheduleExamId: scheduleId || undefined,
                         board: board || undefined,
                     }).unwrap().catch((err) => {
                         console.warn('Failed to delete temp exam submission:', err);
@@ -753,8 +799,11 @@ const Omer: React.FC<ExamPaperProps> = ({
         return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
+    const violationStorageKey = `examViolations:${examId}:${versionId}:${scheduleId}`;
+
     const violations = useExamSecurity({
         isSubmitted,
+        storageKey: violationStorageKey,
         onViolationLimitReached: () => handleSubmit(true),
     });
 
@@ -812,36 +861,22 @@ const Omer: React.FC<ExamPaperProps> = ({
 
         Swal.fire({
             title: 'Leave Exam?',
-            text: 'Your progress is saved. You can continue this exam while the scheduled exam is still ongoing.',
-            icon: 'question',
+            text: 'Leaving will submit your current answers and finish the exam.',
+            icon: 'warning',
             showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#2F80ED',
-            denyButtonColor: '#9B51E0',
+            confirmButtonColor: '#9B51E0',
             cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Leave & continue later',
-            denyButtonText: 'Submit & finish now',
+            confirmButtonText: 'Submit & finish now',
             cancelButtonText: 'Stay in exam',
         }).then((result) => {
             if (result.isConfirmed) {
-                try {
-                    localStorage.setItem(
-                        timerStorageKey,
-                        JSON.stringify({
-                            savedAt: Date.now(),
-                            timeLeft,
-                        })
-                    );
-                } catch { /* ignore */ }
-                blocker.proceed?.();
-            } else if (result.isDenied) {
                 blocker.reset();
                 handleSubmit(false);
             } else {
                 blocker.reset();
             }
         });
-    }, [blocker, handleSubmit, timerStorageKey, timeLeft]);
+    }, [blocker, handleSubmit]);
 
     // Loading & empty states
     if (attemptsLoading || questionsLoading || isStarting) {
@@ -990,10 +1025,10 @@ const Omer: React.FC<ExamPaperProps> = ({
                                                 {String(displayQNum).padStart(2, '0')}
                                             </span>
 
-                                            <div>
-                                                <p className="text-gray-200 text-[16px] leading-relaxed font-medium">
-                                                    {q.question}
-                                                </p>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-gray-200 text-[16px] leading-relaxed font-medium">
+                                                    <FormattedQuestion text={q.question} />
+                                                </div>
 
                                                 <div className="flex-1 min-w-0">
                                                     {q.scenarioText && (

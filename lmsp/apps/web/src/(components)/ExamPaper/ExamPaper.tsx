@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import {
   useGetExamsQuery,
   useGetQuestionsByExamQuery,
+  useGetScheduleExamQuestionsQuery,
   useGetExamVersionsByExamQuery,
   useGetScheduleExamsByExamQuery,
   useAppSelector,
@@ -18,6 +19,7 @@ import {
   useGetTempExamSubmissionQuery,
   useSaveTempExamSubmissionMutation,
   useDeleteTempExamSubmissionMutation,
+  useRecordQuestionStatsMutation,
   getAuthToken,
 } from "@my-monorepo/store";
 import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
@@ -73,6 +75,16 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     return userAttempts.some((a: any) => {
       if (!a.isCompleted) return false;
 
+      const attemptScheduleId = String(a.scheduleExam?._id || a.scheduleExam || '');
+
+      // If viewing a scheduled exam, only match attempts for this specific schedule
+      if (scheduleId) {
+        return attemptScheduleId === String(scheduleId);
+      }
+
+      // If viewing a standard mock exam, do not match attempts that belonged to a scheduled exam
+      if (attemptScheduleId) return false;
+
       // Must match exam
       const attemptExamId = String(a.exam?._id || a.exam || '');
       if (attemptExamId !== String(examId)) return false;
@@ -91,7 +103,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
       return true;
     });
-  }, [userAttempts, examId, versionId, board]);
+  }, [userAttempts, examId, versionId, board, scheduleId]);
 
   const { data: exams } = useGetExamsQuery();
   const { data: examVersions } = useGetExamVersionsByExamQuery(examId, {
@@ -100,11 +112,18 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const { data: scheduleExams } = useGetScheduleExamsByExamQuery(examId, {
     skip: !examId,
   });
-  const { data: questionsData, isLoading: questionsLoading } =
+  const { data: scheduleQuestionsData, isLoading: scheduleQuestionsLoading } =
+    useGetScheduleExamQuestionsQuery(scheduleId, {
+      skip: !scheduleId,
+    });
+  const { data: standardQuestionsData, isLoading: standardQuestionsLoading } =
     useGetQuestionsByExamQuery(
       { examId, versionId: versionId || undefined, board: board || undefined },
-      { skip: !examId }
+      { skip: !examId || Boolean(scheduleId) }
     );
+
+  const questionsData = scheduleId && scheduleQuestionsData ? scheduleQuestionsData : standardQuestionsData;
+  const questionsLoading = scheduleId ? scheduleQuestionsLoading : standardQuestionsLoading;
 
   const [startAttempt, { isLoading: isStarting }] = useStartAttemptMutation();
   const [saveAnswer] = useSaveAnswerMutation();
@@ -113,11 +132,18 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     useCompleteAttemptMutation();
   const [postUserQuizs] = usePostUserQuizsMutation();
   const { data: tempSubmission } = useGetTempExamSubmissionQuery(
-    { userId, examId, versionId: versionId || undefined, board: board || undefined },
+    {
+      userId,
+      examId,
+      versionId: versionId || undefined,
+      scheduleExamId: scheduleId || undefined,
+      board: board || undefined,
+    },
     { skip: !userId || !examId }
   );
   const [saveTempExamSubmission] = useSaveTempExamSubmissionMutation();
   const [deleteTempExamSubmission] = useDeleteTempExamSubmissionMutation();
+  const [recordQuestionStats] = useRecordQuestionStatsMutation();
 
   const attemptIdRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -228,7 +254,12 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   // Fetch the active attempt to restore saved answers (answers are saved
   // separately via saveAnswer, so startAttempt's response has empty questions)
   const { data: activeAttempt } = useGetActiveAttemptQuery(
-    { userId, examId: examId || undefined },
+    {
+      userId,
+      examId: examId || undefined,
+      scheduleExamId: scheduleId || undefined,
+      versionId: versionId || undefined,
+    },
     { skip: !userId || !examId || !attemptIdRef.current || isSubmitted }
   );
 
@@ -268,12 +299,12 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
   // ─── Redirect when exam is already completed ───
   useEffect(() => {
-    if (attemptsLoading) return;
+    if (isSubmitted || isSubmitting || submitInFlightRef.current || attemptsLoading) return;
 
     if (hasCompletedAttempt) {
       navigate('/mock-exam', { replace: true });
     }
-  }, [hasCompletedAttempt, attemptsLoading, navigate]);
+  }, [hasCompletedAttempt, attemptsLoading, navigate, isSubmitted, isSubmitting]);
 
   // ─── Start attempt when exam loads ───
   useEffect(() => {
@@ -440,8 +471,8 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           saveTempExamSubmission({
             userId,
             examId,
-            examVersion: versionId || undefined,
-            scheduleExam: scheduleId || undefined,
+            examVersionId: versionId || undefined,
+            scheduleExamId: scheduleId || undefined,
             board: board || undefined,
             attemptId: attemptIdRef.current || undefined,
             selectedAnswers: updated,
@@ -469,10 +500,22 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
             });
         }
 
+        // Record question statistics (fire-and-forget)
+        if (qItem.id) {
+          const isCorr = oIndex === qItem.correctIndex;
+          recordQuestionStats({
+            questionId: String(qItem.id),
+            isCorrect: isCorr,
+            selectedOption: qItem.optionKeys?.[oIndex] ?? String(oIndex),
+          }).catch((err) => {
+            console.warn("Failed to record question stat:", err);
+          });
+        }
+
         return updated;
       });
     },
-    [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, saveTempExamSubmission, postUserQuizs, examId, versionId, scheduleId, board, timeLeft]
+    [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, saveTempExamSubmission, postUserQuizs, recordQuestionStats, examId, versionId, scheduleId, board, timeLeft]
   );
 
   const handleSubmit = useCallback(
@@ -497,10 +540,11 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       const localCorrect = computeLocalScore(allQuestions, selectedAnswers);
       setIsSubmitted(true);
 
-      // Clear saved paper-type selection and timer so the picker shows again next time
+      // Clear saved paper-type selection, timer, and violations so state is clean next time
       try {
         localStorage.removeItem('selectedPaperType');
         localStorage.removeItem(timerStorageKey);
+        localStorage.removeItem(violationStorageKey);
       } catch { /* ignore */ }
 
       const timeTaken = Math.max(1, durationSeconds - timeLeft);
@@ -549,6 +593,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
             userId,
             examId,
             versionId: versionId || undefined,
+            scheduleExamId: scheduleId || undefined,
             board: board || undefined,
           }).unwrap().catch((err) => {
             console.warn("Failed to delete temp exam submission:", err);
@@ -608,10 +653,13 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [timeLeft, isSubmitted, totalQuestions, handleSubmit]);
 
-  const violations = useExamSecurity({
-    isSubmitted,
-    onViolationLimitReached: () => handleSubmit(true),
-  });
+  const violationStorageKey = `examViolations:${examId}:${versionId}:${scheduleId}`;
+
+  // const violations = useExamSecurity({
+  //   isSubmitted,
+  //   storageKey: violationStorageKey,
+  //   onViolationLimitReached: () => handleSubmit(true),
+  // });
 
 
 
@@ -669,36 +717,22 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
     Swal.fire({
       title: 'Leave Exam?',
-      text: 'Your progress is saved. You can continue this exam while the scheduled exam is still ongoing.',
-      icon: 'question',
+      text: 'Leaving will submit your current answers and finish the exam.',
+      icon: 'warning',
       showCancelButton: true,
-      showDenyButton: true,
-      confirmButtonColor: '#2F80ED',
-      denyButtonColor: '#9B51E0',
+      confirmButtonColor: '#9B51E0',
       cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Leave & continue later',
-      denyButtonText: 'Submit & finish now',
+      confirmButtonText: 'Submit & finish now',
       cancelButtonText: 'Stay in exam',
     }).then((result) => {
       if (result.isConfirmed) {
-        try {
-          localStorage.setItem(
-            timerStorageKey,
-            JSON.stringify({
-              savedAt: Date.now(),
-              timeLeft,
-            })
-          );
-        } catch { /* ignore */ }
-        blocker.proceed?.();
-      } else if (result.isDenied) {
         blocker.reset();
         handleSubmit(false);
       } else {
         blocker.reset();
       }
     });
-  }, [blocker, handleSubmit, timerStorageKey, timeLeft]);
+  }, [blocker, handleSubmit]);
 
   // Show loading while checking if exam is already attempted
   if (attemptsLoading || questionsLoading || isStarting) {
@@ -720,7 +754,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] pb-12 relative">
+    <div className="min-h-screen bg-[#0B0D12] w-full text-[#F5F7FA] pb-12 relative">
       {/* Submitting Overlay */}
       {(isSubmitting || isCompleting) && (
         <div className="fixed inset-0 z-50 bg-[#0B0D12]/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
@@ -749,7 +783,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       />
 
       {/* ────── QUESTIONS ────── */}
-      <main className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 mt-6 sm:mt-8 space-y-4 sm:space-y-6 pb-16">
+      <main className="w-full mx-auto px-3 sm:px-4 md:px-6 mt-6 sm:mt-8 space-y-4 sm:space-y-6 pb-16">
         {allQuestions.map((q, index) => (
           <QuestionCard
             key={q.questionNumber ?? index}

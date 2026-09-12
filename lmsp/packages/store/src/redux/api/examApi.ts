@@ -88,6 +88,12 @@ const examApi = api.injectEndpoints({
                 }
                 return { url };
             },
+            providesTags: ['Question'],
+        }),
+
+        getScheduleExamQuestions: builder.query<any[], string>({
+            query: (scheduleId) => ({ url: `/schedule-exams/${scheduleId}/questions` }),
+            providesTags: (_result, _error, id) => [{ type: 'ScheduleExam', id }],
         }),
     }),
 });
@@ -101,5 +107,6 @@ export const { useGetExamsQuery,
      useGetSubjectsByExamQuery,
      useGetImportentTopicsQuery,
      useGetExamVersionsByExamQuery,
-     useGetQuestionsByExamQuery } = examApi;
+     useGetQuestionsByExamQuery,
+     useGetScheduleExamQuestionsQuery } = examApi;
 export default examApi;

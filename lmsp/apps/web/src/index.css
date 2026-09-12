@@ -28,9 +28,7 @@
     color: var(--text-primary);
     min-height: 100vh;
     min-height: 100dvh;
-      -webkit-user-select: none; /* Safari */
-  -ms-user-select: none; /* Internet Explorer/Edge */
-  user-select: none; /* Standard */
+
     margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -149,12 +147,15 @@ html {
   #certificate-print-area,
   #certificate-print-area *,
   #omr-print-area,
-  #omr-print-area * {
+  #omr-print-area *,
+  #privacy-policy-root,
+  #privacy-policy-root * {
     visibility: visible;
   }
 
   #certificate-print-area,
-  #omr-print-area {
+  #omr-print-area,
+  #privacy-policy-root {
     position: absolute;
     left: 0;
     top: 0;

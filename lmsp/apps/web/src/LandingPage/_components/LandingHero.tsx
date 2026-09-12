@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { gradientBtn } from "../landingTools/landingTools";
+import EarthCanvas from "../../threejs/EarthCanvas";
 
 const LandingHero = () => {
   return (
@@ -14,25 +15,17 @@ const LandingHero = () => {
       "
     >
       {/* =========================================
-          HERO BACKGROUND
+          HERO BACKGROUND (THREE.JS 3D EARTH)
       ========================================== */}
 
       <div className="absolute inset-0">
-        <img
-          src="/landingpage_assets/hero.png"
-          alt="Geneseon AI-powered learning platform – exam preparation, mock tests and personalized performance reports"
-          className="
-            absolute inset-0
-            w-full h-full
-            object-cover
-            object-center
-          "
-        />
+        <EarthCanvas />
 
-        {/* Dark overlay */}
+        {/* Dark overlay for left content readability */}
         <div
           className="
           absolute inset-0
+          pointer-events-none
           bg-gradient-to-r
           from-[#020409]
           via-[#020409]/75

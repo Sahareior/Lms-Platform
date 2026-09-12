@@ -22,7 +22,7 @@ interface AuthLayoutProps {
 
 const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, isLogin }) => {
   return (
-    <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center p-4 font-sans">
+    <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center md:p-4 p-0 font-sans">
       <div className="w-full max-w-5xl bg-[#111318] rounded-3xl border border-[#23262D] overflow-hidden flex flex-col lg:flex-row shadow-2xl shadow-black/20">
         
         {/* Left: Form Section */}
@@ -379,9 +379,9 @@ export const SignUp: React.FC = () => {
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="#" className="font-bold text-[#F5F7FA] hover:text-[#00E5B3] transition-colors">
+            <Link to="/privacy-policy" className="font-bold text-[#F5F7FA] hover:text-[#00E5B3] transition-colors">
               Privacy Policy
-            </a>
+            </Link>
           </p>
         </div>
 

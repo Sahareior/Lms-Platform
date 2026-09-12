@@ -179,14 +179,19 @@ const quizAttemptApi = api.injectEndpoints({
     }),
 
     // ── Get active attempt ───────────────────────────────────
-    getActiveAttempt: build.query<Attempt | null, { userId: string; examId?: string }>({
-      query: ({ userId, examId }) => {
+    getActiveAttempt: build.query<
+      Attempt | null,
+      { userId: string; examId?: string; scheduleExamId?: string; versionId?: string }
+    >({
+      query: ({ userId, examId, scheduleExamId, versionId }) => {
         let url = `/quiz-attempts/active?userId=${userId}`;
         if (examId) url += `&examId=${examId}`;
+        if (scheduleExamId) url += `&scheduleExamId=${scheduleExamId}`;
+        if (versionId) url += `&versionId=${versionId}`;
         return { url };
       },
-      providesTags: (_result, _error, { examId }) => [
-        { type: 'QuizAttempt', id: examId || 'ACTIVE' },
+      providesTags: (_result, _error, { examId, scheduleExamId }) => [
+        { type: 'QuizAttempt', id: scheduleExamId || examId || 'ACTIVE' },
       ],
     }),
 

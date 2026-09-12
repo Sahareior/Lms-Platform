@@ -1,12 +1,27 @@
 import QuizAttempt from "../models/QuizAttempt.js";
 import QuestionModel from "../models/QuestionModel.js";
 import ScheduleExam from "../models/ScheduleExamModel.js";
+import QuestionStat, { calculateDifficulty, formatAvgTime } from "../models/QuestionStat.js";
 import { invalidatePrefix } from "../middleware/cache.js";
 
 // ─── Helper: look up a single question from the QuestionModel data[] array ──
 // QuestionModel stores questions in a `data` subdocument array. Each element
 // has question_number, question_text, options, correct_answer, etc.
-async function findQuestionFromBank(examId, versionId, subjectId, questionNumber, board) {
+async function findQuestionFromBank(examId, versionId, subjectId, questionNumber, board, scheduleExamId) {
+  if (scheduleExamId) {
+    const sExam = await ScheduleExam.findById(scheduleExamId);
+    if (sExam?.isLevelingRandom && sExam.generatedQuestions?.length > 0) {
+      const q = sExam.generatedQuestions.find((d) => Number(d.question_number) === Number(questionNumber));
+      if (q) {
+        return {
+          correctAnswer: q.correct_answer || null,
+          questionText: q.question_text || "",
+          questionOptions: q.options instanceof Map ? Object.fromEntries(q.options) : (q.options || {}),
+        };
+      }
+    }
+  }
+
   if (!examId && !versionId) return null;
 
   const filter = {};
@@ -74,11 +89,7 @@ export const startAttempt = async (req, res) => {
 
     let scheduleExam;
     if (scheduleExamId) {
-      scheduleExam = await ScheduleExam.findOne({
-        _id: scheduleExamId,
-        ...(examId ? { exam: examId } : {}),
-        ...(examVersionId ? { examVersion: examVersionId } : {}),
-      }).select("duration");
+      scheduleExam = await ScheduleExam.findById(scheduleExamId).select("duration exam isLevelingRandom");
       if (!scheduleExam) {
         return res.status(400).json({ message: "Invalid scheduled exam." });
       }
@@ -95,15 +106,17 @@ export const startAttempt = async (req, res) => {
       };
       if (scheduleExamId) {
         guardFilter.scheduleExam = scheduleExamId;
-      }
-      if (examVersionId) {
-        guardFilter.examVersion = examVersionId;
-      }
-      if (board && board !== 'undefined' && board !== 'null') {
-        guardFilter.board = board;
-      }
-      if (subjectId) {
-        guardFilter.subject = subjectId;
+      } else {
+        guardFilter.scheduleExam = { $in: [null, undefined] };
+        if (examVersionId) {
+          guardFilter.examVersion = examVersionId;
+        }
+        if (board && board !== 'undefined' && board !== 'null') {
+          guardFilter.board = board;
+        }
+        if (subjectId) {
+          guardFilter.subject = subjectId;
+        }
       }
 
       const existingCompleted = await QuizAttempt.findOne(guardFilter);
@@ -122,8 +135,14 @@ export const startAttempt = async (req, res) => {
       isCompleted: false,
       ...(examId ? { exam: examId } : {}),
     };
-    if (scheduleExamId) activeFilter.scheduleExam = scheduleExamId;
-    if (examVersionId) activeFilter.examVersion = examVersionId;
+    if (scheduleExamId) {
+      activeFilter.scheduleExam = scheduleExamId;
+    } else {
+      activeFilter.scheduleExam = { $in: [null, undefined] };
+      if (examVersionId) activeFilter.examVersion = examVersionId;
+      if (board && board !== 'undefined' && board !== 'null') activeFilter.board = board;
+      if (subjectId) activeFilter.subject = subjectId;
+    }
     if (board && board !== 'undefined' && board !== 'null') activeFilter.board = board;
     if (subjectId) activeFilter.subject = subjectId;
 
@@ -202,7 +221,7 @@ export const saveAnswer = async (req, res) => {
     let questionOptions = {};
 
     const bankQ = await findQuestionFromBank(
-      attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board
+      attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board, attempt.scheduleExam
     );
     if (bankQ) {
       correctAnswer = bankQ.correctAnswer;
@@ -329,7 +348,7 @@ export const batchSaveAnswers = async (req, res) => {
       let questionOptions = {};
 
       const bankQ = await findQuestionFromBank(
-        attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board
+        attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board, attempt.scheduleExam
       );
       if (bankQ) {
         correctAnswer = bankQ.correctAnswer;
@@ -496,9 +515,44 @@ export const completeAttempt = async (req, res) => {
 
     await invalidatePrefix('cache:quiz-attempt');
 
-    // Performance data is now computed from QuizAttempt on-the-fly by
-    // getQuizOverview. The old UserData mockExam/questionPreatise dual-write
-    // has been removed to prevent sync issues.
+    // Update global question stats in background
+    (async () => {
+      try {
+        for (const q of attempt.questions) {
+          if (!q.selectedOption || q.isCorrect === null || q.isCorrect === undefined) continue;
+          const qNumber = q.questionNumber;
+          // Look up question by questionNumber or exam+questionNumber
+          const qId = `${attempt.exam || ''}_${attempt.examVersion || ''}_${qNumber}`;
+          let stat = await QuestionStat.findOne({ questionId: qId });
+          if (!stat) {
+            stat = new QuestionStat({
+              questionId: qId,
+              totalAttempts: 0,
+              correctCount: 0,
+              incorrectCount: 0,
+              totalTimeSpent: 0,
+              optionCounts: {},
+            });
+          }
+          stat.totalAttempts += 1;
+          if (q.isCorrect) stat.correctCount += 1;
+          else stat.incorrectCount += 1;
+          stat.totalTimeSpent += (q.timeTaken || 0);
+          stat.lastAttemptedAt = new Date();
+          if (q.selectedOption) {
+            const optKey = String(q.selectedOption);
+            const cur = stat.optionCounts.get(optKey) || 0;
+            stat.optionCounts.set(optKey, cur + 1);
+          }
+          stat.accuracyPercentage = Math.round((stat.correctCount / stat.totalAttempts) * 100);
+          stat.difficulty = calculateDifficulty(stat.correctCount, stat.totalAttempts);
+          stat.averageTime = formatAvgTime(stat.totalTimeSpent, stat.totalAttempts);
+          await stat.save();
+        }
+      } catch (err) {
+        console.warn('Background QuestionStat update warning:', err.message);
+      }
+    })();
 
     res.status(200).json({
       message: "Attempt completed",
@@ -530,14 +584,22 @@ export const completeAttempt = async (req, res) => {
 // ─── GET active attempt for a user ──────────────────────────
 export const getActiveAttempt = async (req, res) => {
   try {
-    const { userId, examId } = req.query;
+    const { userId, examId, scheduleExamId, versionId } = req.query;
 
     if (!userId) {
       return res.status(400).json({ message: "userId is required" });
     }
 
-    const filter = { user: userId, isActive: true };
+    const filter = { user: userId, isActive: true, isCompleted: false };
     if (examId) filter.exam = examId;
+    if (scheduleExamId) {
+      filter.scheduleExam = scheduleExamId;
+    } else {
+      filter.scheduleExam = { $in: [null, undefined] };
+    }
+    if (versionId) {
+      filter.examVersion = versionId;
+    }
 
     const attempt = await QuizAttempt.findOne(filter)
       .populate("exam", "name")
@@ -1025,7 +1087,7 @@ export const forceSubmit = async (req, res) => {
 
         // Look up correct answer from the question bank
         const bankData = await findQuestionFromBank(
-          attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board
+          attempt.exam, attempt.examVersion, attempt.subject, questionNumber, attempt.board, attempt.scheduleExam
         );
         const correctAnswer = bankData?.correctAnswer || null;
         const isCorrect = selectedOption && correctAnswer

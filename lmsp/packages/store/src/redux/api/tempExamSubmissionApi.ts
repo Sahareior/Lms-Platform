@@ -56,6 +56,7 @@ export interface DeleteTempExamSubmissionRequest {
   userId: string;
   examId: string;
   versionId?: string;
+  scheduleExamId?: string;
   board?: string;
 }
 
@@ -65,16 +66,17 @@ const tempExamSubmissionApi = api.injectEndpoints({
     // ── Get temporary exam submission ────────────────────────
     getTempExamSubmission: build.query<
       TempExamSubmission | null,
-      { userId: string; examId: string; versionId?: string; board?: string }
+      { userId: string; examId: string; versionId?: string; scheduleExamId?: string; board?: string }
     >({
-      query: ({ userId, examId, versionId, board }) => {
+      query: ({ userId, examId, versionId, scheduleExamId, board }) => {
         let url = `/temp-exam-submission?userId=${userId}&examId=${examId}`;
         if (versionId) url += `&versionId=${versionId}`;
+        if (scheduleExamId) url += `&scheduleExamId=${scheduleExamId}`;
         if (board) url += `&board=${board}`;
         return { url };
       },
-      providesTags: (_result, _error, { examId }) => [
-        { type: 'TempExamSubmission', id: examId },
+      providesTags: (_result, _error, { examId, scheduleExamId }) => [
+        { type: 'TempExamSubmission', id: scheduleExamId || examId },
       ],
     }),
 
@@ -88,8 +90,8 @@ const tempExamSubmissionApi = api.injectEndpoints({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: (_result, _error, { examId }) => [
-        { type: 'TempExamSubmission', id: examId },
+      invalidatesTags: (_result, _error, { examId, scheduleExamId }) => [
+        { type: 'TempExamSubmission', id: scheduleExamId || examId },
       ],
     }),
 
@@ -104,14 +106,15 @@ const tempExamSubmissionApi = api.injectEndpoints({
           examId: data.examId,
         });
         if (data.versionId) params.set('versionId', data.versionId);
+        if (data.scheduleExamId) params.set('scheduleExamId', data.scheduleExamId);
         if (data.board) params.set('board', data.board);
         return {
           url: `/temp-exam-submission?${params.toString()}`,
           method: 'DELETE',
         };
       },
-      invalidatesTags: (_result, _error, { examId }) => [
-        { type: 'TempExamSubmission', id: examId },
+      invalidatesTags: (_result, _error, { examId, scheduleExamId }) => [
+        { type: 'TempExamSubmission', id: scheduleExamId || examId },
       ],
     }),
   }),

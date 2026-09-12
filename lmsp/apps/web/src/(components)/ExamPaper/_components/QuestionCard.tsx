@@ -2,6 +2,7 @@ import React from "react";
 import { CheckCircle, X, BarChart3 } from "lucide-react";
 import { getBengaliLetter } from "./quizTypes";
 import type { QuestionItem } from "./quizTypes";
+import FormattedQuestion from "./FormattedQuestion";
 
 interface QuestionCardProps {
   index: number;
@@ -70,7 +71,7 @@ const QuestionCard = React.memo(function QuestionCard({
         )}
         {showCorrect && (
           <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+            className={`text-[15px] font-bold px-2 py-0.5 rounded border ${
               isCorrect
                 ? "text-[#00E5B3] bg-[#00E5B3]/10 border-[#00E5B3]/30"
                 : "text-[#EB5757] bg-[#EB5757]/10 border-[#EB5757]/30"
@@ -81,9 +82,9 @@ const QuestionCard = React.memo(function QuestionCard({
         )}
       </div>
 
-      <h3 className="text-base font-medium leading-relaxed text-[#F5F7FA] mb-6">
-        {q.question}
-      </h3>
+      <div className="text-[19px] font-medium leading-relaxed text-[#F5F7FA] mb-6">
+        <FormattedQuestion text={q.question} />
+      </div>
 
       {/* Scenario / passage text */}
       {q.scenarioText && (

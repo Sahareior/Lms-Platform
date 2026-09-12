@@ -188,7 +188,8 @@ export {
   useRemoveExamMutation,
   useGetSubjectsByExamQuery,
   useGetExamVersionsByExamQuery,
-  useGetQuestionsByExamQuery
+  useGetQuestionsByExamQuery,
+  useGetScheduleExamQuestionsQuery,
 } from './redux/api/examApi';
 export type {
   courseResponse,
@@ -305,8 +306,38 @@ export {
   useGetFeaturedScheduleExamQuery,
   useSetFeaturedScheduleExamMutation,
 
+  useUpdateAdminQuestionExplanationMutation,
   useGetAllQuizAttemptsQuery,
 } from './redux/api/adminApi';
+
+// ─── RTK Query Favorite API ─────────────────────────────────
+export {
+  useToggleFavoriteMutation,
+  useGetMyFavoritesQuery,
+  useGetFavoriteQuestionIdsQuery,
+} from './redux/api/favoriteApi';
+export type {
+  FavoriteItem,
+  FavoriteQuestionSnapshot,
+  ToggleFavoriteRequest,
+  ToggleFavoriteResponse,
+  GetFavoritesResponse,
+  GetFavoriteIdsResponse,
+} from './redux/api/favoriteApi';
+
+// ─── RTK Query Stats API ────────────────────────────────────
+export {
+  useRecordQuestionStatsMutation,
+  useGetQuestionStatsQuery,
+  useGetBatchQuestionStatsMutation,
+} from './redux/api/statsApi';
+export type {
+  QuestionStatItem,
+  RecordStatPayloadItem,
+  RecordStatsRequest,
+  RecordStatsResponse,
+  BatchStatsResponse,
+} from './redux/api/statsApi';
 export type {
   AdminUser,
   AdminCourse,

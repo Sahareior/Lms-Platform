@@ -75,6 +75,7 @@ export interface AdminQuestion {
     image_url?: string;
     options: Record<string, string>;
     correct_answer?: string;
+    explanation?: string;
   }>;
 }
 
@@ -171,7 +172,7 @@ export interface UpdateSubjectRequest {
 export interface ScheduleExam {
   _id: string;
   exam: { _id: string; name: string; image?: string } | string;
-  examVersion: { _id: string; examVersion: string } | string;
+  examVersion?: { _id: string; examVersion: string } | string | null;
   board?: BangladeshBoard;
   title: string;
   description?: string;
@@ -181,13 +182,15 @@ export interface ScheduleExam {
   totalQuestions: number;
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
   isFeatured?: boolean;
+  isLevelingRandom?: boolean;
+  generatedQuestions?: any[];
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface CreateScheduleExamRequest {
   exam: string;
-  examVersion: string;
+  examVersion?: string;
   board?: BangladeshBoard;
   title: string;
   description?: string;
@@ -195,6 +198,7 @@ export interface CreateScheduleExamRequest {
   endDate: string;
   duration?: number;
   totalQuestions?: number;
+  isLevelingRandom?: boolean;
 }
 
 export interface UpdateScheduleExamRequest {
@@ -208,6 +212,7 @@ export interface UpdateScheduleExamRequest {
   duration?: number;
   totalQuestions?: number;
   status?: 'upcoming' | 'active' | 'completed' | 'cancelled';
+  isLevelingRandom?: boolean;
 }
 
 // ─── Quiz Attempt Types (for admin performance) ─────────────
@@ -634,8 +639,16 @@ const adminApi = api.injectEndpoints({
     }),
 
     // ── Question Bank Management ────────────────────────────
-    getAdminQuestions: build.query<AdminQuestion[], void>({
-      query: () => ({ url: '/questions' }),
+    getAdminQuestions: build.query<AdminQuestion[], { exam?: string; examVersion?: string; subject?: string; board?: string } | void>({
+      query: (params) => {
+        const queryParams = new URLSearchParams();
+        if (params?.exam) queryParams.set('exam', params.exam);
+        if (params?.examVersion) queryParams.set('examVersion', params.examVersion);
+        if (params?.subject) queryParams.set('subject', params.subject);
+        if (params?.board) queryParams.set('board', params.board);
+        const qs = queryParams.toString();
+        return { url: qs ? `/questions?${qs}` : '/questions' };
+      },
       providesTags: ['Question'],
     }),
 
@@ -658,12 +671,24 @@ const adminApi = api.injectEndpoints({
 
     updateAdminSingleQuestion: build.mutation<
       AdminQuestion,
-      { questionId: string; questionNumber: number; data: { question_text?: string; scenario_text?: string; image_url?: string; options?: Record<string, string>; correct_answer?: string } }
+      { questionId: string; questionNumber: number; data: { question_text?: string; scenario_text?: string; image_url?: string; options?: Record<string, string>; correct_answer?: string; explanation?: string } }
     >({
       query: ({ questionId, questionNumber, data }) => ({
         url: `/questions/${questionId}/question/${questionNumber}`,
         method: 'PUT',
         body: data,
+      }),
+      invalidatesTags: ['Question'],
+    }),
+
+    updateAdminQuestionExplanation: build.mutation<
+      { success: boolean; message: string; explanation: string },
+      { questionId: string; questionNumber: number; explanation: string }
+    >({
+      query: ({ questionId, questionNumber, explanation }) => ({
+        url: `/questions/${questionId}/question/${questionNumber}/explanation`,
+        method: 'PUT',
+        body: { explanation },
       }),
       invalidatesTags: ['Question'],
     }),
@@ -725,6 +750,7 @@ export const {
   useUpdateAdminQuestionDocumentMutation,
   useDeleteAdminQuestionDocumentMutation,
   useUpdateAdminSingleQuestionMutation,
+  useUpdateAdminQuestionExplanationMutation,
   useDeleteAdminSingleQuestionMutation,
   useGetAdminQuestionPatternsQuery,
   useGetCourseLessonsQuery,

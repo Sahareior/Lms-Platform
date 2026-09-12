@@ -9,6 +9,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import FormattedQuestion from "../../../../(components)/ExamPaper/_components/FormattedQuestion";
 
 // ─── Types ─────────────────────────────────────────────────────
 interface QuestionReviewItem {
@@ -150,7 +151,7 @@ const ResultPage = () => {
         </span>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 md:px-6 py-8 space-y-8">
+      <main className="max-w-8xl mx-auto px-4 md:px-6 py-8 space-y-8">
         {/* ────── SCORE HERO ────── */}
         <div className="relative overflow-hidden rounded-2xl border border-[#23262D] bg-gradient-to-br from-[#161920] via-[#111318] to-[#0B0D12] p-6 md:p-8">
           <div
@@ -306,7 +307,7 @@ const ResultPage = () => {
                     {/* Header row */}
                     <div className="flex items-center gap-3 mb-4">
                       <span
-                        className={`flex-shrink-0 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center border ${
+                        className={`flex-shrink-0 w-7 h-7 rounded-full text-sm font-bold flex items-center justify-center border ${
                           isCorrect
                             ? "bg-[#00E5B3]/10 text-[#00E5B3] border-[#00E5B3]/30"
                             : answered
@@ -332,9 +333,9 @@ const ResultPage = () => {
                       </span>
                     </div>
 
-                    <h3 className="text-sm font-medium leading-relaxed text-[#F5F7FA] mb-4">
-                      {q.question}
-                    </h3>
+                    <div className="text-xl font-medium leading-relaxed text-[#F5F7FA] mb-4">
+                      <FormattedQuestion text={q.question} />
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {q.options.map((opt, optIndex) => {
@@ -351,7 +352,7 @@ const ResultPage = () => {
                             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${style}`}
                           >
                             <span
-                              className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border ${
+                              className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold border ${
                                 isRight
                                   ? "bg-[#00E5B3] text-black border-[#00E5B3]"
                                   : isSelected
@@ -362,7 +363,7 @@ const ResultPage = () => {
                               {getBengaliLetter(optIndex)}
                             </span>
                             <span
-                              className={`text-[13px] ${
+                              className={`text-[15px] ${
                                 isRight
                                   ? "text-[#00E5B3] font-medium"
                                   : isSelected

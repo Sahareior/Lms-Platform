@@ -7,6 +7,7 @@ import { Login, SignUp, ForgotPassword, ResetPassword } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
 import HomeRedirect from './auth/HomeRedirect';
 import Omer from './(components)/ExamPaper/omr/Omr';
+import PrivacyPolicy from './legal/PrivacyPolicy';
 
 // ─── Lazy page imports (route-level code splitting) ─────────
 // Each page ships in its own chunk, loaded on first visit, so the
@@ -30,6 +31,7 @@ const Exampage = lazy(() => import('./(components)/MainPages/mock_exam/routes/St
 const ResultPage = lazy(() => import('./(components)/MainPages/mock_exam/routes/ResultPage'));
 const QuestionMaster = lazy(() => import('./(components)/MainPages/Question_Master/component/QuestionMaster'));
 const ExamDin = lazy(() => import('./(components)/MainPages/Question_Master/component/ExamDin'));
+const QuestionView = lazy(() => import('./(components)/MainPages/Question_Master/component/QuestionView'));
 const ExamCategorySelection = lazy(() => import('./(components)/MainPages/Question_Master/ExamCategorySelection'));
 const AdminDashboard = lazy(() => import('./AdminDashboard/AdminDashboard'));
 const DashboardOverview = lazy(() => import('./AdminDashboard/pages/DashboardOverview'));
@@ -91,6 +93,10 @@ const router = createBrowserRouter([
       {
         path: 'reset-password',
         element: <ResetPassword />,
+      },
+      {
+        path: 'privacy-policy',
+        element: <PrivacyPolicy />,
       },
 
       // ── Onboarding (auth required, first-time exam selection) ──
@@ -155,6 +161,10 @@ const router = createBrowserRouter([
               {
                 path: 'exam-din',
                 element: <ExamDin />,
+              },
+              {
+                path: 'question-view',
+                element: <QuestionView />,
               },
             ],
           },
