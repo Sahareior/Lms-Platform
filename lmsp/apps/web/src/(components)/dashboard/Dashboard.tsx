@@ -330,28 +330,7 @@ export default function Dashboard() {
   const hour = today.getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
 
-  const handleFeaturedExamStart = () => {
-    const isExpired =
-      featuredExam?.status === "completed" ||
-      featuredExam?.status === "cancelled" ||
-      Boolean(
-        featuredExam?.endDate &&
-        new Date(featuredExam.endDate).getTime() <= Date.now()
-      );
-    if (featuredExam && !isExpired) {
-      const examId =
-        typeof featuredExam.exam === "object" ? featuredExam.exam._id : featuredExam.exam;
-      const versionId =
-        typeof featuredExam.examVersion === "object"
-          ? featuredExam.examVersion._id
-          : featuredExam.examVersion;
-      navigate(
-        `/mock-exam/selected-exam/exam-page?examId=${examId}&versionId=${versionId}`
-      );
-    } else {
-      navigate("/mock-exam");
-    }
-  };
+
 
   return (
     <div className="w-full text-[#F5F7FA] space-y-8 max-w-8xl p-4 mx-auto">
@@ -535,7 +514,7 @@ export default function Dashboard() {
         <FeaturedMockExamCard
           featured={featuredExam}
           isLoading={isFeaturedLoading}
-          onStart={handleFeaturedExamStart}
+          userId={userId}
         />
 
         {/* Right: AI Recommended */}

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import QuestionModel from "../models/QuestionModel.js";
 import QuestionPatternModel from "../models/QuestionPatternModel.js";
 import { invalidatePrefix } from "../middleware/cache.js";
@@ -311,6 +312,7 @@ export const updateSingleQuestion = async (req, res) => {
     if (updates.correct_answer !== undefined) target.correct_answer = updates.correct_answer;
     if (updates.scenario_text !== undefined) target.scenario_text = updates.scenario_text;
     if (updates.image_url !== undefined) target.image_url = updates.image_url;
+    if (updates.explanation !== undefined) target.explanation = updates.explanation;
 
     await doc.save();
 
@@ -321,6 +323,65 @@ export const updateSingleQuestion = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Unable to update question' });
+  }
+};
+
+// ─── UPDATE question explanation directly ─────────────────
+export const updateQuestionExplanation = async (req, res) => {
+  try {
+    const { questionId, questionNumber } = req.params;
+    const { explanation } = req.body;
+
+    if (explanation === undefined) {
+      return res.status(400).json({ message: 'explanation field is required' });
+    }
+
+    let doc = null;
+    if (mongoose.Types.ObjectId.isValid(questionId)) {
+      doc = await QuestionModel.findById(questionId);
+    }
+    if (!doc) {
+      doc = await QuestionModel.findOne({
+        $or: [
+          { 'data._id': questionId },
+          { 'data._id': questionNumber },
+        ]
+      });
+    }
+    if (!doc) {
+      return res.status(404).json({ message: 'Question document not found' });
+    }
+
+    const target = doc.data.find(
+      (q) =>
+        q.question_number === parseInt(questionNumber, 10) ||
+        String(q._id) === String(questionNumber) ||
+        String(q._id) === String(questionId)
+    );
+    if (!target) {
+      return res.status(404).json({ message: 'Question not found in document' });
+    }
+
+    target.explanation = explanation;
+    doc.markModified('data');
+    await doc.save();
+
+    await QuestionModel.updateOne(
+      { _id: doc._id, 'data._id': target._id },
+      { $set: { 'data.$.explanation': explanation } }
+    );
+
+    await invalidatePrefix('cache:question');
+
+    res.status(200).json({
+      success: true,
+      message: 'Question explanation updated successfully',
+      questionNumber: target.question_number,
+      explanation: target.explanation,
+    });
+  } catch (err) {
+    console.error('updateQuestionExplanation error:', err);
+    res.status(500).json({ message: err.message || 'Unable to update question explanation' });
   }
 };
 

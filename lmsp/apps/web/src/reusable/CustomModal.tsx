@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from 'antd';
 import {
   CheckCircle,
@@ -11,11 +11,17 @@ import {
   TrendingUp,
   ThumbsUp,
   MessageSquare,
+  Loader2,
 } from 'lucide-react';
+import { useAiQuestionExplainerMutation } from '@my-monorepo/store/src/redux/api/aiApi';
+import { useUpdateAdminQuestionExplanationMutation } from '@my-monorepo/store';
 
 type ModalType = 'answer' | 'statistics' | 'explanation' | 'bookmark';
 
 interface QuestionData {
+  _id?: string;
+  docId?: string;
+  questionSetId?: string;
   id: number;
   question: string;
   options: string[];
@@ -35,9 +41,13 @@ interface CustomModalProps {
   modalType?: ModalType;
   questionData?: QuestionData;
   letterLabels?: string[];
+  onExplanationSaved?: (questionId: number, explanation: string) => void;
 }
 
 const letters = ['ক', 'খ', 'গ', 'ঘ'];
+
+// In-memory cache across modal open/close cycles in the current browser session
+const sessionExplanationCache: Record<string | number, string> = {};
 
 const CustomModal: React.FC<CustomModalProps> = ({
   isModalOpen,
@@ -45,8 +55,81 @@ const CustomModal: React.FC<CustomModalProps> = ({
   modalType,
   questionData,
   letterLabels = letters,
+  onExplanationSaved,
 }) => {
+  const [aiQuestionExplainer, { isLoading: isAiLoading }] = useAiQuestionExplainerMutation();
+  const [updateAdminQuestionExplanation] = useUpdateAdminQuestionExplanationMutation();
+  const [localExplanations, setLocalExplanations] = useState<Record<string | number, string>>({});
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
   if (!modalType || !questionData) return null;
+
+  const currentExplanation =
+    (questionData.explanation && questionData.explanation.trim() !== '')
+      ? questionData.explanation
+      : sessionExplanationCache[questionData.id] ||
+        (questionData._id ? sessionExplanationCache[questionData._id] : '') ||
+        localExplanations[questionData.id] ||
+        '';
+
+  useEffect(() => {
+    if (isModalOpen && modalType === 'explanation' && questionData.id) {
+      setGenerationError(null);
+      // If we already have a stored or cached explanation, do NOT call AI
+      if (currentExplanation) {
+        return;
+      }
+
+      const { explanation, stats, docId, questionSetId, _id, ...questionForAI } = questionData;
+      setIsGenerating(true);
+
+      aiQuestionExplainer(questionForAI)
+        .unwrap()
+        .then((res: any) => {
+          if (res?.explanation) {
+            const expText = res.explanation;
+            sessionExplanationCache[questionData.id] = expText;
+            if (questionData._id) {
+              sessionExplanationCache[questionData._id] = expText;
+            }
+
+            setLocalExplanations((prev) => ({
+              ...prev,
+              [questionData.id]: expText,
+            }));
+
+            if (onExplanationSaved) {
+              onExplanationSaved(questionData.id, expText);
+            }
+
+            // Auto-save explanation to MongoDB database
+            const targetDocId = questionData.questionSetId || questionData.docId || questionData._id;
+            if (targetDocId) {
+              updateAdminQuestionExplanation({
+                questionId: String(targetDocId),
+                questionNumber: questionData.id,
+                explanation: expText,
+              })
+                .unwrap()
+                .then(() => {
+                  console.log(`[AI Explanation] Stored explanation for question #${questionData.id}`);
+                })
+                .catch((saveErr) => {
+                  console.warn('[AI Explanation] Auto-save to DB failed:', saveErr);
+                });
+            }
+          }
+        })
+        .catch((err: any) => {
+          console.error('[AI Explanation] Generation failed:', err);
+          setGenerationError('ব্যাখ্যা তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।');
+        })
+        .finally(() => {
+          setIsGenerating(false);
+        });
+    }
+  }, [isModalOpen, modalType, questionData?.id, currentExplanation]);
 
   const colors = {
     success: '#00E5B3',
@@ -73,12 +156,12 @@ const CustomModal: React.FC<CustomModalProps> = ({
               <CheckCircle size={22} className="text-[#00E5B3]" />
             </div>
             <div>
-              <h3 className="font-bold text-[#00E5B3]">সঠিক উত্তর</h3>
-              <p className="text-xs text-[#A1A8B3]">Correct Answer</p>
+              <h3 className="text-lg font-bold text-[#00E5B3]">সঠিক উত্তর</h3>
+              <p className="text-sm text-[#A1A8B3]">Correct Answer</p>
             </div>
           </div>
           <div className="bg-[#161920] border border-[#23262D] rounded-lg p-4">
-            <p className="text-lg font-semibold text-[#F5F7FA]">
+            <p className="text-xl font-semibold text-[#F5F7FA]">
               {letterLabels[correctIdx]}) {questionData.options[correctIdx]}
             </p>
           </div>
@@ -91,12 +174,12 @@ const CustomModal: React.FC<CustomModalProps> = ({
                 <MessageSquare size={20} className="text-[#2F80ED]" />
               </div>
               <div>
-                <h3 className="font-bold text-[#2F80ED]">সংক্ষিপ্ত ব্যাখ্যা</h3>
-                <p className="text-xs text-[#A1A8B3]">Brief Explanation</p>
+                <h3 className="text-lg font-bold text-[#2F80ED]">সংক্ষিপ্ত ব্যাখ্যা</h3>
+                <p className="text-sm text-[#A1A8B3]">Brief Explanation</p>
               </div>
             </div>
             <div className="bg-[#161920] border border-[#23262D] rounded-lg p-4">
-              <p className="text-sm text-[#A1A8B3] leading-7">{questionData.explanation}</p>
+              <p className="text-base text-[#A1A8B3] leading-7">{questionData.explanation}</p>
             </div>
           </div>
         )}
@@ -184,6 +267,8 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
   const renderExplanationContent = () => {
     const correctIdx = questionData.correctAnswer;
+    const loading = isGenerating || isAiLoading;
+
     return (
       <div className="space-y-5">
         <div className="bg-[#00E5B3]/5 border border-[#00E5B3]/20 rounded-xl p-5">
@@ -192,8 +277,8 @@ const CustomModal: React.FC<CustomModalProps> = ({
               <CheckCircle size={22} className="text-[#00E5B3]" />
             </div>
             <div>
-              <h3 className="font-bold text-[#00E5B3]">সঠিক উত্তর</h3>
-              <p className="text-xs text-[#A1A8B3]">
+              <h3 className="text-lg font-bold text-[#00E5B3]">সঠিক উত্তর</h3>
+              <p className="text-base font-medium text-[#A1A8B3] mt-1">
                 {letterLabels[correctIdx]}) {questionData.options[correctIdx]}
               </p>
             </div>
@@ -206,18 +291,25 @@ const CustomModal: React.FC<CustomModalProps> = ({
               <BookOpen size={20} className="text-[#9B51E0]" />
             </div>
             <div>
-              <h3 className="font-bold text-[#9B51E0]">বিস্তারিত ব্যাখ্যা</h3>
-              <p className="text-xs text-[#A1A8B3]">Detailed Explanation</p>
+              <h3 className="text-lg font-bold text-[#9B51E0]">বিস্তারিত ব্যাখ্যা</h3>
+              <p className="text-sm text-[#A1A8B3]">Detailed Explanation</p>
             </div>
           </div>
           <div className="bg-[#161920] border border-[#23262D] rounded-lg p-4">
-            <p className="text-sm text-[#A1A8B3] leading-7">
-              {questionData.explanation || 'এই প্রশ্নের জন্য কোনো ব্যাখ্যা পাওয়া যায়নি।'}
-            </p>
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-4 space-y-3">
+                <Loader2 size={24} className="text-[#9B51E0] animate-spin" />
+                <p className="text-base text-[#A1A8B3]">এআই ব্যাখ্যা তৈরি করছে...</p>
+              </div>
+            ) : generationError ? (
+              <p className="text-base text-[#EB5757] leading-8">{generationError}</p>
+            ) : (
+              <p className="text-base text-[#A1A8B3] leading-8">
+                {currentExplanation || 'এই প্রশ্নের জন্য কোনো ব্যাখ্যা পাওয়া যায়নি।'}
+              </p>
+            )}
           </div>
         </div>
-
-
       </div>
     );
   };
@@ -303,7 +395,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
       title={
         <div className="flex items-center gap-3">
           {getIcon()}
-          <span className="text-lg font-bold text-[#F5F7FA]">{getTitle()}</span>
+          <span className="text-xl font-bold text-[#F5F7FA]">{getTitle()}</span>
         </div>
       }
       closable
@@ -313,13 +405,13 @@ const CustomModal: React.FC<CustomModalProps> = ({
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={() => setIsModalOpen(false)}
-            className="px-5 py-2 rounded-lg text-sm font-semibold border border-[#23262D] bg-[#161920] text-[#A1A8B3] hover:bg-[#1C1F26] hover:text-[#F5F7FA] transition"
+            className="px-6 py-2.5 rounded-lg text-base font-semibold border border-[#23262D] bg-[#161920] text-[#A1A8B3] hover:bg-[#1C1F26] hover:text-[#F5F7FA] transition"
           >
             বন্ধ করুন
           </button>
           <button
             onClick={() => setIsModalOpen(false)}
-            className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition"
+            className="px-6 py-2.5 rounded-lg text-base font-semibold text-white transition"
             style={{ backgroundColor: getButtonColor(), boxShadow: `0 4px 14px ${getButtonColor()}40` }}
           >
             বুঝলাম

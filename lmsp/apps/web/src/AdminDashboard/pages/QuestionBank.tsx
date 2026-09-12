@@ -41,6 +41,7 @@ import {
   useDeleteAdminQuestionDocumentMutation,
   useDeleteAdminSingleQuestionMutation,
   useUpdateAdminSingleQuestionMutation,
+  useUpdateAdminQuestionExplanationMutation,
   useQuestionAnalyzerMutation,
   type AdminQuestion,
   BANGLADESH_BOARDS,
@@ -107,6 +108,7 @@ const QuestionBank: React.FC = () => {
   const [deleteDocument] = useDeleteAdminQuestionDocumentMutation();
   const [deleteSingleQuestion] = useDeleteAdminSingleQuestionMutation();
   const [updateSingleQuestion] = useUpdateAdminSingleQuestionMutation();
+  const [updateQuestionExplanation] = useUpdateAdminQuestionExplanationMutation();
   const [questionAnalyzer] = useQuestionAnalyzerMutation();
   const [postQuestionPattern] = usePostQuestionPatternMutation();
 
@@ -121,9 +123,21 @@ const QuestionBank: React.FC = () => {
     image_url?: string;
     options: Record<string, string>;
     correct_answer?: string;
+    explanation?: string;
   } | null>(null);
   const [editForm] = Form.useForm();
   const imageUrl = Form.useWatch('image_url', editForm);
+
+  // ── Quick Explanation Modal State ─────────────────────────
+  const [explanationModalOpen, setExplanationModalOpen] = useState(false);
+  const [explanationTarget, setExplanationTarget] = useState<{
+    docId: string;
+    questionNumber: number;
+    questionText: string;
+    explanation: string;
+  } | null>(null);
+  const [explanationForm] = Form.useForm();
+  const [isSavingExplanation, setIsSavingExplanation] = useState(false);
 
   // ── Pattern analysis state ─────────────────────────────────
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
@@ -224,6 +238,7 @@ const QuestionBank: React.FC = () => {
       image_url?: string;
       options: Record<string, string>;
       correct_answer?: string;
+      explanation?: string;
     }
   ) => {
     setEditingQuestion({
@@ -234,6 +249,7 @@ const QuestionBank: React.FC = () => {
       image_url: q.image_url,
       options: q.options,
       correct_answer: q.correct_answer,
+      explanation: q.explanation,
     });
     editForm.setFieldsValue({
       question_text: q.question_text,
@@ -243,6 +259,7 @@ const QuestionBank: React.FC = () => {
         Object.entries(q.options).map(([key, val]) => [`option_${key}`, val])
       ),
       correct_answer: q.correct_answer || '',
+      explanation: q.explanation || '',
     });
     setEditModalOpen(true);
   };
@@ -267,6 +284,7 @@ const QuestionBank: React.FC = () => {
           image_url: values.image_url || '',
           options,
           correct_answer: values.correct_answer || undefined,
+          explanation: values.explanation || '',
         },
       }).unwrap();
 
@@ -277,6 +295,48 @@ const QuestionBank: React.FC = () => {
       refetch();
     } catch (err: any) {
       message.error(err?.data?.message || 'Failed to update question');
+    }
+  };
+
+  const openExplanationModal = (
+    docId: string,
+    q: {
+      question_number: number;
+      question_text: string;
+      explanation?: string;
+    }
+  ) => {
+    setExplanationTarget({
+      docId,
+      questionNumber: q.question_number,
+      questionText: q.question_text,
+      explanation: q.explanation || '',
+    });
+    explanationForm.setFieldsValue({
+      explanation: q.explanation || '',
+    });
+    setExplanationModalOpen(true);
+  };
+
+  const handleExplanationSave = async (values: { explanation: string }) => {
+    if (!explanationTarget) return;
+    setIsSavingExplanation(true);
+    try {
+      await updateQuestionExplanation({
+        questionId: explanationTarget.docId,
+        questionNumber: explanationTarget.questionNumber,
+        explanation: values.explanation || '',
+      }).unwrap();
+
+      message.success(`Explanation for question #${explanationTarget.questionNumber} saved!`);
+      setExplanationModalOpen(false);
+      setExplanationTarget(null);
+      explanationForm.resetFields();
+      refetch();
+    } catch (err: any) {
+      message.error(err?.data?.message || 'Failed to save explanation');
+    } finally {
+      setIsSavingExplanation(false);
     }
   };
 
@@ -364,11 +424,48 @@ const QuestionBank: React.FC = () => {
           ),
       },
       {
+        title: 'Explanation (ব্যাখ্যা)',
+        dataIndex: 'explanation',
+        key: 'explanation',
+        width: 200,
+        render: (exp: string, rowRecord: any) =>
+          exp ? (
+            <Tooltip title={exp}>
+              <Tag
+                color="cyan"
+                icon={<BookOutlined />}
+                className="cursor-pointer max-w-[180px] truncate"
+                onClick={() => openExplanationModal(record._id, rowRecord)}
+              >
+                {exp.length > 25 ? exp.slice(0, 25) + '…' : exp}
+              </Tag>
+            </Tooltip>
+          ) : (
+            <Button
+              type="dashed"
+              size="small"
+              className="text-xs text-amber-500 border-amber-500/30 hover:border-amber-500"
+              icon={<BookOutlined />}
+              onClick={() => openExplanationModal(record._id, rowRecord)}
+            >
+              + Add Explanation
+            </Button>
+          ),
+      },
+      {
         title: 'Actions',
         key: 'actions',
-        width: 140,
+        width: 170,
         render: (_: unknown, rowRecord: any) => (
           <Space>
+            <Tooltip title="Provide / Edit Explanation">
+              <Button
+                type="link"
+                size="small"
+                icon={<BookOutlined style={{ color: '#00E5B3' }} />}
+                onClick={() => openExplanationModal(record._id, rowRecord)}
+              />
+            </Tooltip>
             <Tooltip title="Edit this question">
               <Button
                 type="link"
@@ -833,6 +930,20 @@ const QuestionBank: React.FC = () => {
             </Select>
           </Form.Item>
 
+          <Form.Item
+            name="explanation"
+            label={
+              <span>
+                Explanation / ব্যাখ্যা <span style={{ fontWeight: 400, color: '#5F6B64' }}>(detailed solution & reasoning for students)</span>
+              </span>
+            }
+          >
+            <TextArea
+              rows={4}
+              placeholder="Enter explanation in Bengali or English for why this answer is correct..."
+            />
+          </Form.Item>
+
           <Form.Item className="mb-0 flex justify-end">
             <Space>
               <Button
@@ -849,6 +960,71 @@ const QuestionBank: React.FC = () => {
               </Button>
             </Space>
           </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ── Quick Explanation Modal ─────────────────────────── */}
+      <Modal
+        title={
+          <Space>
+            <BookOutlined style={{ color: '#00E5B3' }} />
+            <span>Question #{explanationTarget?.questionNumber} Explanation (ব্যাখ্যা)</span>
+          </Space>
+        }
+        open={explanationModalOpen}
+        onCancel={() => {
+          setExplanationModalOpen(false);
+          setExplanationTarget(null);
+          explanationForm.resetFields();
+        }}
+        footer={null}
+        width={650}
+        destroyOnClose
+      >
+        <div className="mt-2 mb-4 p-3.5 rounded-xl bg-[#161920] border border-[#23262D]">
+          <p className="text-xs text-[#A1A8B3] uppercase font-bold tracking-wider mb-1">
+            Question
+          </p>
+          <p className="text-sm text-[#F5F7FA] font-medium leading-relaxed">
+            {explanationTarget?.questionText}
+          </p>
+        </div>
+
+        <Form
+          form={explanationForm}
+          layout="vertical"
+          onFinish={handleExplanationSave}
+        >
+          <Form.Item
+            name="explanation"
+            label={<span className="font-semibold text-sm text-[#E8F5EC]">Detailed Explanation / ব্যাখ্যা</span>}
+            rules={[{ required: true, message: 'Please provide an explanation' }]}
+          >
+            <TextArea
+              rows={6}
+              placeholder="Write the detailed explanation and breakdown for this question here. This will be shown to students in exam reviews and question views."
+            />
+          </Form.Item>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              onClick={() => {
+                setExplanationModalOpen(false);
+                setExplanationTarget(null);
+                explanationForm.resetFields();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={isSavingExplanation}
+              style={{ backgroundColor: '#00E5B3', color: '#0B0D12', borderColor: '#00E5B3', fontWeight: 600 }}
+            >
+              Save Explanation
+            </Button>
+          </div>
         </Form>
       </Modal>
     </div>

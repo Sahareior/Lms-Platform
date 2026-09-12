@@ -36,6 +36,11 @@ const questionItemSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        explanation: {
+            type: String,
+            default: "",
+            trim: true,
+        },
     },
     { _id: true }
 );

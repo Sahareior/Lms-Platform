@@ -88,6 +88,7 @@ const examApi = api.injectEndpoints({
                 }
                 return { url };
             },
+            providesTags: ['Question'],
         }),
 
         getScheduleExamQuestions: builder.query<any[], string>({

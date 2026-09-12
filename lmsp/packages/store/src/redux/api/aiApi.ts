@@ -9,8 +9,8 @@ import { getAuthToken } from './baseApi';
 
 // ─── Configuration State ───────────────────────────────────
 // Separate base URL for AI-specific endpoints (default port 5000).
-let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
-// let _aiBaseUrl = 'http://127.0.0.1:5000/';
+// let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
+let _aiBaseUrl = 'http://127.0.0.1:8000/';
 
 /**
  * Configure the AI API client.
@@ -228,6 +228,14 @@ export const aiApi = createApi({
         method:'POST',
         body:data
       })
+    }),
+
+    aiQuestionExplainer: build.mutation({
+      query: (data) => ({
+        method: 'POST',
+        url: '/generate-explanation',
+        body: data
+      })
     })
 
 
@@ -242,5 +250,6 @@ export const {
   useQuestionAnalyzerMutation,
   useQuestionPaperScraperMutation,
   useAiUserPerFormanceMutation,
-  useAiragUploadStatusQuery
+  useAiragUploadStatusQuery,
+  useAiQuestionExplainerMutation,
 } = aiApi;

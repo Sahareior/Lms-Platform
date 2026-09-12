@@ -85,8 +85,11 @@ export default function QuestionMaster() {
 
   const examYearArray = useMemo(() => {
     const examYearBasedFilter = new Set<string>();
+    console.log(exams,'this is examse')
     exams.forEach((exam: any) => {
-      examYearBasedFilter.add(exam.version);
+     if(exam.board){
+       examYearBasedFilter.add(exam.version);
+     }
     });
     return Array.from(examYearBasedFilter).sort();
   }, [exams]);
@@ -99,6 +102,8 @@ export default function QuestionMaster() {
   // Accent colour for current category
   const accent = examType ? categoryAccent[examType] || "#9B51E0" : "#9B51E0";
   const meta = examType ? categoryMeta[examType] : null;
+
+  console.log(examYearArray,'this is exame araaay')
 
   // If on child route, render nested content
   if (isChildRoute) {

@@ -72,6 +72,8 @@ export const tagTypes = [
   'Notification',
   'Certificate',
   'TempExamSubmission',
+  'Favorite',
+  'QuestionStats',
 ] as const;
 
 // ─── Base API Slice ─────────────────────────────────────────

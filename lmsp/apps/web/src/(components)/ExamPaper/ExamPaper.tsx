@@ -19,6 +19,7 @@ import {
   useGetTempExamSubmissionQuery,
   useSaveTempExamSubmissionMutation,
   useDeleteTempExamSubmissionMutation,
+  useRecordQuestionStatsMutation,
   getAuthToken,
 } from "@my-monorepo/store";
 import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
@@ -142,6 +143,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   );
   const [saveTempExamSubmission] = useSaveTempExamSubmissionMutation();
   const [deleteTempExamSubmission] = useDeleteTempExamSubmissionMutation();
+  const [recordQuestionStats] = useRecordQuestionStatsMutation();
 
   const attemptIdRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -498,10 +500,22 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
             });
         }
 
+        // Record question statistics (fire-and-forget)
+        if (qItem.id) {
+          const isCorr = oIndex === qItem.correctIndex;
+          recordQuestionStats({
+            questionId: String(qItem.id),
+            isCorrect: isCorr,
+            selectedOption: qItem.optionKeys?.[oIndex] ?? String(oIndex),
+          }).catch((err) => {
+            console.warn("Failed to record question stat:", err);
+          });
+        }
+
         return updated;
       });
     },
-    [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, saveTempExamSubmission, postUserQuizs, examId, versionId, scheduleId, board, timeLeft]
+    [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, saveTempExamSubmission, postUserQuizs, recordQuestionStats, examId, versionId, scheduleId, board, timeLeft]
   );
 
   const handleSubmit = useCallback(

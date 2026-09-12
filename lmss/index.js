@@ -26,6 +26,8 @@ import certificateRoutes from './routes/certificate.js';
 import notificationRoutes from './routes/notification.js';
 import searchRoutes from './routes/search.js';
 import tempExamSubmissionRoutes from './routes/tempExamSubmission.js';
+import favoriteRoutes from './routes/favorites.js';
+import statsRoutes from './routes/stats.js';
 import { generalRateLimit } from './middleware/rateLimit.js';
 
 const app = express();
@@ -100,6 +102,8 @@ app.use('/certificates', certificateRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/search', searchRoutes);
 app.use('/temp-exam-submission', tempExamSubmissionRoutes);
+app.use('/favorites', favoriteRoutes);
+app.use('/stats', statsRoutes);
 
 // ─── 404 for unknown routes ─────────────────────────────────
 app.use((req, res) => {

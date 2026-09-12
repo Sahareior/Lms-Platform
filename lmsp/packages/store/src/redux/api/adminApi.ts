@@ -75,6 +75,7 @@ export interface AdminQuestion {
     image_url?: string;
     options: Record<string, string>;
     correct_answer?: string;
+    explanation?: string;
   }>;
 }
 
@@ -670,12 +671,24 @@ const adminApi = api.injectEndpoints({
 
     updateAdminSingleQuestion: build.mutation<
       AdminQuestion,
-      { questionId: string; questionNumber: number; data: { question_text?: string; scenario_text?: string; image_url?: string; options?: Record<string, string>; correct_answer?: string } }
+      { questionId: string; questionNumber: number; data: { question_text?: string; scenario_text?: string; image_url?: string; options?: Record<string, string>; correct_answer?: string; explanation?: string } }
     >({
       query: ({ questionId, questionNumber, data }) => ({
         url: `/questions/${questionId}/question/${questionNumber}`,
         method: 'PUT',
         body: data,
+      }),
+      invalidatesTags: ['Question'],
+    }),
+
+    updateAdminQuestionExplanation: build.mutation<
+      { success: boolean; message: string; explanation: string },
+      { questionId: string; questionNumber: number; explanation: string }
+    >({
+      query: ({ questionId, questionNumber, explanation }) => ({
+        url: `/questions/${questionId}/question/${questionNumber}/explanation`,
+        method: 'PUT',
+        body: { explanation },
       }),
       invalidatesTags: ['Question'],
     }),
@@ -737,6 +750,7 @@ export const {
   useUpdateAdminQuestionDocumentMutation,
   useDeleteAdminQuestionDocumentMutation,
   useUpdateAdminSingleQuestionMutation,
+  useUpdateAdminQuestionExplanationMutation,
   useDeleteAdminSingleQuestionMutation,
   useGetAdminQuestionPatternsQuery,
   useGetCourseLessonsQuery,

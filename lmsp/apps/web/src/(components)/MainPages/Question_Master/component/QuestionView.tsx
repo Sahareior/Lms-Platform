@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   ArrowLeft,
   Heart,
@@ -14,8 +14,14 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import CustomModal from "../../../../reusable/CustomModal";
+import {
+  useToggleFavoriteMutation,
+  useGetFavoriteQuestionIdsQuery,
+  useGetBatchQuestionStatsMutation,
+  useGetQuestionsByExamQuery,
+} from "@my-monorepo/store";
 
 // ── Types ─────────────────────────────────────────────────────
 interface ApiQuestion {
@@ -26,6 +32,7 @@ interface ApiQuestion {
   image_url?: string;
   options: Record<string, string>;
   correct_answer: string;
+  explanation?: string;
 }
 
 interface Question {
@@ -53,7 +60,11 @@ interface ModalState {
 }
 
 // ── Transform API → component shape ──────────────────────────
-function transformQuestions(apiQuestions: ApiQuestion[]): Question[] {
+function transformQuestions(
+  apiQuestions: ApiQuestion[],
+  statsMap: Record<string, any> = {},
+  extraExplanations: Record<number, string> = {}
+): Question[] {
   return apiQuestions.map((q) => {
     const validEntries = q.options
       ? (Object.entries(q.options).filter(([, v]) => v) as [string, string][])
@@ -70,6 +81,13 @@ function transformQuestions(apiQuestions: ApiQuestion[]): Question[] {
       }
     }
 
+    const stat = statsMap[q._id] || {
+      totalAttempts: 0,
+      correctPercentage: 0,
+      averageTime: "—",
+      difficulty: "Medium" as const,
+    };
+
     return {
       _id: q._id,
       id: q.question_number,
@@ -79,12 +97,12 @@ function transformQuestions(apiQuestions: ApiQuestion[]): Question[] {
       options: validEntries.map(([, v]) => v),
       optionKeys: validEntries.map(([k]) => k),
       correctAnswer: correctIndex,
-      explanation: "",
+      explanation: extraExplanations[q.question_number] || q.explanation || "",
       stats: {
-        totalAttempts: 0,
-        correctPercentage: 0,
-        averageTime: "—",
-        difficulty: "Medium" as const,
+        totalAttempts: stat.totalAttempts || 0,
+        correctPercentage: stat.correctPercentage || 0,
+        averageTime: stat.averageTime || "—",
+        difficulty: stat.difficulty || "Medium",
       },
     };
   });
@@ -99,26 +117,94 @@ const DIFFICULTY_FILTERS = [
   { key: "Hard", label: "কঠিন" },
 ];
 
+// Formats inline roman numeral lists and typical prompt questions to be on new lines
+function formatQuestionText(text: string) {
+  if (!text) return text;
+  return text
+    .replace(/\s+(i\.\s)/g, '\n$1')
+    .replace(/\s+(ii\.\s)/g, '\n$1')
+    .replace(/\s+(iii\.\s)/g, '\n$1')
+    .replace(/\s+(iv\.\s)/g, '\n$1')
+    .replace(/\s+(v\.\s)/g, '\n$1')
+    .replace(/\s+(vi\.\s)/g, '\n$1')
+    .replace(/\s+(নিচের কোনটি সঠিক\?)/g, '\n$1');
+}
+
 // ─────────────────────────────────────────────────────────────
 export default function QuestionView() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { examType } = useParams<{ examType: string }>();
+  const [searchParams] = useSearchParams();
 
   const stateData = location.state as {
     questions?: ApiQuestion[];
     examTitle?: string;
     subject?: string;
     questionSetId?: string;
+    examId?: string;
+    subjectId?: string;
+    examVersionId?: string;
   } | null;
 
-  const apiQuestions = stateData?.questions ?? [];
-  const examTitle = stateData?.examTitle ?? "প্রশ্নপত্র";
+  const setId = searchParams.get("setId") || stateData?.questionSetId;
+  const examIdParam = stateData?.examId || examType;
 
-  const questions = useMemo(() => transformQuestions(apiQuestions), [apiQuestions]);
+  // Live query which refetches automatically when any question explanation is saved
+  const { data: liveQuestionSets } = useGetQuestionsByExamQuery(
+    { examId: examIdParam! },
+    { skip: !examIdParam }
+  );
+
+  const activeSet = liveQuestionSets?.find((s: any) => s._id === setId);
+  const apiQuestions: ApiQuestion[] = activeSet?.data || stateData?.questions || [];
+  const examTitle = stateData?.examTitle || activeSet?.exam?.name || "প্রশ্নপত্র";
+
+  // ── Favorite & Stats API hooks ───────────────────────────
+  const [toggleFavoriteMutation] = useToggleFavoriteMutation();
+  const { data: favoriteIdsData } = useGetFavoriteQuestionIdsQuery();
+  const [getBatchStats] = useGetBatchQuestionStatsMutation();
+  const [statsMap, setStatsMap] = useState<Record<string, any>>({});
+
+  // Fetch stats for all questions in this view on mount
+  useEffect(() => {
+    if (apiQuestions.length > 0) {
+      const qIds = apiQuestions.map((q) => q._id);
+      getBatchStats({ questionIds: qIds })
+        .unwrap()
+        .then((res) => {
+          if (res?.stats) {
+            setStatsMap(res.stats);
+          }
+        })
+        .catch((err) => {
+          console.warn("Failed to fetch batch question stats:", err);
+        });
+    }
+  }, [apiQuestions, getBatchStats]);
+
+  const [dynamicExplanations, setDynamicExplanations] = useState<Record<number, string>>({});
+
+  const questions = useMemo(
+    () => transformQuestions(apiQuestions, statsMap, dynamicExplanations),
+    [apiQuestions, statsMap, dynamicExplanations]
+  );
   const totalQuestions = questions.length;
 
   // ── UI state ─────────────────────────────────────────────
   const [bookmarked, setBookmarked] = useState<Record<string, boolean>>({});
+
+  // Sync initial favorite state from backend
+  useEffect(() => {
+    if (favoriteIdsData?.questionIds) {
+      const map: Record<string, boolean> = {};
+      favoriteIdsData.questionIds.forEach((id) => {
+        map[id] = true;
+      });
+      setBookmarked((prev) => ({ ...prev, ...map }));
+    }
+  }, [favoriteIdsData]);
+
   const [answerRevealed, setAnswerRevealed] = useState<Record<string, boolean>>({});
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
@@ -159,8 +245,29 @@ export default function QuestionView() {
   }, []);
 
   const toggleBookmark = useCallback((id: string) => {
-    setBookmarked((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
+    const nextState = !bookmarked[id];
+    setBookmarked((prev) => ({ ...prev, [id]: nextState }));
+
+    const targetQ = questions.find((q) => q._id === id);
+    toggleFavoriteMutation({
+      questionId: id,
+      questionDocId: stateData?.questionSetId,
+      exam: stateData?.examId,
+      examVersion: stateData?.examVersionId,
+      subject: stateData?.subjectId,
+      questionSnapshot: targetQ
+        ? {
+            questionNumber: targetQ.id,
+            questionText: targetQ.question,
+            options: Object.fromEntries(targetQ.options.map((o, idx) => [targetQ.optionKeys[idx] || String(idx), o])),
+            correctAnswer: targetQ.options[targetQ.correctAnswer] || "",
+            explanation: targetQ.explanation,
+          }
+        : undefined,
+    }).catch((err) => {
+      console.warn("Failed to persist favorite toggle:", err);
+    });
+  }, [bookmarked, questions, stateData, toggleFavoriteMutation]);
 
   const toggleAnswer = useCallback((id: string) => {
     setAnswerRevealed((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -224,10 +331,10 @@ export default function QuestionView() {
             </button>
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-base font-bold text-[#F5F7FA] truncate leading-tight">
+              <h1 className="text-lg md:text-xl font-bold text-[#F5F7FA] truncate leading-tight">
                 {examTitle}
               </h1>
-              <p className="text-xs text-[#6B7280] mt-0.5">
+              <p className="text-sm text-[#6B7280] mt-0.5">
                 {filteredQuestions.length === totalQuestions
                   ? `${totalQuestions} টি প্রশ্ন`
                   : `${filteredQuestions.length} / ${totalQuestions} টি প্রশ্ন`}
@@ -354,21 +461,21 @@ export default function QuestionView() {
 
                   {/* ── Question number + text ── */}
                   <div className="flex items-start gap-3 mb-5">
-                    <span className="shrink-0 mt-0.5 min-w-[28px] h-7 px-1.5 rounded-lg bg-[#9B51E0]/10 border border-[#9B51E0]/25 flex items-center justify-center text-xs font-bold text-[#9B51E0]">
+                    <span className="shrink-0 mt-0.5 min-w-[28px] h-7 px-1.5 rounded-lg bg-[#9B51E0]/10 border border-[#9B51E0]/25 flex items-center justify-center text-sm font-bold text-[#9B51E0]">
                       {q.id}
                     </span>
-                    <p className="text-[#F5F7FA] font-medium leading-7 text-sm md:text-xl sm:text-[15px] flex-1">
-                      {q.question}
+                    <p className="text-[#F5F7FA] font-medium leading-8 text-base md:text-2xl sm:text-lg flex-1 whitespace-pre-wrap">
+                      {formatQuestionText(q.question)}
                     </p>
                   </div>
 
                   {/* Scenario block */}
                   {q.scenarioText && (
                     <div className="mb-4 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#9B51E0] mb-2">
+                      <p className="text-xs font-bold uppercase tracking-widest text-[#9B51E0] mb-2">
                         Scenario / Passage
                       </p>
-                      <p className="text-sm leading-relaxed text-[#E0E4EE] whitespace-pre-line">
+                      <p className="text-base md:text-lg leading-relaxed text-[#E0E4EE] whitespace-pre-line">
                         {q.scenarioText}
                       </p>
                     </div>
@@ -401,7 +508,7 @@ export default function QuestionView() {
                         >
                           {/* Letter badge */}
                           <div
-                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold text-sm shrink-0 transition-all duration-200 ${showAsCorrect
+                            className={`w-9 h-9 rounded-full border-2 flex items-center justify-center font-bold text-base shrink-0 transition-all duration-200 ${showAsCorrect
                               ? "bg-[#00E5B3] border-[#00E5B3] text-black"
                               : "bg-[#0B0D12] border-[#2D3038] text-[#A1A8B3]"
                               }`}
@@ -411,7 +518,7 @@ export default function QuestionView() {
 
                           {/* Option text */}
                           <span
-                            className={`flex-1 text-sm font-medium leading-snug transition-colors duration-200 ${showAsCorrect ? "text-[#00E5B3]" : "text-[#C5CDD8]"
+                            className={`flex-1 text-base md:text-lg font-medium leading-snug transition-colors duration-200 ${showAsCorrect ? "text-[#00E5B3]" : "text-[#C5CDD8]"
                               }`}
                           >
                             {option}
@@ -434,19 +541,19 @@ export default function QuestionView() {
                     {/* See Answer button — primary CTA */}
                     <button
                       onClick={() => toggleAnswer(q._id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all duration-200 active:scale-[0.97] ${isRevealed
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border transition-all duration-200 active:scale-[0.97] ${isRevealed
                         ? "bg-[#00E5B3]/10 border-[#00E5B3]/40 text-[#00E5B3]"
                         : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:bg-[#1C1F26] hover:border-[#9B51E0]/40 hover:text-[#F5F7FA]"
                         }`}
                     >
                       {isRevealed ? (
                         <>
-                          <EyeOff size={14} />
+                          <EyeOff size={16} />
                           উত্তর লুকান
                         </>
                       ) : (
                         <>
-                          <Eye size={14} />
+                          <Eye size={16} />
                           উত্তর দেখুন
                         </>
                       )}
@@ -455,14 +562,14 @@ export default function QuestionView() {
                     {/* Bookmark */}
                     <button
                       onClick={() => toggleBookmark(q._id)}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border transition-all duration-200 active:scale-[0.97] ${isBookmarked
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border transition-all duration-200 active:scale-[0.97] ${isBookmarked
                         ? "bg-[#9B51E0]/10 border-[#9B51E0]/40 text-[#9B51E0]"
                         : "bg-transparent border-[#23262D] text-[#A1A8B3] hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA]"
                         }`}
                       aria-label={isBookmarked ? "বুকমার্ক সরান" : "বুকমার্ক করুন"}
                     >
                       <Heart
-                        size={14}
+                        size={16}
                         fill={isBookmarked ? "currentColor" : "none"}
                       />
                       <span className="hidden xs:inline">
@@ -473,18 +580,18 @@ export default function QuestionView() {
                     {/* Statistics */}
                     <button
                       onClick={() => openModal("statistics", originalIdx)}
-                      className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border border-[#23262D] text-[#A1A8B3] bg-transparent hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition active:scale-[0.97]"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border border-[#23262D] text-[#A1A8B3] bg-transparent hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition active:scale-[0.97]"
                     >
-                      <BarChart3 size={14} />
+                      <BarChart3 size={16} />
                       <span className="hidden sm:inline">পরিসংখ্যান</span>
                     </button>
 
                     {/* Explanation */}
                     <button
                       onClick={() => openModal("explanation", originalIdx)}
-                      className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border border-[#23262D] text-[#A1A8B3] bg-transparent hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition active:scale-[0.97]"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border border-[#23262D] text-[#A1A8B3] bg-transparent hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition active:scale-[0.97]"
                     >
-                      <BookOpen size={14} />
+                      <BookOpen size={16} />
                       <span className="hidden sm:inline">ব্যাখ্যা</span>
                     </button>
 
@@ -552,8 +659,18 @@ export default function QuestionView() {
         setIsModalOpen={closeModal}
         isModalOpen={modalState.isOpen}
         modalType={modalState.type}
-        questionData={questions[modalState.questionIndex] ?? questions[0]}
+        questionData={
+          questions[modalState.questionIndex]
+            ? {
+                ...questions[modalState.questionIndex],
+                questionSetId: stateData?.questionSetId,
+              }
+            : undefined
+        }
         letterLabels={letters}
+        onExplanationSaved={(qId, exp) => {
+          setDynamicExplanations((prev) => ({ ...prev, [qId]: exp }));
+        }}
       />
     </div>
   );

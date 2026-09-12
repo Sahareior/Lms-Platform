@@ -1,6 +1,7 @@
 import QuizAttempt from "../models/QuizAttempt.js";
 import QuestionModel from "../models/QuestionModel.js";
 import ScheduleExam from "../models/ScheduleExamModel.js";
+import QuestionStat, { calculateDifficulty, formatAvgTime } from "../models/QuestionStat.js";
 import { invalidatePrefix } from "../middleware/cache.js";
 
 // ─── Helper: look up a single question from the QuestionModel data[] array ──
@@ -514,9 +515,44 @@ export const completeAttempt = async (req, res) => {
 
     await invalidatePrefix('cache:quiz-attempt');
 
-    // Performance data is now computed from QuizAttempt on-the-fly by
-    // getQuizOverview. The old UserData mockExam/questionPreatise dual-write
-    // has been removed to prevent sync issues.
+    // Update global question stats in background
+    (async () => {
+      try {
+        for (const q of attempt.questions) {
+          if (!q.selectedOption || q.isCorrect === null || q.isCorrect === undefined) continue;
+          const qNumber = q.questionNumber;
+          // Look up question by questionNumber or exam+questionNumber
+          const qId = `${attempt.exam || ''}_${attempt.examVersion || ''}_${qNumber}`;
+          let stat = await QuestionStat.findOne({ questionId: qId });
+          if (!stat) {
+            stat = new QuestionStat({
+              questionId: qId,
+              totalAttempts: 0,
+              correctCount: 0,
+              incorrectCount: 0,
+              totalTimeSpent: 0,
+              optionCounts: {},
+            });
+          }
+          stat.totalAttempts += 1;
+          if (q.isCorrect) stat.correctCount += 1;
+          else stat.incorrectCount += 1;
+          stat.totalTimeSpent += (q.timeTaken || 0);
+          stat.lastAttemptedAt = new Date();
+          if (q.selectedOption) {
+            const optKey = String(q.selectedOption);
+            const cur = stat.optionCounts.get(optKey) || 0;
+            stat.optionCounts.set(optKey, cur + 1);
+          }
+          stat.accuracyPercentage = Math.round((stat.correctCount / stat.totalAttempts) * 100);
+          stat.difficulty = calculateDifficulty(stat.correctCount, stat.totalAttempts);
+          stat.averageTime = formatAvgTime(stat.totalTimeSpent, stat.totalAttempts);
+          await stat.save();
+        }
+      } catch (err) {
+        console.warn('Background QuestionStat update warning:', err.message);
+      }
+    })();
 
     res.status(200).json({
       message: "Attempt completed",
