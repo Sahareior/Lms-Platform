@@ -350,11 +350,24 @@ export default function QuestionView() {
                 </span>
               </div>
             )}
+                      <button
+              onClick={allRevealed ? hideAll : revealAll}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition shrink-0 ${allRevealed
+                ? "bg-[#00E5B3]/10 border-[#00E5B3]/40 text-[#00E5B3]"
+                : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:border-[#323742] hover:text-[#F5F7FA]"
+                }`}
+              title={allRevealed ? "সব উত্তর লুকান" : "সব উত্তর দেখুন"}
+            >
+              {allRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
+              <span className="hidden sm:inline text-xs">
+                {allRevealed ? "সব লুকান" : "সব দেখুন"}
+              </span>
+            </button>
           </div>
 
           {/* Row 2: Search + filter + reveal-all */}
-          <div className="flex items-center gap-2">
-            {/* Search */}
+          {/* <div className="flex items-center gap-2">
+           
             <div className="relative flex-1">
               <Search
                 size={14}
@@ -377,7 +390,7 @@ export default function QuestionView() {
               )}
             </div>
 
-            {/* Difficulty filter */}
+         
             <div className="relative shrink-0">
               <button
                 onClick={() => setShowFilterDropdown((p) => !p)}
@@ -416,21 +429,9 @@ export default function QuestionView() {
               )}
             </div>
 
-            {/* Reveal / hide all toggle */}
-            <button
-              onClick={allRevealed ? hideAll : revealAll}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition shrink-0 ${allRevealed
-                ? "bg-[#00E5B3]/10 border-[#00E5B3]/40 text-[#00E5B3]"
-                : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:border-[#323742] hover:text-[#F5F7FA]"
-                }`}
-              title={allRevealed ? "সব উত্তর লুকান" : "সব উত্তর দেখুন"}
-            >
-              {allRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
-              <span className="hidden sm:inline text-xs">
-                {allRevealed ? "সব লুকান" : "সব দেখুন"}
-              </span>
-            </button>
-          </div>
+            
+  
+          </div> */}
 
         </div>
       </div>
@@ -612,47 +613,6 @@ export default function QuestionView() {
         )}
       </div>
 
-      {/* ── Bottom summary bar ─────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#111318]/95 backdrop-blur-md border-t border-[#23262D]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-
-          <div className="flex items-center gap-4 flex-wrap">
-            <span className="text-sm text-[#A1A8B3]">
-              মোট{" "}
-              <span className="font-bold text-[#F5F7FA]">{totalQuestions}</span>{" "}
-              প্রশ্ন
-            </span>
-
-            {revealedCount > 0 && (
-              <span className="flex items-center gap-1.5 text-sm text-[#A1A8B3]">
-                <Eye size={13} className="text-[#00E5B3]" />
-                <span className="font-bold text-[#00E5B3]">{revealedCount}</span>
-                <span>উত্তর দেখা হয়েছে</span>
-              </span>
-            )}
-
-            {bookmarkedCount > 0 && (
-              <span className="flex items-center gap-1.5 text-sm text-[#A1A8B3]">
-                <Heart size={13} className="text-[#9B51E0]" fill="currentColor" />
-                <span className="font-bold text-[#9B51E0]">{bookmarkedCount}</span>
-                <span>ফেভারিট</span>
-              </span>
-            )}
-          </div>
-
-          {/* Quick reveal-all in bottom bar too */}
-          <button
-            onClick={allRevealed ? hideAll : revealAll}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition shrink-0 ${allRevealed
-              ? "bg-[#00E5B3]/10 border-[#00E5B3]/30 text-[#00E5B3]"
-              : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:border-[#323742] hover:text-[#F5F7FA]"
-              }`}
-          >
-            {allRevealed ? <EyeOff size={12} /> : <Eye size={12} />}
-            {allRevealed ? "সব লুকান" : "সব উত্তর দেখুন"}
-          </button>
-        </div>
-      </div>
 
       {/* ── Modal ──────────────────────────────────────────── */}
       <CustomModal
