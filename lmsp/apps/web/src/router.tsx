@@ -41,11 +41,13 @@ const ExamManagement = lazy(() => import('./AdminDashboard/pages/ExamManagement'
 const CourseManagement = lazy(() => import('./AdminDashboard/pages/CourseManagement'));
 const LessonManagement = lazy(() => import('./AdminDashboard/pages/LessonManagement/LessonManagement'));
 const QuestionManagement = lazy(() => import('./AdminDashboard/pages/QuestionManagement'));
-const QuestionBank = lazy(() => import('./AdminDashboard/pages/QuestionBank'));
+const QuestionBank = lazy(() => import('./AdminDashboard/pages/QuestionBank/QuestionBank'));
+const QuestionManager = lazy(() => import('./AdminDashboard/pages/QuestionBank/QuestionManager'));
 const SubjectManagement = lazy(() => import('./AdminDashboard/pages/SubjectManagement'));
 const ExamControl = lazy(() => import('./AdminDashboard/pages/ExamControl'));
 const FeaturedExamControl = lazy(() => import('./AdminDashboard/pages/FeaturedExamControl'));
-const UserPerformance = lazy(() => import('./AdminDashboard/pages/UserPerformance'));
+const UserPerformance = lazy(() => import('./AdminDashboard/pages/UserPerformance/UserPerformance'));
+const AttemptDetail = lazy(() => import('./AdminDashboard/pages/UserPerformance/AttemptDetail'));
 
 const router = createBrowserRouter([
   // ── Landing page at / (public marketing page with its own per-route SEO) ──
@@ -193,10 +195,12 @@ const router = createBrowserRouter([
           { path: 'courses/:courseId/lessons', element: <LessonManagement /> },
           { path: 'questions', element: <QuestionManagement /> },
           { path: 'question-bank', element: <QuestionBank /> },
+          { path: 'question-bank/:documentId', element: <QuestionManager /> },
           { path: 'subjects', element: <SubjectManagement /> },
           { path: 'exam-control', element: <ExamControl /> },
           { path: 'featured-exam', element: <FeaturedExamControl /> },
           { path: 'user-performance', element: <UserPerformance /> },
+          { path: 'user-performance/:attemptId', element: <AttemptDetail /> },
         ],
       },
     ],

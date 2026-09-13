@@ -902,18 +902,33 @@ export const getAttemptById = async (req, res) => {
 // ─── GET all attempts as CSV (admin export) ─────────────────
 export const exportAttemptsCsv = async (req, res) => {
   try {
-    const { type, examId, userId } = req.query;
+    const { type, examId, examVersionId, board, userId, scheduleExamId, startDate, endDate } = req.query;
     const filter = { isCompleted: true };
     if (type) filter.type = type;
     if (examId) filter.exam = examId;
+    if (examVersionId) filter.examVersion = examVersionId;
+    if (board) filter.board = board;
     if (userId) filter.user = userId;
+    if (scheduleExamId) {
+      filter.scheduleExam = scheduleExamId === 'none' ? { $in: [null, undefined] } : scheduleExamId;
+    }
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
 
     const attempts = await QuizAttempt.find(filter)
       .populate("user", "username email")
       .populate("exam", "name")
+      .populate("scheduleExam", "title")
       .lean();
 
-    const headers = ['user', 'email', 'exam', 'type', 'source', 'score', 'totalQuestions', 'correctCount', 'incorrectCount', 'unansweredCount', 'percentage', 'startedAt', 'completedAt', 'isCompleted'];
+    const headers = ['user', 'email', 'exam', 'scheduledExam', 'type', 'source', 'score', 'totalQuestions', 'correctCount', 'incorrectCount', 'unansweredCount', 'percentage', 'startedAt', 'completedAt', 'isCompleted'];
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = attempts.map((a) =>
       headers.map((h) => {
@@ -921,6 +936,7 @@ export const exportAttemptsCsv = async (req, res) => {
           case 'user': return escape(a.user?.username || a.user?._id || '');
           case 'email': return escape(a.user?.email || '');
           case 'exam': return escape(a.exam?.name || '');
+          case 'scheduledExam': return escape(a.scheduleExam?.title || '');
           case 'startedAt': return escape(a.startedAt?.toISOString?.() || a.startedAt || '');
           case 'completedAt': return escape(a.completedAt?.toISOString?.() || a.completedAt || '');
           default: return escape(a[h]);
@@ -941,7 +957,10 @@ export const exportAttemptsCsv = async (req, res) => {
 // ─── GET all attempts (admin) ───────────────────────────────
 export const getAllAttempts = async (req, res) => {
   try {
-    const { type, examId, examVersionId, board, userId, startDate, endDate, page = 1, limit = 20 } = req.query;
+    const {
+      type, examId, examVersionId, board, userId,
+      scheduleExamId, startDate, endDate, page = 1, limit = 20,
+    } = req.query;
 
     const filter = { isCompleted: true };
     if (type) filter.type = type;
@@ -949,6 +968,11 @@ export const getAllAttempts = async (req, res) => {
     if (examVersionId) filter.examVersion = examVersionId;
     if (board) filter.board = board;
     if (userId) filter.user = userId;
+    // Scheduled exams are the instances created in Exam Control. The 'none'
+    // sentinel finds attempts that belong to no scheduled exam (free practice).
+    if (scheduleExamId) {
+      filter.scheduleExam = scheduleExamId === 'none' ? { $in: [null, undefined] } : scheduleExamId;
+    }
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
@@ -966,7 +990,7 @@ export const getAllAttempts = async (req, res) => {
         .populate("user", "name username email phone division district")
         .populate("exam", "name image")
         .populate("examVersion", "examVersion")
-        .populate("scheduleExam", "duration")
+        .populate("scheduleExam", "title startDate endDate duration status")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))

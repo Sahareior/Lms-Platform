@@ -23,11 +23,14 @@ router.get('/active', authenticate, requireSelfOrAdmin('userId'), getActiveAttem
 router.get('/activity/weekly', authenticate, requireSelfOrAdmin('userId'), cacheMiddleware({ ttl: 120, keyPrefix: 'cache:quiz-attempt' }), getWeeklyActivity);
 router.get('/overview', authenticate, requireSelfOrAdmin('userId'), cacheMiddleware({ ttl: 60, keyPrefix: 'cache:quiz-attempt' }), getQuizOverview);
 router.get('/user/:userId', authenticate, requireSelfOrAdmin('userId'), getUserAttempts);
-router.get('/:id', authenticate, getAttemptById);
 
-// Admin only: all attempts + summary (aggregation is expensive, cache briefly)
-router.get('/', authenticate, requireRole('admin'), cacheMiddleware({ ttl: 60, keyPrefix: 'cache:quiz-attempt' }), getAllAttempts);
+// Admin only: all attempts + summary (aggregation is expensive, cache briefly).
+// NOTE: static paths must be registered before '/:id' or that route would
+// swallow them (e.g. GET /quiz-attempts/export → getAttemptById('export')).
 router.get('/export', authenticate, requireRole('admin'), exportAttemptsCsv);
+router.get('/', authenticate, requireRole('admin'), cacheMiddleware({ ttl: 60, keyPrefix: 'cache:quiz-attempt' }), getAllAttempts);
+
+router.get('/:id', authenticate, getAttemptById);
 
 // Protected: create and update attempts
 router.post('/start', authenticate, startAttempt);
