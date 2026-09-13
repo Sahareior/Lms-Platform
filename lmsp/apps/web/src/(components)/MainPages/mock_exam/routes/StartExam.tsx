@@ -1,6 +1,6 @@
 import React from 'react'
 import { useSearchParams } from 'react-router-dom'
-import PaperTypeSelection from '../../../ExamPaper/papertypeSelection/PaperTypeSelection';
+import PaperTypeSelection from '../ExamPaper/papertypeSelection/PaperTypeSelection';
 
 const Exampage = () => {
   const [searchParams] = useSearchParams();

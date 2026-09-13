@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import CustomModal from "../../../../reusable/CustomModal";
+import FormattedQuestion from "../../mock_exam/ExamPaper/_components/FormattedQuestion";
 import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
 import {
   useGetMeQuery,
@@ -107,19 +108,6 @@ function transformQuestions(apiQuestions: ApiQuestion[], statsMap: Record<string
 }
 
 const letters = ["ক", "খ", "গ", "ঘ", "ঙ", "চ", "ছ", "জ"];
-
-// Formats inline roman numeral lists and typical prompt questions to be on new lines
-function formatQuestionText(text: string) {
-  if (!text) return text;
-  return text
-    .replace(/\s+(i\.\s)/g, '\n$1')
-    .replace(/\s+(ii\.\s)/g, '\n$1')
-    .replace(/\s+(iii\.\s)/g, '\n$1')
-    .replace(/\s+(iv\.\s)/g, '\n$1')
-    .replace(/\s+(v\.\s)/g, '\n$1')
-    .replace(/\s+(vi\.\s)/g, '\n$1')
-    .replace(/\s+(নিচের কোনটি সঠিক\?)/g, '\n$1');
-}
 
 export default function ExamDin() {
   const navigate = useNavigate();
@@ -525,32 +513,25 @@ export default function ExamDin() {
               </div>
 
               <div className="p-6 sm:p-8 pt-4">
-                {/* Scenario / passage text */}
+                <div className="text-[#F5F7FA] text-base leading-relaxed font-medium mb-5">
+                  <FormattedQuestion text={q.question} />
+                </div>
+
                 {q.scenarioText && (
                   <div className="mb-5 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#9B51E0] mb-2">
-                      Scenario / Passage
-                    </p>
-                    <p className="text-[20px] leading-relaxed text-white whitespace-pre-line">
+                    <p className="text-sm leading-relaxed text-[#C9D0DA] whitespace-pre-line">
                       {q.scenarioText}
                     </p>
                   </div>
                 )}
 
-                {/* Question image */}
                 {q.imageUrl && (
-                  <div className="mb-5">
-                    <img
-                      src={q.imageUrl}
-                      alt="Question diagram"
-                      className="max-w-full max-h-72 object-contain rounded-xl border border-[#23262D] bg-[#161920]"
-                    />
-                  </div>
+                  <img
+                    src={q.imageUrl}
+                    alt={`Question ${q.id}`}
+                    className="mb-5 max-h-72 max-w-full rounded border border-[#23262D] bg-[#161920] object-contain"
+                  />
                 )}
-
-                <h2 className="font-semibold text-lg leading-7 mb-6 whitespace-pre-wrap text-[#F5F7FA]">
-                  {formatQuestionText(q.question)}
-                </h2>
 
                 {/* Options */}
                 <div className="space-y-3 mb-6">

@@ -13,7 +13,7 @@ export const useExamSecurity = ({
   isSubmitted,
   onViolationLimitReached,
   storageKey,
-  maxViolations = 5,
+  maxViolations = 1005,
 }: SecurityOptions) => {
   const [violations, setViolations] = useState<number>(() => {
     if (!storageKey) return 0;

@@ -6,7 +6,7 @@ import App from './App';
 import { Login, SignUp, ForgotPassword, ResetPassword } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
 import HomeRedirect from './auth/HomeRedirect';
-import Omer from './(components)/ExamPaper/omr/Omr';
+import Omer from './(components)/MainPages/mock_exam/ExamPaper/omr/Omr';
 import PrivacyPolicy from './legal/PrivacyPolicy';
 
 // ─── Lazy page imports (route-level code splitting) ─────────
@@ -15,7 +15,7 @@ import PrivacyPolicy from './legal/PrivacyPolicy';
 // panel, recharts, antd, etc. up front.
 const Dashboard = lazy(() => import('./(components)/dashboard/Dashboard'));
 const LessonPage = lazy(() => import('./(components)/MainPages/lesson/LessonPage'));
-const QuizPreatise = lazy(() => import('./(components)/ExamPaper/ExamPaper'));
+const QuizPreatise = lazy(() => import('./(components)/MainPages/mock_exam/ExamPaper/ExamPaper'));
 const MockExamInterface = lazy(() => import('./(components)/MockExamInterface'));
 const AIChatInterface = lazy(() => import('./(components)/MainPages/chat_interface/AIChatInterface'));
 const QuestionPatterns = lazy(() => import('./(components)/MainPages/question_patterns/QuestionPatterns'));
@@ -33,6 +33,7 @@ const QuestionMaster = lazy(() => import('./(components)/MainPages/Question_Mast
 const ExamDin = lazy(() => import('./(components)/MainPages/Question_Master/component/ExamDin'));
 const QuestionView = lazy(() => import('./(components)/MainPages/Question_Master/component/QuestionView'));
 const ExamCategorySelection = lazy(() => import('./(components)/MainPages/Question_Master/ExamCategorySelection'));
+const SubjectCategorySelection = lazy(() => import('./(components)/MainPages/Question_Master/SubjectCategorySelection'));
 const AdminDashboard = lazy(() => import('./AdminDashboard/AdminDashboard'));
 const DashboardOverview = lazy(() => import('./AdminDashboard/pages/DashboardOverview'));
 const UserManagement = lazy(() => import('./AdminDashboard/pages/UserManagement'));
@@ -40,11 +41,13 @@ const ExamManagement = lazy(() => import('./AdminDashboard/pages/ExamManagement'
 const CourseManagement = lazy(() => import('./AdminDashboard/pages/CourseManagement'));
 const LessonManagement = lazy(() => import('./AdminDashboard/pages/LessonManagement/LessonManagement'));
 const QuestionManagement = lazy(() => import('./AdminDashboard/pages/QuestionManagement'));
-const QuestionBank = lazy(() => import('./AdminDashboard/pages/QuestionBank'));
+const QuestionBank = lazy(() => import('./AdminDashboard/pages/QuestionBank/QuestionBank'));
+const QuestionManager = lazy(() => import('./AdminDashboard/pages/QuestionBank/QuestionManager'));
 const SubjectManagement = lazy(() => import('./AdminDashboard/pages/SubjectManagement'));
 const ExamControl = lazy(() => import('./AdminDashboard/pages/ExamControl'));
 const FeaturedExamControl = lazy(() => import('./AdminDashboard/pages/FeaturedExamControl'));
-const UserPerformance = lazy(() => import('./AdminDashboard/pages/UserPerformance'));
+const UserPerformance = lazy(() => import('./AdminDashboard/pages/UserPerformance/UserPerformance'));
+const AttemptDetail = lazy(() => import('./AdminDashboard/pages/UserPerformance/AttemptDetail'));
 
 const router = createBrowserRouter([
   // ── Landing page at / (public marketing page with its own per-route SEO) ──
@@ -156,6 +159,10 @@ const router = createBrowserRouter([
           { path: 'question-center', element: <ExamCategorySelection /> },
           {
             path: 'question-center/:examType',
+            element: <SubjectCategorySelection />,
+          },
+          {
+            path: 'question-center/:examType/:subjectId',
             element: <QuestionMaster />,
             children: [
               {
@@ -188,10 +195,12 @@ const router = createBrowserRouter([
           { path: 'courses/:courseId/lessons', element: <LessonManagement /> },
           { path: 'questions', element: <QuestionManagement /> },
           { path: 'question-bank', element: <QuestionBank /> },
+          { path: 'question-bank/:documentId', element: <QuestionManager /> },
           { path: 'subjects', element: <SubjectManagement /> },
           { path: 'exam-control', element: <ExamControl /> },
           { path: 'featured-exam', element: <FeaturedExamControl /> },
           { path: 'user-performance', element: <UserPerformance /> },
+          { path: 'user-performance/:attemptId', element: <AttemptDetail /> },
         ],
       },
     ],

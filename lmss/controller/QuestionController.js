@@ -228,12 +228,11 @@ export const getQuestionPattern =async (req,res) => {
 export const getQuestionsByExam = async (req, res) => {
   try {
     const { examId } = req.params;
-    const { versionId } = req.query;
-    const {board} = req.query
-    console.log(board,'ffff')
+    const { versionId, board, subject } = req.query;
     const filter = { exam: examId };
     if (versionId) filter.examVersion = versionId;
-    if(board) filter.board = board
+    if (board) filter.board = board;
+    if (subject) filter.subject = subject;
 
     const questions = await QuestionModel.find(filter)
       .populate('exam', 'name category')

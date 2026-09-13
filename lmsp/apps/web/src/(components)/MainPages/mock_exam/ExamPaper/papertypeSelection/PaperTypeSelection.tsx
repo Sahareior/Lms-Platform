@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert,
   Eye,
   Monitor,
   Camera,
-  X,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -21,9 +20,6 @@ interface PaperTypeSelectionProps {
   versionId: string;
   scheduleId?: string;
 }
-
-const STORAGE_KEY = 'selectedPaperType';
-
 
 // ─── Exam Rules Modal ─────────────────────────────────────────
 function ExamRulesModal({ onAgree, onCancel }: { onAgree: () => void; onCancel: () => void }) {
@@ -182,34 +178,10 @@ function ExamRulesModal({ onAgree, onCancel }: { onAgree: () => void; onCancel: 
 
 // ─── Main Component ────────────────────────────────────────────
 const PaperTypeSelection: React.FC<PaperTypeSelectionProps> = ({ examId, board, versionId, scheduleId }) => {
-  // Key agreement per exam session so each new exam requires a fresh agreement
-  const sessionKey = `examRulesAgreed:${scheduleId || examId}`;
-
-  const [rulesAgreed, setRulesAgreed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(sessionKey) === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const [selectedType, setSelectedType] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  });
-  const [clicked, setClicked] = useState<boolean>(!!selectedType);
-
-  // Persist selection
-  useEffect(() => {
-    if (selectedType) {
-      try {
-        localStorage.setItem(STORAGE_KEY, selectedType);
-      } catch { /* ignore */ }
-    }
-  }, [selectedType]);
+  const examSessionKey = `${examId}:${versionId}:${scheduleId || ''}:${board || ''}`;
+  const [rulesAgreed, setRulesAgreed] = useState(false);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [clicked, setClicked] = useState(false);
 
   const navigate = useNavigate();
 
@@ -218,9 +190,6 @@ const PaperTypeSelection: React.FC<PaperTypeSelectionProps> = ({ examId, board, 
   };
 
   const handleAgree = () => {
-    try {
-      localStorage.setItem(sessionKey, 'true');
-    } catch { /* ignore */ }
     setRulesAgreed(true);
   };
 
@@ -272,7 +241,11 @@ const PaperTypeSelection: React.FC<PaperTypeSelectionProps> = ({ examId, board, 
         </div>
       </div>
 
-      {renderComponent(selectedType)}
+      {rulesAgreed && clicked && (
+        <React.Fragment key={examSessionKey}>
+          {renderComponent(selectedType)}
+        </React.Fragment>
+      )}
     </div>
   );
 };

@@ -23,17 +23,17 @@ import {
   getAuthToken,
 } from "@my-monorepo/store";
 import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
-import QuestionCard from "./_components/QuestionCard";
-import QuizHeader from "./_components/QuizHeader";
-import QuizProgressBar from "./_components/QuizProgressBar";
+import QuestionCard from "./_components/QuestionCard.tsx";
+import QuizHeader from "./_components/QuizHeader.tsx";
+import QuizProgressBar from "./_components/QuizProgressBar.tsx";
 import {
   QuizLoading, NoExamSelected, NoQuestionsAvailable,
-} from "./_components/QuizStates";
+} from "./_components/QuizStates.tsx";
 import {
   computeLocalScore, buildLocalReview,
-} from "./_components/quizTypes";
-import type { QuestionItem, QuizResultData } from "./_components/quizTypes";
-import { useExamSecurity } from "./examSecurity/useExamSecurity";
+} from "./_components/quizTypes.ts";
+import type { QuestionItem, QuizResultData } from "./_components/quizTypes.ts";
+import { useExamSecurity } from "./examSecurity/useExamSecurity.ts";
 import Watermark from "./examSecurity/Watermark.tsx";
 
 export interface ExamPaperProps {
@@ -655,11 +655,11 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
   const violationStorageKey = `examViolations:${examId}:${versionId}:${scheduleId}`;
 
-  // const violations = useExamSecurity({
-  //   isSubmitted,
-  //   storageKey: violationStorageKey,
-  //   onViolationLimitReached: () => handleSubmit(true),
-  // });
+  const violations = useExamSecurity({
+    isSubmitted,
+    storageKey: violationStorageKey,
+    onViolationLimitReached: () => handleSubmit(true),
+  });
 
 
 

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import CustomModal from "../../../../reusable/CustomModal";
+import FormattedQuestion from "../../mock_exam/ExamPaper/_components/FormattedQuestion";
 import {
   useToggleFavoriteMutation,
   useGetFavoriteQuestionIdsQuery,
@@ -116,19 +117,6 @@ const DIFFICULTY_FILTERS = [
   { key: "Medium", label: "মাঝারি" },
   { key: "Hard", label: "কঠিন" },
 ];
-
-// Formats inline roman numeral lists and typical prompt questions to be on new lines
-function formatQuestionText(text: string) {
-  if (!text) return text;
-  return text
-    .replace(/\s+(i\.\s)/g, '\n$1')
-    .replace(/\s+(ii\.\s)/g, '\n$1')
-    .replace(/\s+(iii\.\s)/g, '\n$1')
-    .replace(/\s+(iv\.\s)/g, '\n$1')
-    .replace(/\s+(v\.\s)/g, '\n$1')
-    .replace(/\s+(vi\.\s)/g, '\n$1')
-    .replace(/\s+(নিচের কোনটি সঠিক\?)/g, '\n$1');
-}
 
 // ─────────────────────────────────────────────────────────────
 export default function QuestionView() {
@@ -350,11 +338,24 @@ export default function QuestionView() {
                 </span>
               </div>
             )}
+                      <button
+              onClick={allRevealed ? hideAll : revealAll}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition shrink-0 ${allRevealed
+                ? "bg-[#00E5B3]/10 border-[#00E5B3]/40 text-[#00E5B3]"
+                : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:border-[#323742] hover:text-[#F5F7FA]"
+                }`}
+              title={allRevealed ? "সব উত্তর লুকান" : "সব উত্তর দেখুন"}
+            >
+              {allRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
+              <span className="hidden sm:inline text-xs">
+                {allRevealed ? "সব লুকান" : "সব দেখুন"}
+              </span>
+            </button>
           </div>
 
           {/* Row 2: Search + filter + reveal-all */}
-          <div className="flex items-center gap-2">
-            {/* Search */}
+          {/* <div className="flex items-center gap-2">
+           
             <div className="relative flex-1">
               <Search
                 size={14}
@@ -377,7 +378,7 @@ export default function QuestionView() {
               )}
             </div>
 
-            {/* Difficulty filter */}
+         
             <div className="relative shrink-0">
               <button
                 onClick={() => setShowFilterDropdown((p) => !p)}
@@ -416,21 +417,9 @@ export default function QuestionView() {
               )}
             </div>
 
-            {/* Reveal / hide all toggle */}
-            <button
-              onClick={allRevealed ? hideAll : revealAll}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition shrink-0 ${allRevealed
-                ? "bg-[#00E5B3]/10 border-[#00E5B3]/40 text-[#00E5B3]"
-                : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:border-[#323742] hover:text-[#F5F7FA]"
-                }`}
-              title={allRevealed ? "সব উত্তর লুকান" : "সব উত্তর দেখুন"}
-            >
-              {allRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
-              <span className="hidden sm:inline text-xs">
-                {allRevealed ? "সব লুকান" : "সব দেখুন"}
-              </span>
-            </button>
-          </div>
+            
+  
+          </div> */}
 
         </div>
       </div>
@@ -464,18 +453,16 @@ export default function QuestionView() {
                     <span className="shrink-0 mt-0.5 min-w-[28px] h-7 px-1.5 rounded-lg bg-[#9B51E0]/10 border border-[#9B51E0]/25 flex items-center justify-center text-sm font-bold text-[#9B51E0]">
                       {q.id}
                     </span>
-                    <p className="text-[#F5F7FA] font-medium leading-8 text-base md:text-2xl sm:text-lg flex-1 whitespace-pre-wrap">
-                      {formatQuestionText(q.question)}
-                    </p>
+                    
+                    <div className="text-[#F5F7FA] text-base leading-relaxed font-medium flex-1">
+                      <FormattedQuestion text={q.question} />
+                    </div>
                   </div>
 
                   {/* Scenario block */}
                   {q.scenarioText && (
                     <div className="mb-4 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
-                      <p className="text-xs font-bold uppercase tracking-widest text-[#9B51E0] mb-2">
-                        Scenario / Passage
-                      </p>
-                      <p className="text-base md:text-lg leading-relaxed text-[#E0E4EE] whitespace-pre-line">
+                      <p className="text-sm leading-relaxed text-[#C9D0DA] whitespace-pre-line">
                         {q.scenarioText}
                       </p>
                     </div>
@@ -486,8 +473,8 @@ export default function QuestionView() {
                     <div className="mb-4">
                       <img
                         src={q.imageUrl}
-                        alt="Question diagram"
-                        className="max-w-full max-h-60 object-contain rounded-xl border border-[#23262D] bg-[#161920]"
+                        alt={`Question ${q.id}`}
+                        className="max-w-full max-h-72 object-contain rounded border border-[#23262D] bg-[#161920]"
                       />
                     </div>
                   )}
@@ -612,47 +599,6 @@ export default function QuestionView() {
         )}
       </div>
 
-      {/* ── Bottom summary bar ─────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#111318]/95 backdrop-blur-md border-t border-[#23262D]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-
-          <div className="flex items-center gap-4 flex-wrap">
-            <span className="text-sm text-[#A1A8B3]">
-              মোট{" "}
-              <span className="font-bold text-[#F5F7FA]">{totalQuestions}</span>{" "}
-              প্রশ্ন
-            </span>
-
-            {revealedCount > 0 && (
-              <span className="flex items-center gap-1.5 text-sm text-[#A1A8B3]">
-                <Eye size={13} className="text-[#00E5B3]" />
-                <span className="font-bold text-[#00E5B3]">{revealedCount}</span>
-                <span>উত্তর দেখা হয়েছে</span>
-              </span>
-            )}
-
-            {bookmarkedCount > 0 && (
-              <span className="flex items-center gap-1.5 text-sm text-[#A1A8B3]">
-                <Heart size={13} className="text-[#9B51E0]" fill="currentColor" />
-                <span className="font-bold text-[#9B51E0]">{bookmarkedCount}</span>
-                <span>ফেভারিট</span>
-              </span>
-            )}
-          </div>
-
-          {/* Quick reveal-all in bottom bar too */}
-          <button
-            onClick={allRevealed ? hideAll : revealAll}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition shrink-0 ${allRevealed
-              ? "bg-[#00E5B3]/10 border-[#00E5B3]/30 text-[#00E5B3]"
-              : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:border-[#323742] hover:text-[#F5F7FA]"
-              }`}
-          >
-            {allRevealed ? <EyeOff size={12} /> : <Eye size={12} />}
-            {allRevealed ? "সব লুকান" : "সব উত্তর দেখুন"}
-          </button>
-        </div>
-      </div>
 
       {/* ── Modal ──────────────────────────────────────────── */}
       <CustomModal
