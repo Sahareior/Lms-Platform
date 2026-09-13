@@ -655,11 +655,11 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
   const violationStorageKey = `examViolations:${examId}:${versionId}:${scheduleId}`;
 
-  // const violations = useExamSecurity({
-  //   isSubmitted,
-  //   storageKey: violationStorageKey,
-  //   onViolationLimitReached: () => handleSubmit(true),
-  // });
+  const violations = useExamSecurity({
+    isSubmitted,
+    storageKey: violationStorageKey,
+    onViolationLimitReached: () => handleSubmit(true),
+  });
 
 
 

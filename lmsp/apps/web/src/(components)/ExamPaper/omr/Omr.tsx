@@ -1015,7 +1015,7 @@ const Omer: React.FC<ExamPaperProps> = ({
                                             }`}
                                     >
                                         {/* Question Header & Text */}
-                                        <div className="flex items-start gap-2.5 mb-2.5">
+                                        <div className="flex items-start justify-center gap-2.5 mb-2.5">
                                             <span
                                                 className={`text-xs font-bold px-2 py-0.5 rounded flex-shrink-0 font-mono ${selectedOptIdx !== undefined
                                                     ? 'bg-emerald-600 text-white'
