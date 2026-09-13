@@ -23,19 +23,19 @@ import {
     getAuthToken,
 } from '@my-monorepo/store';
 import { usePostUserQuizsMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
-import FormattedQuestion from '../_components/FormattedQuestion';
+import FormattedQuestion from '../_components/FormattedQuestion.tsx';
 import {
     computeLocalScore,
     buildLocalReview,
-} from '../_components/quizTypes';
-import type { QuestionItem, QuizResultData } from '../_components/quizTypes';
+} from '../_components/quizTypes.ts';
+import type { QuestionItem, QuizResultData } from '../_components/quizTypes.ts';
 import {
     QuizLoading,
     NoExamSelected,
     NoQuestionsAvailable,
-} from '../_components/QuizStates';
-import type { ExamPaperProps } from '../ExamPaper';
-import { useExamSecurity } from '../examSecurity/useExamSecurity';
+} from '../_components/QuizStates.tsx';
+import type { ExamPaperProps } from '../ExamPaper.tsx';
+import { useExamSecurity } from '../examSecurity/useExamSecurity.ts';
 import Watermark from '../examSecurity/Watermark.tsx';
 
 /* -------------------------------------------------------------------------- */
@@ -1017,7 +1017,7 @@ const Omer: React.FC<ExamPaperProps> = ({
                                         {/* Question Header & Text */}
                                         <div className="flex items-start justify-center gap-2.5 mb-2.5">
                                             <span
-                                                className={`text-xs font-bold px-2 py-0.5 rounded flex-shrink-0 font-mono ${selectedOptIdx !== undefined
+                                                className={`text-xs mt-1 font-bold px-2 py-0.5 rounded flex-shrink-0 font-mono ${selectedOptIdx !== undefined
                                                     ? 'bg-emerald-600 text-white'
                                                     : 'bg-[#2a2f3d] text-gray-300'
                                                     }`}

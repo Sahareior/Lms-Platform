@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import CustomModal from "../../../../reusable/CustomModal";
+import FormattedQuestion from "../../mock_exam/ExamPaper/_components/FormattedQuestion";
 import {
   useToggleFavoriteMutation,
   useGetFavoriteQuestionIdsQuery,
@@ -116,19 +117,6 @@ const DIFFICULTY_FILTERS = [
   { key: "Medium", label: "মাঝারি" },
   { key: "Hard", label: "কঠিন" },
 ];
-
-// Formats inline roman numeral lists and typical prompt questions to be on new lines
-function formatQuestionText(text: string) {
-  if (!text) return text;
-  return text
-    .replace(/\s+(i\.\s)/g, '\n$1')
-    .replace(/\s+(ii\.\s)/g, '\n$1')
-    .replace(/\s+(iii\.\s)/g, '\n$1')
-    .replace(/\s+(iv\.\s)/g, '\n$1')
-    .replace(/\s+(v\.\s)/g, '\n$1')
-    .replace(/\s+(vi\.\s)/g, '\n$1')
-    .replace(/\s+(নিচের কোনটি সঠিক\?)/g, '\n$1');
-}
 
 // ─────────────────────────────────────────────────────────────
 export default function QuestionView() {
@@ -465,18 +453,16 @@ export default function QuestionView() {
                     <span className="shrink-0 mt-0.5 min-w-[28px] h-7 px-1.5 rounded-lg bg-[#9B51E0]/10 border border-[#9B51E0]/25 flex items-center justify-center text-sm font-bold text-[#9B51E0]">
                       {q.id}
                     </span>
-                    <p className="text-[#F5F7FA] font-medium leading-8 text-base md:text-2xl sm:text-lg flex-1 whitespace-pre-wrap">
-                      {formatQuestionText(q.question)}
-                    </p>
+                    
+                    <div className="text-[#F5F7FA] text-base leading-relaxed font-medium flex-1">
+                      <FormattedQuestion text={q.question} />
+                    </div>
                   </div>
 
                   {/* Scenario block */}
                   {q.scenarioText && (
                     <div className="mb-4 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
-                      <p className="text-xs font-bold uppercase tracking-widest text-[#9B51E0] mb-2">
-                        Scenario / Passage
-                      </p>
-                      <p className="text-base md:text-lg leading-relaxed text-[#E0E4EE] whitespace-pre-line">
+                      <p className="text-sm leading-relaxed text-[#C9D0DA] whitespace-pre-line">
                         {q.scenarioText}
                       </p>
                     </div>
@@ -487,8 +473,8 @@ export default function QuestionView() {
                     <div className="mb-4">
                       <img
                         src={q.imageUrl}
-                        alt="Question diagram"
-                        className="max-w-full max-h-60 object-contain rounded-xl border border-[#23262D] bg-[#161920]"
+                        alt={`Question ${q.id}`}
+                        className="max-w-full max-h-72 object-contain rounded border border-[#23262D] bg-[#161920]"
                       />
                     </div>
                   )}

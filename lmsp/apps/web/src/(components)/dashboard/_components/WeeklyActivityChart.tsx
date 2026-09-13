@@ -43,7 +43,7 @@ export default function WeeklyActivityChart({
   isLoading: boolean;
 }) {
   return (
-    <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-6">
+    <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-2">
       <div className="flex justify-between items-start mb-6">
         <div>
           <h3 className="text-base font-bold text-[#F5F7FA]">Weekly Study Activity</h3>

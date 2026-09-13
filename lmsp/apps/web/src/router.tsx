@@ -6,7 +6,7 @@ import App from './App';
 import { Login, SignUp, ForgotPassword, ResetPassword } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
 import HomeRedirect from './auth/HomeRedirect';
-import Omer from './(components)/ExamPaper/omr/Omr';
+import Omer from './(components)/MainPages/mock_exam/ExamPaper/omr/Omr';
 import PrivacyPolicy from './legal/PrivacyPolicy';
 
 // ─── Lazy page imports (route-level code splitting) ─────────
@@ -15,7 +15,7 @@ import PrivacyPolicy from './legal/PrivacyPolicy';
 // panel, recharts, antd, etc. up front.
 const Dashboard = lazy(() => import('./(components)/dashboard/Dashboard'));
 const LessonPage = lazy(() => import('./(components)/MainPages/lesson/LessonPage'));
-const QuizPreatise = lazy(() => import('./(components)/ExamPaper/ExamPaper'));
+const QuizPreatise = lazy(() => import('./(components)/MainPages/mock_exam/ExamPaper/ExamPaper'));
 const MockExamInterface = lazy(() => import('./(components)/MockExamInterface'));
 const AIChatInterface = lazy(() => import('./(components)/MainPages/chat_interface/AIChatInterface'));
 const QuestionPatterns = lazy(() => import('./(components)/MainPages/question_patterns/QuestionPatterns'));

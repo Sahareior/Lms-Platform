@@ -9,7 +9,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import FormattedQuestion from "../../../../(components)/ExamPaper/_components/FormattedQuestion";
+import FormattedQuestion from "../ExamPaper/_components/FormattedQuestion";
 
 // ─── Types ─────────────────────────────────────────────────────
 interface QuestionReviewItem {
