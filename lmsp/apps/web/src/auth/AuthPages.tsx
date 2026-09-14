@@ -172,7 +172,7 @@ export const Login: React.FC = () => {
       };
 
       setAuthToken(data.token);
-      persistAuth(data.token, userInfo);
+      persistAuth(data.token, userInfo, (data as any).refreshToken);
       dispatch(loginSuccess(userInfo));
 
       const from = (location.state as any)?.from || '/dashboard';
@@ -295,7 +295,7 @@ export const SignUp: React.FC = () => {
       };
 
       setAuthToken(data.token);
-      persistAuth(data.token, userInfo);
+      persistAuth(data.token, userInfo, (data as any).refreshToken);
       dispatch(loginSuccess(userInfo));
 
       // First-time users land on the onboarding page (AuthGuard redirects them there)

@@ -33,6 +33,21 @@ export interface CompleteAttemptRequest {
   attemptId: string;
 }
 
+/** XP/level/streak payload returned alongside a completed attempt. */
+export interface GamificationPayload {
+  xp: number;
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDate: string | null;
+  level: number;
+  previousLevel?: number;
+  levelUp?: boolean;
+  xpIntoLevel: number;
+  xpForNextLevel: number;
+  progress: number;
+  xpAwarded: number;
+}
+
 export interface QuestionResponse {
   questionNumber: number;
   questionText: string;
@@ -165,7 +180,10 @@ const quizAttemptApi = api.injectEndpoints({
     }),
 
     // ── Complete an attempt ──────────────────────────────────
-    completeAttempt: build.mutation<{ message: string; attempt: Attempt }, CompleteAttemptRequest>({
+    completeAttempt: build.mutation<
+      { message: string; attempt: Attempt; gamification?: GamificationPayload | null },
+      CompleteAttemptRequest
+    >({
       query: ({ attemptId }) => ({
         url: `/quiz-attempts/${attemptId}/complete`,
         method: 'POST',

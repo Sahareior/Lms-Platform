@@ -9,7 +9,6 @@ import { resolveSubmittedQuestions } from "./quizPerformController.js";
 const AI_PERFORMANCE_URL =
   process.env.AI_PERFORMANCE_URL || "http://127.0.0.1:5000/user-performance";
 // AI analysis can take a while – give it a generous timeout.
-console.log(AI_PERFORMANCE_URL,'this is uro')
 const AI_TIMEOUT_MS = 120000;
 
 // In-flight generation promises keyed by userId. When multiple requests for the
@@ -70,7 +69,6 @@ async function callAiService(performances, authHeader) {
       body: JSON.stringify(performances),
       signal: controller.signal,
     });
-    console.log(res,'trhis is res')
     if (!res.ok) {
       throw new Error(`AI service responded with status ${res.status}`);
     }
@@ -406,8 +404,6 @@ function generateAndSaveReport(userId, examId = null, authHeader) {
         : { exam: examId }
       : {};
 
-    console.log("generateAndSaveReport querying quizPerform with userQuery:", userQuery, "examQuery:", examQuery);
-
     const performances = await quizPerform
       .find({ user: userQuery, ...examQuery })
       .populate("user", "name email")
@@ -415,14 +411,12 @@ function generateAndSaveReport(userId, examId = null, authHeader) {
       .populate("examVersion", "examVersion")
       .populate("subject", "name");
 
-    console.log("quizPerform found count:", performances.length, "performances:", performances);
     const resolved = await resolveSubmittedQuestions(performances);
 
     const resolvedQuestionsCount = resolved.reduce(
       (sum, p) => sum + (p.submittedQuestions || []).filter((sq) => sq.questionData).length,
       0
     );
-    console.log(`generateAndSaveReport: total questions with questionData: ${resolvedQuestionsCount}`);
 
     if (!resolved || resolved.length === 0 || resolvedQuestionsCount === 0) {
       console.warn("generateAndSaveReport: no resolved questions found, returning empty: true");
@@ -435,8 +429,6 @@ function generateAndSaveReport(userId, examId = null, authHeader) {
       ? await generateSingleReport(resolved, authHeader)
       : await generateCombinedReport(userId, resolved, authHeader);
 
-    console.log("generateAndSaveReport: generated report stats:", data?.stats);
-
     const report = await AiPerformanceReport.create({
       user: userId,
       exam: examId || null,
@@ -446,7 +438,6 @@ function generateAndSaveReport(userId, examId = null, authHeader) {
       stats: data.stats,
       ai_report: data.ai_report,
     });
-    console.log("generateAndSaveReport: successfully saved report ID:", report._id);
     return { report };
   })().finally(() => {
     inflightGeneration.delete(cacheKey);

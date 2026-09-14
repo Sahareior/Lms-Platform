@@ -59,10 +59,10 @@ export default function AiRecommendationsCard({
             className="rounded-xl p-3 border text-center"
             style={{ borderColor: `${verdictColor}40`, background: `${verdictColor}14` }}
           >
-            <div className="text-[13px] uppercase tracking-wider font-bold" style={{ color: verdictColor }}>
+            <div className="text-[15px] uppercase tracking-wider font-bold" style={{ color: verdictColor }}>
               {activeVerdict} 
             </div>
-            <p className="text-[13px] text-[#A1A8B3] mt-1 leading-relaxed">
+            <p className="text-[17px] text-white font-medium text-[#A1A8B3] mt-1 leading-relaxed">
               {verdictMessage}
             </p>
           </div>
@@ -76,7 +76,7 @@ export default function AiRecommendationsCard({
               </div>
               <div className="space-y-1.5">
                 {aiInsights!.study_plan.slice(0, 3).map((plan: any, idx: number) => (
-                  <div key={idx} className="flex items-start gap-3 text-[13px]">
+                  <div key={idx} className="flex items-start gap-3 text-[15px]">
                     <span className="font-bold text-[#00E5B3] flex-shrink-0 bg-[#00E5B3]/10 px-1.5 py-0.5 rounded text-xs">{plan.day}</span>
                     <span className="text-[#A1A8B3] leading-snug">
                       <span className="text-[#F5F7FA] font-medium block">{plan.title}</span>
@@ -93,8 +93,8 @@ export default function AiRecommendationsCard({
                 key={index}
                 className={`bg-[#161920] border border-[#23262D] border-l-4 ${item.color} rounded-xl p-3 hover:border-[#323742] transition-all`}
               >
-                <h3 className="font-bold text-xs text-[#F5F7FA] leading-snug">{item.title}</h3>
-                <p className="text-[12px] text-[#A1A8B3] mt-1 leading-relaxed">{item.desc}</p>
+                <h3 className="font-bold text-[17px] text-[#F5F7FA] leading-snug">{item.title}</h3>
+                <p className="text-[15px] text-[#A1A8B3] mt-1 leading-relaxed">{item.desc}</p>
               </div>
             ))
           ) : (

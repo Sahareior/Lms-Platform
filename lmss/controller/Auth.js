@@ -1,9 +1,17 @@
 import crypto from "crypto"
 import User from "../models/User.js"
 import PasswordResetToken from "../models/PasswordResetToken.js"
+import RefreshToken from "../models/RefreshToken.js"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import { JWT_SECRET, JWT_EXPIRES_IN } from "../config/jwt.js"
+import {
+  issueRefreshToken,
+  validateRefreshToken,
+  rotateRefreshToken,
+  revokeRefreshToken,
+  revokeAllUserRefreshTokens,
+} from "../utils/refreshToken.js"
 import { sendEmail } from "../config/resend.js"
 
 /** Generate a JWT for the given user object (without password). */
@@ -17,6 +25,16 @@ function generateToken(user) {
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   )
+}
+
+/** Issue both tokens for a user and return the auth payload. */
+async function issueAuthTokens(user, req) {
+  const token = generateToken(user)
+  const refreshToken = await issueRefreshToken(
+    user._id,
+    req?.headers?.['user-agent'] || null
+  )
+  return { token, refreshToken }
 }
 
 /** Strip password and __v from a user document and return a plain object. */
@@ -40,12 +58,13 @@ export const handelSignUps = async(req,res) => {
         await newUser.save()
 
         const userData = sanitizeUser(newUser)
-        const token = generateToken(userData)
+        const { token, refreshToken } = await issueAuthTokens(userData, req)
 
         res.status(201).json({
             message: 'User created successfully',
             user: userData,
-            token
+            token,
+            refreshToken,
         })
     }
     catch(err){
@@ -67,12 +86,13 @@ export const handelSingIn = async (req,res)=> {
         }
 
         const userData = sanitizeUser(user)
-        const token = generateToken(userData)
+        const { token, refreshToken } = await issueAuthTokens(userData, req)
 
         res.status(200).json({
             message: 'User signed in successfully',
             user: userData,
-            token
+            token,
+            refreshToken,
         })
     }
     catch(err){
@@ -308,5 +328,78 @@ export const getMe = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Something went wrong' });
+  }
+}
+
+/**
+ * POST /auth/refresh — exchange a valid refresh token for a new access token
+ * (and a rotated refresh token). Reuse of an already-rotated token revokes the
+ * whole family (theft detection).
+ */
+export const refreshAccessToken = async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken || typeof refreshToken !== 'string') {
+    return res.status(400).json({ message: 'refreshToken is required' });
+  }
+
+  try {
+    const result = await validateRefreshToken(refreshToken);
+    if (!result) {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    const { doc, reuse, expired } = result;
+
+    // Reuse of a rotated/revoked token → assume theft, kill the whole family.
+    if (reuse) {
+      await revokeAllUserRefreshTokens(doc.user);
+      return res.status(401).json({ message: 'Refresh token reuse detected. Please sign in again.' });
+    }
+    if (expired) {
+      return res.status(401).json({ message: 'Refresh token expired. Please sign in again.' });
+    }
+
+    const user = await User.findById(doc.user);
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const userData = sanitizeUser(user);
+    const token = generateToken(userData);
+    const newRefreshToken = await rotateRefreshToken(doc, user._id, req.headers['user-agent'] || null);
+
+    res.status(200).json({
+      message: 'Token refreshed',
+      user: userData,
+      token,
+      refreshToken: newRefreshToken,
+    });
+  } catch (err) {
+    console.error('Refresh token error:', err);
+    res.status(500).json({ message: 'Something went wrong' });
+  }
+}
+
+/**
+ * POST /auth/logout — revoke the provided refresh token (single device).
+ * The short-lived access token simply expires on its own.
+ */
+export const logout = async (req, res) => {
+  const { refreshToken } = req.body || {};
+  try {
+    if (refreshToken) {
+      const result = await validateRefreshToken(refreshToken);
+      if (result?.doc && !result.reuse) {
+        await revokeRefreshToken(result.doc);
+      }
+    }
+    // Best-effort: also revoke all tokens when requested (logout everywhere)
+    if (req.body?.allDevices) {
+      await revokeAllUserRefreshTokens(req.user?.userId);
+    }
+    res.status(200).json({ message: 'Logged out' });
+  } catch (err) {
+    console.error('Logout error:', err);
+    res.status(200).json({ message: 'Logged out' });
   }
 }

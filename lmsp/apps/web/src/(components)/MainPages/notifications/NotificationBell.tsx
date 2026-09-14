@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Bell, CheckCheck, Award, BookOpen, Info, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
-  useAppSelector,
   useGetMyNotificationsQuery,
   useMarkNotificationReadMutation,
   useMarkAllNotificationsReadMutation,
@@ -24,11 +23,14 @@ const typeIcon = (type: string) => {
 
 const NotificationBell = () => {
   const navigate = useNavigate();
-  const userId = useAppSelector((state) => state.user.user?._id) || '';
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  const { data } = useGetMyNotificationsQuery(userId, { skip: !userId, pollingInterval: 60000 });
+  // The backend derives the user from the auth token; no userId is needed.
+  const { data } = useGetMyNotificationsQuery(undefined, {
+    skip: false,
+    pollingInterval: 60000,
+  });
   const [markRead] = useMarkNotificationReadMutation();
   const [markAllRead] = useMarkAllNotificationsReadMutation();
 
@@ -73,7 +75,7 @@ const NotificationBell = () => {
             <span className="text-sm font-bold text-[#F5F7FA]">Notifications</span>
             {unreadCount > 0 && (
               <button
-                onClick={() => markAllRead(userId)}
+                onClick={() => markAllRead()}
                 className="flex items-center gap-1 text-[11px] font-semibold text-[#00E5B3] hover:text-[#00C298] transition-colors"
               >
                 <CheckCheck size={13} />

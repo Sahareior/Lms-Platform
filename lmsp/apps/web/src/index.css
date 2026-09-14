@@ -61,6 +61,112 @@
   box-shadow: 0 0 20px -3px rgba(242, 201, 76, 0.35);
 }
 
+/* ═════════════════════════════════════════════════════════
+   GAMIFICATION TOASTS & LEVEL-UP OVERLAY
+   (see src/gamification/GamificationToast.tsx)
+   ═════════════════════════════════════════════════════════ */
+@keyframes gt-slide-in {
+  from {
+    transform: translateX(calc(100% + 1.5rem));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes gt-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(100% + 1.5rem));
+    opacity: 0;
+  }
+}
+
+.gt-enter {
+  animation: gt-slide-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.gt-leave {
+  animation: gt-slide-out 0.25s ease-in both;
+}
+
+@keyframes gt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.gt-fade {
+  animation: gt-fade 0.2s ease-out both;
+}
+
+@keyframes gt-pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.gt-pop {
+  animation: gt-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes gt-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 24px 4px rgba(242, 201, 76, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 48px 10px rgba(242, 201, 76, 0.6);
+  }
+}
+
+.gt-glow {
+  animation: gt-glow-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes gt-confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) rotate(720deg);
+  }
+}
+
+.gt-confetti {
+  top: 0;
+  animation: gt-confetti-fall linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gt-enter,
+  .gt-leave,
+  .gt-fade,
+  .gt-pop,
+  .gt-glow,
+  .gt-confetti {
+    animation: none;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
    SCROLLBAR DESIGN SYSTEM
    Thin, rounded, floating-pill scrollbars that match the dark UI.

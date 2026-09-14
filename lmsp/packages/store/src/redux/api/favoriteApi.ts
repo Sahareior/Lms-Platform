@@ -57,7 +57,7 @@ const favoriteApi = api.injectEndpoints({
         method: 'POST',
         body,
       }),
-      invalidatesTags: [{ type: 'Favorite', id: 'LIST' }],
+      invalidatesTags: [{ type: 'Favorite', id: 'LIST' }, 'Question', 'Performance'],
     }),
 
     getMyFavorites: build.query<

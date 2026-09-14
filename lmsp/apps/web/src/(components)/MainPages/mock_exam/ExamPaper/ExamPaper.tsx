@@ -20,9 +20,12 @@ import {
   useSaveTempExamSubmissionMutation,
   useDeleteTempExamSubmissionMutation,
   useRecordQuestionStatsMutation,
+  useRecordMistakesMutation,
   getAuthToken,
 } from "@my-monorepo/store";
+import { emitXpGained, emitLevelUp } from "../../../../gamification/GamificationToast";
 import { usePostUserQuizsMutation } from "@my-monorepo/store/src/redux/api/userPerformanceApi";
+import type { RecordMistakeQuestion } from "@my-monorepo/store";
 import QuestionCard from "./_components/QuestionCard.tsx";
 import QuizHeader from "./_components/QuizHeader.tsx";
 import QuizProgressBar from "./_components/QuizProgressBar.tsx";
@@ -144,6 +147,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const [saveTempExamSubmission] = useSaveTempExamSubmissionMutation();
   const [deleteTempExamSubmission] = useDeleteTempExamSubmissionMutation();
   const [recordQuestionStats] = useRecordQuestionStatsMutation();
+  const [recordMistakes] = useRecordMistakesMutation();
 
   const attemptIdRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -511,7 +515,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
         // Record question statistics (fire-and-forget)
         if (qItem.id) {
-          const isCorr = oIndex === qItem.correctIndex;
+          // QuestionItem exposes the correct index as `correctAnswer`
+          // (`correctIndex` doesn't exist, so isCorr was always false).
+          const isCorr = oIndex === qItem.correctAnswer;
           recordQuestionStats({
             questionId: String(qItem.id),
             isCorrect: isCorr,
@@ -593,7 +599,28 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
             }),
           }).unwrap();
 
-          await completeAttempt({ attemptId }).unwrap();
+          await completeAttempt({ attemptId }).unwrap().then((res) => {
+            // XP toast + level-up celebration from the complete-attempt response
+            const gm = res?.gamification;
+            if (gm && gm.xpAwarded > 0) {
+              emitXpGained({
+                xpAwarded: gm.xpAwarded,
+                level: gm.level,
+                xpIntoLevel: gm.xpIntoLevel,
+                xpForNextLevel: gm.xpForNextLevel,
+                progress: gm.progress,
+                currentStreak: gm.currentStreak,
+                source: 'mock_exam',
+              });
+              if (gm.levelUp) {
+                emitLevelUp({
+                  level: gm.level,
+                  xpIntoLevel: gm.xpIntoLevel,
+                  xpForNextLevel: gm.xpForNextLevel,
+                });
+              }
+            }
+          });
         }
 
         // Bulk-save all answered questions to QuizPerformance on submit.
@@ -624,6 +651,33 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
               .catch((err) => {
                 console.warn("Bulk quiz performance save failed:", err);
               });
+          }
+
+          // ── Mistake Notebook: add every wrongly-answered question to the
+          // spaced-repetition review queue (fire-and-forget) ──
+          const wrongMistakes = allQuestions
+            .map((q, idx) => {
+              const selIdx = selectedAnswers[idx];
+              if (selIdx === undefined || !q.id) return null;
+              if (selIdx === q.correctAnswer) return null;
+              return {
+                questionId: String(q.id),
+                questionText: q.question || '',
+                options: Object.fromEntries(
+                  (q.optionKeys ?? []).map((k, oi) => [k, q.options[oi] ?? ''])
+                ),
+                correctAnswer: q.optionKeys?.[q.correctAnswer ?? -1] ?? null,
+                lastWrongAnswer: q.optionKeys?.[selIdx] ?? null,
+                exam: examId,
+                examName: currentExam?.name || '',
+              } as RecordMistakeQuestion;
+            })
+            .filter(Boolean) as RecordMistakeQuestion[];
+
+          if (wrongMistakes.length > 0) {
+            recordMistakes({ questions: wrongMistakes }).catch((err) => {
+              console.warn('Failed to add mistakes to notebook:', err);
+            });
           }
         }
 

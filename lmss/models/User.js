@@ -71,6 +71,23 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Exam'
     }],
+    // ─── Gamification: streak + XP ──────────────────────────
+    xp: {
+        type: Number,
+        default: 0,
+    },
+    currentStreak: {
+        type: Number,
+        default: 0,
+    },
+    longestStreak: {
+        type: Number,
+        default: 0,
+    },
+    lastActiveDate: {
+        type: Date,
+        default: null,
+    },
     // perticipatedExams:[{
     //     type: mongoose.Schema.Types.ObjectId,
     //     ref: ''

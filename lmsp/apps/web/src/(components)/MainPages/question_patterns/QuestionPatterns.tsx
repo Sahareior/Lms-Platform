@@ -341,7 +341,7 @@ const QuestionPatterns = () => {
   /* ═══════════════════ STEP 3: SUBJECT QUESTION PATTERN ANALYSIS ═══════════════════ */
   return (
     <div className="flex-1 min-h-screen font-sans text-[#F5F7FA] bg-[#0B0D12]">
-      <div className="max-w-8xl mx-auto py-6 px-1 sm:px-6 space-y-7">
+      <div className="max-w-8xl mx-auto py-6 sm:px-3 space-y-7">
         {/* ── TOP NAV: BREADCRUMBS & ACTIONS ── */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#23262D]/60 pb-4">
           <div className="flex items-center gap-3">

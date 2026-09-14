@@ -16,12 +16,15 @@ export async function createNotification({ userId, title, message, type = "info"
   }
 }
 
-/** GET /notifications/mine?userId=... — list + unread count. */
+/** GET /notifications/mine — list + unread count for the authenticated user. */
 export const getMyNotifications = async (req, res) => {
   try {
-    const { userId } = req.query;
+    // Owner-only: always scope to the token's user. Previously the userId came
+    // from the query string, so any signed-in user could read anyone's
+    // notifications (IDOR).
+    const userId = req.user?.userId;
     if (!userId) {
-      return res.status(400).json({ message: "userId is required" });
+      return res.status(401).json({ message: "Not authenticated" });
     }
     const [notifications, unreadCount] = await Promise.all([
       Notification.find({ user: userId }).sort({ createdAt: -1 }).limit(50),
@@ -59,7 +62,8 @@ export const markNotificationRead = async (req, res) => {
 /** POST /notifications/read-all — mark everything read for the user. */
 export const markAllNotificationsRead = async (req, res) => {
   try {
-    const userId = req.body?.userId || req.user.userId;
+    // Owner-only: ignore any client-supplied userId and use the token's user.
+    const userId = req.user.userId;
     await Notification.updateMany({ user: userId, read: false }, { read: true });
     res.status(200).json({ message: "All notifications marked as read" });
   } catch (err) {

@@ -41,6 +41,8 @@ import AiRecommendationsCard from "./_components/AiRecommendationsCard";
 import SubjectAccuracyList from "./_components/SubjectAccuracyList";
 import DashboardHeader from "./_components/DashboardHeader";
 import StatsRow from "./_components/StatsRow";
+import StreakCard from "./_components/StreakCard";
+import LeaderboardCard from "./_components/LeaderboardCard";
 
 // ─── Weekly Study Activity helpers ──────────────────────────
 const WEEK_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -345,6 +347,9 @@ export default function Dashboard() {
       {/* ────── STATS ROW ────── */}
       <StatsRow statsCards={statsCards} />
 
+      {/* ────── STREAK & XP CARD (hidden for brand-new users) ────── */}
+      <StreakCard />
+
       {/* ────── QUICK ACTIONS ────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <QuickAction
@@ -534,7 +539,7 @@ export default function Dashboard() {
       </div>
 
       {/* ────── BOTTOM CHARTS ROW ────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         {/* Weekly Study Activity */}
         <WeeklyActivityChart
           weeklyDays={weeklyDays}
@@ -550,6 +555,9 @@ export default function Dashboard() {
           selectedExams={selectedExams}
           aiStats={aiStats}
         />
+
+        {/* XP Leaderboard (week / all-time) */}
+        <LeaderboardCard />
       </div>
 
       <div className="h-4" />
