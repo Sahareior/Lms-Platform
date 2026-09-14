@@ -15,6 +15,7 @@ import {
   Lightbulb,
   ListChecks,
   XCircle,
+  Sparkles,
 } from 'lucide-react';
 import { useAiQuestionExplainerMutation } from '@my-monorepo/store/src/redux/api/aiApi';
 import { useUpdateAdminQuestionExplanationMutation } from '@my-monorepo/store';
@@ -74,33 +75,43 @@ type Verdict = 'correct' | 'wrong';
 
 interface StepItem {
   label: string; // "i", "ii", "iii", "ধাপ ১", ...
-  text: string;  // calculation text
+  text: string;  // calculation or explanation text
   verdict?: Verdict;
 }
 
 interface ExplanationSection {
-  kind: 'concept' | 'steps' | 'conclusion' | 'plain';
+  kind: 'concept' | 'steps' | 'tip' | 'conclusion' | 'plain';
+  title?: string;
   body: string;
   steps: StepItem[];
 }
 
 const SECTION_HEADERS = [
   { kind: 'concept' as const, label: 'মূল ধারণা' },
+  { kind: 'concept' as const, label: 'ধারণা' },
+  { kind: 'concept' as const, label: 'টপিক ও নিয়ম' },
+  { kind: 'steps' as const, label: 'ধাপভিত্তিক সমাধান' },
   { kind: 'steps' as const, label: 'যাচাই' },
+  { kind: 'steps' as const, label: 'ধাপসমূহ' },
+  { kind: 'steps' as const, label: 'সমাধান' },
+  { kind: 'steps' as const, label: 'বিশ্লেষণ' },
+  { kind: 'steps' as const, label: 'ব্যাখ্যা' },
+  { kind: 'tip' as const, label: 'টিপস' },
+  { kind: 'tip' as const, label: 'শর্টকাট' },
   { kind: 'conclusion' as const, label: 'সিদ্ধান্ত' },
+  { kind: 'conclusion' as const, label: 'উপসংহার' },
 ];
 
-const VERDICT_RE = /\(\s*(সঠিক|ভুল|হ্যাঁ|না)\s*\)\s*$/;
-// Roman numerals + "ধাপ ১" style labels (longer alternatives first so
-// "iv." doesn't get captured as label "i")
-const STEP_LABEL_RE = /^(iv|vi|v|i{1,3}|ধাপ\s*[০-৯0-9]+)\s*[.):\]]?\s*/i;
+const VERDICT_RE = /\(\s*(সঠিক|ভুল|সত্য|মিথ্যা|হ্যাঁ|না)\s*\)\s*$/;
+const STEP_LABEL_RE = /^(ধাপ\s*[০-৯0-9]+|Step\s*[0-9]+|iv|vi|v|i{1,3}|[0-9]+)\s*[:.)-]?\s*/i;
 
 const verdictOf = (word: string): Verdict =>
-  word === 'সঠিক' || word === 'হ্যাঁ' ? 'correct' : 'wrong';
+  word === 'সঠিক' || word === 'সত্য' || word === 'হ্যাঁ' ? 'correct' : 'wrong';
 
-/** Light cleanup for legacy explanations saved before the backend prompt fix. */
-const cleanupLegacyText = (raw: string): string =>
-  raw
+/** Light cleanup and automatic line-breaking for steps and sections. */
+const cleanupLegacyText = (raw: string): string => {
+  if (!raw) return '';
+  return raw
     .replace(/\*\*/g, '')
     .replace(/[$`]/g, '')
     .replace(/^#{1,6}\s*/gm, '')
@@ -109,7 +120,13 @@ const cleanupLegacyText = (raw: string): string =>
     .replace(/\\cdot/g, '·')
     .replace(/\\times/g, '×')
     .replace(/\\overline\{([^}]*)\}/g, 'NOT($1)')
-    .replace(/\\bar\{([^}]*)\}/g, 'NOT($1)');
+    .replace(/\\bar\{([^}]*)\}/g, 'NOT($1)')
+    // Split section headers onto new lines (do not split 'সঠিক উত্তর' as it is part of conclusion sentence)
+    .replace(/([^\n])\s*(ধাপভিত্তিক সমাধান|যাচাই|সিদ্ধান্ত|উপসংহার|টিপস|শর্টকাট)\s*[:.]?/gi, '$1\n\n$2:')
+    // Split inline steps (ধাপ ১:, ধাপ ২:, i., ii.) onto new lines
+    .replace(/([^\n])\s*(ধাপ\s*[০-৯0-9]+\s*[:.)-]|Step\s*[0-9]+\s*[:.)-])/gi, '$1\n$2')
+    .replace(/([^\n])\s*([ivx]+\s*[:.)])/gi, '$1\n$2');
+};
 
 const parseStepLine = (line: string): StepItem => {
   let text = line;
@@ -122,7 +139,7 @@ const parseStepLine = (line: string): StepItem => {
   }
 
   const l = text.match(STEP_LABEL_RE);
-  const label = l ? l[1] : '';
+  const label = l ? l[1].trim() : '';
   if (l) text = text.slice(l[0].length).trim();
 
   return { label, text, verdict };
@@ -134,15 +151,15 @@ const parseExplanation = (raw: string): ExplanationSection[] => {
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const sections: ExplanationSection[] = [];
+  const rawSections: ExplanationSection[] = [];
   let current: ExplanationSection | null = null;
 
   const pushPlain = (line: string) => {
-    const last = sections[sections.length - 1];
+    const last = rawSections[rawSections.length - 1];
     if (last && last.kind === 'plain') {
       last.body += (last.body ? ' ' : '') + line;
     } else {
-      sections.push({ kind: 'plain', body: line, steps: [] });
+      rawSections.push({ kind: 'plain', body: line, steps: [] });
     }
   };
 
@@ -155,22 +172,67 @@ const parseExplanation = (raw: string): ExplanationSection[] => {
     );
 
     if (header) {
-      current = { kind: header.kind, body: '', steps: [] };
+      // If we are already in the same section kind, merge rather than creating a duplicate
+      if (current && current.kind === header.kind) {
+        const rest = line
+          .slice(header.label.length)
+          .replace(/^\s*[:.।]?\s*/, '')
+          .trim();
+        if (rest) current.body += (current.body ? ' ' : '') + rest;
+        continue;
+      }
+
+      current = { kind: header.kind, title: header.label, body: '', steps: [] };
       const rest = line
         .slice(header.label.length)
         .replace(/^\s*[:.।]?\s*/, '')
         .trim();
       if (rest) current.body = rest;
-      sections.push(current);
+      rawSections.push(current);
+      continue;
+    }
+
+    // If line starts with a step label (e.g. "ধাপ ১:", "i."), automatically transition to steps
+    if (STEP_LABEL_RE.test(line)) {
+      if (current?.kind !== 'steps') {
+        current = { kind: 'steps', title: 'ধাপভিত্তিক সমাধান', body: '', steps: [] };
+        rawSections.push(current);
+      }
+      current.steps.push(parseStepLine(line));
       continue;
     }
 
     if (current?.kind === 'steps') {
-      current.steps.push(parseStepLine(line));
-    } else if (current && (current.kind === 'concept' || current.kind === 'conclusion')) {
+      const lastStep = current.steps[current.steps.length - 1];
+      if (lastStep) {
+        lastStep.text += ' ' + line;
+      } else {
+        current.steps.push(parseStepLine(line));
+      }
+    } else if (
+      current &&
+      (current.kind === 'concept' || current.kind === 'conclusion' || current.kind === 'tip')
+    ) {
       current.body += (current.body ? ' ' : '') + line;
     } else {
       pushPlain(line);
+    }
+  }
+
+  // Deduplicate and merge any multiple conclusion sections into a single one
+  const sections: ExplanationSection[] = [];
+  let conclusionSection: ExplanationSection | null = null;
+
+  for (const sec of rawSections) {
+    if (sec.kind === 'conclusion') {
+      if (!conclusionSection) {
+        conclusionSection = { ...sec };
+        sections.push(conclusionSection);
+      } else if (sec.body) {
+        conclusionSection.body += (conclusionSection.body ? ' ' : '') + sec.body;
+      }
+    } else {
+      sections.push(sec);
     }
   }
 
@@ -183,14 +245,36 @@ const VerdictPill: React.FC<{ verdict: Verdict }> = ({ verdict }) => {
   const correct = verdict === 'correct';
   return (
     <span
-      className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
+      className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
         correct
           ? 'text-[#00E5B3] bg-[#00E5B3]/10 border-[#00E5B3]/30'
           : 'text-[#EB5757] bg-[#EB5757]/10 border-[#EB5757]/30'
       }`}
     >
-      {correct ? <CheckCircle size={12} /> : <XCircle size={12} />}
+      {correct ? <CheckCircle size={13} /> : <XCircle size={13} />}
       {correct ? 'সঠিক' : 'ভুল'}
+    </span>
+  );
+};
+
+/** Render step text with highlighted arrows and outputs */
+const renderFormattedStep = (text: string) => {
+  if (!text.includes('→')) {
+    return <span>{text}</span>;
+  }
+  const parts = text.split('→');
+  return (
+    <span>
+      {parts.map((part, index) => (
+        <React.Fragment key={index}>
+          <span>{part.trim()}</span>
+          {index < parts.length - 1 && (
+            <span className="inline-flex items-center mx-2 text-[#00E5B3] font-bold select-none">
+              →
+            </span>
+          )}
+        </React.Fragment>
+      ))}
     </span>
   );
 };
@@ -199,91 +283,158 @@ const ExplanationView: React.FC<{ raw: string }> = ({ raw }) => {
   const sections = parseExplanation(raw);
   const hasStructured = sections.some((s) => s.kind !== 'plain');
 
-  // Legacy / unstructured explanation — keep line breaks, nothing fancy
+  // Fallback for completely unstructured legacy text
   if (!hasStructured) {
     return (
-      <p className="text-base text-[#A1A8B3] leading-8 whitespace-pre-line break-words">
-        {cleanupLegacyText(raw)}
-      </p>
+      <div className="bg-[#161920] border border-[#23262D] rounded-xl p-4 md:p-5">
+        <p className="text-base text-[#E2E8F0] leading-8 whitespace-pre-line break-words">
+          {cleanupLegacyText(raw)}
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {sections.map((sec, idx) => {
-        // ── মূল ধারণা ──
-        if (sec.kind === 'concept') {
-          return (
-            <div
-              key={idx}
-              className="flex items-start gap-3 bg-[#2F80ED]/5 border border-[#2F80ED]/20 rounded-lg p-3.5"
-            >
-              <div className="w-8 h-8 shrink-0 rounded-full bg-[#2F80ED]/10 border border-[#2F80ED]/30 flex items-center justify-center">
-                <Lightbulb size={16} className="text-[#2F80ED]" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#2F80ED] mb-0.5">মূল ধারণা</p>
-                <p className="text-base text-[#F5F7FA] leading-7 break-words">{sec.body}</p>
-              </div>
-            </div>
-          );
-        }
-
-        // ── যাচাই (step-by-step) ──
-        if (sec.kind === 'steps' && sec.steps.length > 0) {
-          return (
-            <div key={idx} className="space-y-2">
-              <p className="text-sm font-semibold text-[#A1A8B3] flex items-center gap-1.5">
-                <ListChecks size={15} className="text-[#9B51E0]" />
-                যাচাই
-              </p>
-              {sec.steps.map((step, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 bg-[#161920] border border-[#23262D] rounded-lg px-3.5 py-2.5"
-                >
-                  {step.label ? (
-                    <span className="shrink-0 h-7 px-2 inline-flex items-center justify-center rounded-md text-sm font-semibold text-[#9B51E0] bg-[#9B51E0]/10 border border-[#9B51E0]/30">
-                      {step.label}
-                    </span>
-                  ) : (
-                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-[#9B51E0]/60 mt-3" />
-                  )}
-                  <p className="flex-1 text-base text-[#A1A8B3] leading-7 break-words">
-                    {step.text}
-                  </p>
-                  {step.verdict && <VerdictPill verdict={step.verdict} />}
+      {sections
+        .filter((sec) =>
+          sec.kind === 'steps' ? sec.steps.length > 0 : Boolean(sec.body?.trim())
+        )
+        .map((sec, idx) => {
+          // ── মূল ধারণা ──
+          if (sec.kind === 'concept') {
+            return (
+              <div
+                key={idx}
+                className="bg-[#2F80ED]/5 border border-[#2F80ED]/25 rounded-xl p-4 md:p-5"
+              >
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="w-8 h-8 shrink-0 rounded-lg bg-[#2F80ED]/15 border border-[#2F80ED]/30 flex items-center justify-center text-[#2F80ED]">
+                    <Lightbulb size={17} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#2F80ED]">মূল ধারণা ও নিয়ম</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          );
-        }
+                <p className="text-base text-[#F5F7FA] leading-relaxed break-words pl-0 sm:pl-10">
+                  {sec.body}
+                </p>
+              </div>
+            );
+          }
 
-        // ── সিদ্ধান্ত ──
-        if (sec.kind === 'conclusion') {
+          // ── ধাপভিত্তিক সমাধান (Step-by-step) ──
+          if (sec.kind === 'steps' && sec.steps.length > 0) {
+            return (
+              <div key={idx} className="space-y-3">
+                <div className="flex items-center justify-between gap-2 px-1">
+                  <p className="text-sm font-bold text-[#A1A8B3] flex items-center gap-2">
+                    <ListChecks size={17} className="text-[#A78BFA]" />
+                    <span>{sec.title || 'ধাপভিত্তিক সমাধান'}</span>
+                  </p>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#8B5CF6]/10 text-[#A78BFA] border border-[#8B5CF6]/20">
+                    {sec.steps.length}টি ধাপ
+                  </span>
+                </div>
+                <div className="space-y-2.5">
+                  {sec.steps.map((step, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-col sm:flex-row items-start gap-3 bg-[#161920] border border-[#23262D] hover:border-[#383D48] transition-colors rounded-xl p-3.5 md:p-4"
+                    >
+                      <div className="flex items-center justify-between w-full sm:w-auto gap-2 shrink-0">
+                        {step.label ? (
+                          <span className="shrink-0 px-2.5 py-1 inline-flex items-center justify-center rounded-lg text-xs md:text-sm font-bold text-[#A78BFA] bg-[#8B5CF6]/15 border border-[#8B5CF6]/30">
+                            {step.label}
+                          </span>
+                        ) : (
+                          <span className="shrink-0 w-2 h-2 rounded-full bg-[#A78BFA] mt-2 ml-1" />
+                        )}
+                        {step.verdict && (
+                          <div className="sm:hidden">
+                            <VerdictPill verdict={step.verdict} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 text-base text-[#F5F7FA] font-medium leading-relaxed break-words">
+                        {renderFormattedStep(step.text)}
+                      </div>
+                      {step.verdict && (
+                        <div className="hidden sm:block shrink-0 self-center">
+                          <VerdictPill verdict={step.verdict} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+
+          // ── টিপস ও কৌশল ──
+          if (sec.kind === 'tip') {
+            return (
+              <div
+                key={idx}
+                className="bg-[#F59E0B]/5 border border-[#F59E0B]/25 rounded-xl p-4 md:p-5"
+              >
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="w-8 h-8 shrink-0 rounded-lg bg-[#F59E0B]/15 border border-[#F59E0B]/30 flex items-center justify-center text-[#F59E0B]">
+                    <Sparkles size={17} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#F59E0B]">টিপস ও শর্টকাট</p>
+                  </div>
+                </div>
+                <p className="text-base text-[#F5F7FA] leading-relaxed break-words pl-0 sm:pl-10">
+                  {sec.body}
+                </p>
+              </div>
+            );
+          }
+
+          // ── সিদ্ধান্ত ──
+          if (sec.kind === 'conclusion') {
+            let cleanConclusion = sec.body
+              .replace(/^[A-Za-zক-ঘK-N]\s*\(\s*([^)]+)\s*\)[।.]?/, '$1।')
+              .replace(/^\(?\s*[A-Za-zক-ঘK-N]\s*[\).:\-–]\s*/, '')
+              .trim();
+
+            if (cleanConclusion.startsWith('হলো ') || cleanConclusion.startsWith('হচ্ছে ')) {
+              cleanConclusion = 'সঠিক উত্তর ' + cleanConclusion;
+            }
+
+            if (!cleanConclusion) return null;
+
+            return (
+              <div
+                key={idx}
+                className="bg-[#00E5B3]/5 border border-[#00E5B3]/25 rounded-xl p-4 md:p-5"
+              >
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="w-8 h-8 shrink-0 rounded-lg bg-[#00E5B3]/15 border border-[#00E5B3]/30 flex items-center justify-center text-[#00E5B3]">
+                    <CheckCircle size={17} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#00E5B3]">সিদ্ধান্ত ও সঠিক উত্তর</p>
+                  </div>
+                </div>
+                <p className="text-base text-[#F5F7FA] font-medium leading-relaxed break-words pl-0 sm:pl-10">
+                  {cleanConclusion}
+                </p>
+              </div>
+            );
+          }
+
+          // plain text between sections
           return (
-            <div
-              key={idx}
-              className="flex items-start gap-3 bg-[#00E5B3]/5 border border-[#00E5B3]/20 rounded-lg p-3.5"
-            >
-              <div className="w-8 h-8 shrink-0 rounded-full bg-[#00E5B3]/10 border border-[#00E5B3]/30 flex items-center justify-center">
-                <CheckCircle size={16} className="text-[#00E5B3]" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#00E5B3] mb-0.5">সিদ্ধান্ত</p>
-                <p className="text-base text-[#F5F7FA] leading-7 break-words">{sec.body}</p>
-              </div>
+            <div key={idx} className="bg-[#161920] border border-[#23262D] rounded-xl p-4">
+              <p className="text-base text-[#A1A8B3] leading-relaxed break-words">
+                {sec.body}
+              </p>
             </div>
           );
-        }
-
-        // plain text before / between sections
-        return (
-          <p key={idx} className="text-base text-[#A1A8B3] leading-7 break-words">
-            {sec.body}
-          </p>
-        );
-      })}
+        })}
     </div>
   );
 };

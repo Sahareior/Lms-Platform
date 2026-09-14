@@ -219,6 +219,13 @@ const Omer: React.FC<ExamPaperProps> = ({
 
     const durationSeconds = (schedule?.duration ?? 120) * 60;
 
+    const effectiveVersionId =
+        versionId ||
+        (typeof schedule?.examVersion === 'object'
+            ? (schedule?.examVersion as any)?._id
+            : (schedule?.examVersion as string)) ||
+        undefined;
+
     // Correct answer index resolver
     const getCorrectAnswerIndex = useCallback((q: any): number | undefined => {
         if (!q.correct_answer) return undefined;
@@ -576,11 +583,11 @@ const Omer: React.FC<ExamPaperProps> = ({
                 persistTempProgress(updated);
 
                 // Persist quiz performance (fire-and-forget)
-                if (userId && qItem.id && examId && versionId) {
+                if (userId && qItem.id && examId) {
                     postUserQuizs({
                         user: userId,
                         exam: examId,
-                        examVersion: versionId,
+                        examVersion: effectiveVersionId || null,
                         subject: null,
                         submittedQuestions: [
                             {
@@ -610,7 +617,7 @@ const Omer: React.FC<ExamPaperProps> = ({
                 return updated;
             });
         },
-        [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, postUserQuizs, recordQuestionStats, selectedAnswers, persistTempProgress, examId, versionId]
+        [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, postUserQuizs, recordQuestionStats, selectedAnswers, persistTempProgress, examId, effectiveVersionId]
     );
 
     // ─── Handle Submit ───
@@ -682,6 +689,37 @@ const Omer: React.FC<ExamPaperProps> = ({
                     await completeAttempt({ attemptId }).unwrap();
                 }
 
+                // Bulk-save all answered questions to QuizPerformance on submit.
+                // This is the authoritative write – per-answer fire-and-forgets are
+                // best-effort; this guarantees the AI performance controller always
+                // finds data for this user.
+                if (userId && examId) {
+                    const answeredSubmissions = allQuestions
+                        .map((q, idx) => {
+                            const selIdx = selectedAnswers[idx];
+                            if (selIdx === undefined || !q.id) return null;
+                            return {
+                                question: q.id,
+                                providedAnswer: q.optionKeys?.[selIdx] ?? '',
+                            };
+                        })
+                        .filter(Boolean);
+
+                    if (answeredSubmissions.length > 0) {
+                        await postUserQuizs({
+                            user: userId,
+                            exam: examId,
+                            examVersion: effectiveVersionId || null,
+                            subject: null,
+                            submittedQuestions: answeredSubmissions,
+                        })
+                            .unwrap()
+                            .catch((err) => {
+                                console.warn('Bulk quiz performance save failed:', err);
+                            });
+                    }
+                }
+
                 // Delete temporary exam submission upon completion
                 if (userId && examId) {
                     await deleteTempExamSubmission({
@@ -728,6 +766,7 @@ const Omer: React.FC<ExamPaperProps> = ({
             completeAttempt,
             batchSaveAnswers,
             deleteTempExamSubmission,
+            postUserQuizs,
             userId,
             examId,
             versionId,

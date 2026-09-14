@@ -337,7 +337,7 @@ export default function ExamDin() {
     [isSubmitted, questions, user, examId, examVersionId, subjectId, postUserQuizs, recordQuestionStats, stateData]
   );
 
-  // ─── Handle submit (local only) ───
+  // ─── Handle submit (persists all answers if not already saved) ───
   const handleSubmit = useCallback(() => {
     if (isSubmitted) return;
 
@@ -352,8 +352,36 @@ export default function ExamDin() {
       }
     }
 
+    const userId = user?._id;
+    if (userId && examId && examVersionId) {
+      const answeredSubmissions = questions
+        .map((q) => {
+          const optIdx = selected[q.id];
+          if (optIdx === undefined || !q._id) return null;
+          return {
+            question: q._id,
+            providedAnswer: q.optionKeys[optIdx] ?? "",
+          };
+        })
+        .filter(Boolean);
+
+      if (answeredSubmissions.length > 0) {
+        postUserQuizs({
+          user: userId,
+          exam: examId,
+          examVersion: examVersionId,
+          subject: subjectId || null,
+          submittedQuestions: answeredSubmissions,
+        })
+          .unwrap()
+          .catch((err) => {
+            console.warn("Bulk quiz performance save failed in ExamDin:", err);
+          });
+      }
+    }
+
     setIsSubmitted(true);
-  }, [isSubmitted, totalQuestions, getAnsweredCount]);
+  }, [isSubmitted, totalQuestions, getAnsweredCount, user, examId, examVersionId, subjectId, questions, selected, postUserQuizs]);
 
   // ─── Memoized local score ───
   const localScore = useMemo(() => {

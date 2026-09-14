@@ -140,11 +140,11 @@ export const getTempSubmission = async (req, res) => {
 // ─── DELETE Temporary Exam Submission ────────────────────────
 export const deleteTempSubmission = async (req, res) => {
   try {
-    const targetUserId = req.query.userId || req.body.userId || req.user?.userId;
-    const examId = req.query.examId || req.body.examId;
-    const versionId = req.query.versionId || req.body.versionId;
-    const scheduleExamId = req.query.scheduleExamId || req.body.scheduleExamId;
-    const board = req.query.board || req.body.board;
+    const targetUserId = req.query.userId || req.body?.userId || req.user?.userId;
+    const examId = req.query.examId || req.body?.examId;
+    const versionId = req.query.versionId || req.body?.versionId;
+    const scheduleExamId = req.query.scheduleExamId || req.body?.scheduleExamId;
+    const board = req.query.board || req.body?.board;
 
     if (!targetUserId) {
       return res.status(400).json({ message: "userId is required" });

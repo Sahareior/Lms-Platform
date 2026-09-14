@@ -13,7 +13,7 @@ import PrivacyPolicy from './legal/PrivacyPolicy';
 // Each page ships in its own chunk, loaded on first visit, so the
 // initial bundle stays small instead of pulling in the whole admin
 // panel, recharts, antd, etc. up front.
-const Dashboard = lazy(() => import('./(components)/dashboard/Dashboard'));
+const Dashboard = lazy(() => import('./(components)/MainPages/dashboard/Dashboard'));
 const LessonPage = lazy(() => import('./(components)/MainPages/lesson/LessonPage'));
 const QuizPreatise = lazy(() => import('./(components)/MainPages/mock_exam/ExamPaper/ExamPaper'));
 const MockExamInterface = lazy(() => import('./(components)/MockExamInterface'));

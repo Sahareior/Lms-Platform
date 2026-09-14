@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Download } from "lucide-react";
 import { gradientBtn } from "../landingTools/landingTools";
+import { useInstallPrompt } from "../../hooks/useInstallPrompt";
 
 // Only sections that exist on the page — keeps the nav honest and minimal.
 const navLinks = ["Home", "Features"];
 
 const LandingNav = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { deferredPrompt, handleInstallClick } = useInstallPrompt();
 
   return (
     <nav aria-label="Main navigation" className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#03050a]/20 backdrop-blur-md border-b border-white/[0.05]">
@@ -56,6 +58,24 @@ const LandingNav = () => {
             >
               Sign in
             </Link>
+
+            <button
+              onClick={() => {
+                if (deferredPrompt) {
+                  handleInstallClick();
+                } else {
+                  alert("App is either already installed, or your browser doesn't support this feature.");
+                }
+              }}
+              className={`flex items-center gap-2 text-[13px] px-4 py-2 rounded-[6px] transition-all border ${
+                deferredPrompt 
+                  ? 'border-white/20 text-white bg-white/5 hover:bg-white/10' 
+                  : 'border-white/5 text-gray-600 cursor-not-allowed bg-transparent'
+              }`}
+            >
+              <Download size={16} />
+              Install App
+            </button>
 
             <Link
               to="/register"
@@ -117,6 +137,24 @@ const LandingNav = () => {
             >
               Sign in
             </Link>
+
+            <button
+              onClick={() => {
+                if (deferredPrompt) {
+                  handleInstallClick();
+                } else {
+                  alert("App is either already installed, or your browser doesn't support this feature.");
+                }
+              }}
+              className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all border ${
+                deferredPrompt 
+                  ? 'border-white/20 text-white bg-white/5 hover:bg-white/10' 
+                  : 'border-white/5 text-gray-600 cursor-not-allowed bg-transparent'
+              }`}
+            >
+              <Download size={18} />
+              Install App
+            </button>
 
 <Link
   to="/register"

@@ -33,7 +33,7 @@ export default function AiRecommendationsCard({
   onViewAll: () => void;
 }) {
   return (
-    <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-1 flex flex-col justify-between space-y-4">
+    <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-4 flex flex-col justify-between space-y-4">
       <div className="flex items-center gap-2">
         <div className="p-2 bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-lg text-[#00E5B3]">
           <Brain size={16} />
@@ -71,16 +71,16 @@ export default function AiRecommendationsCard({
               <div className="flex items-center gap-1.5 mb-2">
                 <Calendar size={12} className="text-[#2F80ED]" />
                 <span className="text-[13px] uppercase tracking-wider font-bold text-[#2F80ED]">
-                  Study Plan
+                  AI স্টাডি প্ল্যান
                 </span>
               </div>
               <div className="space-y-1.5">
                 {aiInsights!.study_plan.slice(0, 3).map((plan: any, idx: number) => (
-                  <div key={idx} className="flex items-start gap-4 text-[13px]">
-                    <span className="font-bold text-[#F5F7FA] flex-shrink-0">{plan.day}</span>
+                  <div key={idx} className="flex items-start gap-3 text-[13px]">
+                    <span className="font-bold text-[#00E5B3] flex-shrink-0 bg-[#00E5B3]/10 px-1.5 py-0.5 rounded text-xs">{plan.day}</span>
                     <span className="text-[#A1A8B3] leading-snug">
-                      {plan.title}
-                      <span className="text-[#6B7280] block">{plan.duration_minutes} min</span>
+                      <span className="text-[#F5F7FA] font-medium block">{plan.title}</span>
+                      <span className="text-[#6B7280] text-xs">{plan.duration_minutes} মিনিট</span>
                     </span>
                   </div>
                 ))}
@@ -93,8 +93,8 @@ export default function AiRecommendationsCard({
                 key={index}
                 className={`bg-[#161920] border border-[#23262D] border-l-4 ${item.color} rounded-xl p-3 hover:border-[#323742] transition-all`}
               >
-                <h3 className="font-bold text-xs text-[#F5F7FA]">{item.title}</h3>
-                <p className="text-[12px] font-semibold text-[#A1A8B3] mt-0.5">{item.desc}</p>
+                <h3 className="font-bold text-xs text-[#F5F7FA] leading-snug">{item.title}</h3>
+                <p className="text-[12px] text-[#A1A8B3] mt-1 leading-relaxed">{item.desc}</p>
               </div>
             ))
           ) : (

@@ -72,7 +72,7 @@ const favoriteApi = api.injectEndpoints({
     }),
 
     getFavoriteQuestionIds: build.query<GetFavoriteIdsResponse, void>({
-      query: () => 'favorites/ids',
+      query: () => ({ url: '/favorites/ids' }),
       providesTags: [{ type: 'Favorite', id: 'LIST' }],
     }),
   }),

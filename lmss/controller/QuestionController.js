@@ -211,13 +211,18 @@ export const postQuestionPattern = async(req, res) => {
     }
 };
 
-export const getQuestionPattern =async (req,res) => {
+export const getQuestionPattern = async (req, res) => {
     try {
-        const { exam, examVersion } = req.query;
+        const { exam, examVersion, subject, board } = req.query;
         const filter = {};
         if (exam) filter.exam = exam;
         if (examVersion) filter.examVersion = examVersion;
-        const patterns = await QuestionPatternModel.find(filter);
+        if (subject) filter.subject = subject;
+        if (board) filter.board = board;
+        const patterns = await QuestionPatternModel.find(filter)
+            .populate('exam', 'name category')
+            .populate('examVersion', 'examVersion')
+            .populate('subject', 'name');
         res.status(200).json(patterns);
     } catch (err) {
         console.error(err);

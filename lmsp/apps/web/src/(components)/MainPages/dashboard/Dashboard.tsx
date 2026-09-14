@@ -273,12 +273,12 @@ export default function Dashboard() {
   const overviewRecommendations = [
     ...weakSubjects.map((w) => ({
       title: w.subject,
-      desc: `Accuracy ${w.accuracy}% — below the 60% target. Spend focused revision time on ${w.subject}.`,
+      desc: `সঠিকতার হার ${w.accuracy}% — কাঙ্ক্ষিত ৬০%-এর নিচে। ${w.subject} বিষয়ের মৌলিক বিষয়গুলোতে আরও একটু মনোযোগ দিন।`,
       color: "border-l-[#EB5757]",
     })),
     ...strongSubjects.map((s) => ({
       title: s.subject,
-      desc: `Strong performance in ${s.subject} with ${s.accuracy}% accuracy.`,
+      desc: `${s.subject} বিষয়ে আপনার পারফরম্যান্স বেশ ভালো (${s.accuracy}% সঠিকতা অর্জন করেছেন)।`,
       color: "border-l-[#00E5B3]",
     })),
   ].slice(0, 4);

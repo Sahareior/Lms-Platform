@@ -2,35 +2,85 @@ import mongoose from "mongoose";
 import quizPerform from "../models/QuizPerformance.js";
 import QuestionModel from "../models/QuestionModel.js";
 import { invalidatePrefix } from "../middleware/cache.js";
+import ScheduleExam from "../models/ScheduleExamModel.js";
 
-// Helper: resolve embedded question references (unchanged)
+// Helper: resolve embedded question references
 export async function resolveSubmittedQuestions(performances) {
-  const questionIds = new Set();
+  const questionIdStrings = new Set();
+  const questionObjectIds = [];
+
   for (const perf of performances) {
     for (const sq of perf.submittedQuestions || []) {
-      if (sq.question) questionIds.add(sq.question.toString());
+      if (sq.question) {
+        const str = sq.question.toString();
+        questionIdStrings.add(str);
+        if (mongoose.Types.ObjectId.isValid(sq.question)) {
+          questionObjectIds.push(new mongoose.Types.ObjectId(sq.question));
+        }
+      }
     }
   }
-  if (questionIds.size === 0) return performances;
+  if (questionIdStrings.size === 0) return performances;
 
-  const questionDocs = await QuestionModel.find({
-    "data._id": { $in: [...questionIds] },
-  });
+  const [questionDocs, scheduleDocs] = await Promise.all([
+    QuestionModel.find({
+      $or: [
+        { "data._id": { $in: questionObjectIds } },
+        { "data._id": { $in: [...questionIdStrings] } },
+        { _id: { $in: questionObjectIds } },
+      ],
+    }),
+    ScheduleExam.find({
+      $or: [
+        { "generatedQuestions._id": { $in: questionObjectIds } },
+        { "generatedQuestions._id": { $in: [...questionIdStrings] } },
+        { "generatedQuestions.originalQuestionId": { $in: questionObjectIds } },
+      ],
+    }),
+  ]);
 
   const questionMap = new Map();
+
   for (const doc of questionDocs) {
     for (const q of doc.data || []) {
-      if (q._id && questionIds.has(q._id.toString())) {
-        questionMap.set(q._id.toString(), {
+      const qIdStr = q._id?.toString();
+      if (qIdStr && questionIdStrings.has(qIdStr)) {
+        questionMap.set(qIdStr, {
           _id: q._id,
           question_number: q.question_number,
           question_text: q.question_text,
           options: q.options instanceof Map ? Object.fromEntries(q.options) : q.options,
           correct_answer: q.correct_answer,
+          subjectName: q.subjectName || null,
+          topic: q.topic || null,
         });
       }
     }
   }
+
+  for (const doc of scheduleDocs) {
+    for (const q of doc.generatedQuestions || []) {
+      const qIdStr = q._id?.toString();
+      const origIdStr = q.originalQuestionId?.toString();
+      const mapped = {
+        _id: q._id,
+        question_number: q.question_number,
+        question_text: q.question_text,
+        options: q.options instanceof Map ? Object.fromEntries(q.options) : q.options,
+        correct_answer: q.correct_answer,
+        subjectName: q.subjectName || null,
+        topic: q.topic || null,
+      };
+      if (qIdStr && questionIdStrings.has(qIdStr)) {
+        questionMap.set(qIdStr, mapped);
+      }
+      if (origIdStr && questionIdStrings.has(origIdStr)) {
+        questionMap.set(origIdStr, mapped);
+      }
+    }
+  }
+
+  console.log(`resolveSubmittedQuestions: sought ${questionIdStrings.size} questions, resolved ${questionMap.size} questions`);
 
   return performances.map((perf) => {
     const plain = perf.toObject ? perf.toObject() : perf; // ensure plain object
@@ -50,10 +100,12 @@ export async function resolveSubmittedQuestions(performances) {
 // entry ("one entry per question, latest answer wins") rather than duplicating.
 export const postQuizPerformance = async (req, res) => {
   try {
+    console.log("postQuizPerformance called with body:", JSON.stringify(req.body));
     const { user, exam, examVersion, subject, submittedQuestions } = req.body;
 
-    if (!user || !exam || !examVersion || !Array.isArray(submittedQuestions) || submittedQuestions.length === 0) {
-      return res.status(400).json({ message: "user, exam, examVersion and submittedQuestions (non-empty array) are required" });
+    if (!user || !exam || !Array.isArray(submittedQuestions) || submittedQuestions.length === 0) {
+      console.warn("postQuizPerformance validation failed: missing user, exam, or non-empty submittedQuestions");
+      return res.status(400).json({ message: "user, exam and submittedQuestions (non-empty array) are required" });
     }
 
     // Dedupe the incoming batch by question id (last answer wins) and cast the
@@ -70,11 +122,22 @@ export const postQuizPerformance = async (req, res) => {
     const incomingIds = incoming.map((sq) => sq.question);
 
     if (incoming.length === 0) {
+      console.warn("postQuizPerformance: submittedQuestions contains no valid ObjectId question references");
       return res.status(400).json({ message: "submittedQuestions must contain valid question references" });
     }
 
-    // Build filter: user + exam + examVersion + subject (subject may be null)
-    const filter = { user, exam, examVersion, subject: subject || null };
+    const userObjId = new mongoose.Types.ObjectId(user);
+    const examObjId = new mongoose.Types.ObjectId(exam);
+    const examVersionObjId = examVersion && mongoose.Types.ObjectId.isValid(examVersion) ? new mongoose.Types.ObjectId(examVersion) : null;
+    const subjectObjId = subject && mongoose.Types.ObjectId.isValid(subject) ? new mongoose.Types.ObjectId(subject) : null;
+
+    // Build filter: user + exam + examVersion + subject (examVersion and subject may be null)
+    const filter = {
+      user: userObjId,
+      exam: examObjId,
+      examVersion: examVersionObjId,
+      subject: subjectObjId,
+    };
 
     // Atomic upsert with a pipeline: keep existing submitted questions that are
     // NOT re-answered in this batch, then append the incoming answers.
@@ -83,6 +146,10 @@ export const postQuizPerformance = async (req, res) => {
       [
         {
           $set: {
+            user: userObjId,
+            exam: examObjId,
+            examVersion: examVersionObjId,
+            subject: subjectObjId,
             attemptCount: { $ifNull: ["$attemptCount", 1] },
             submittedQuestions: {
               $concatArrays: [
@@ -100,14 +167,15 @@ export const postQuizPerformance = async (req, res) => {
         },
       ],
       // `updatePipeline: true` is required by Mongoose when the update is an
-      // aggregation pipeline (an array). Without it, the update is rejected.
-      { upsert: true, new: true, updatePipeline: true }
+      // aggregation pipeline (an array).
+      { upsert: true, returnDocument: "after", updatePipeline: true }
     );
 
+    console.log("postQuizPerformance successfully saved:", performance?._id);
     await invalidatePrefix('cache:quiz-performance');
     return res.status(201).json(performance);
   } catch (err) {
-    console.error(err);
+    console.error("postQuizPerformance error:", err);
     res.status(500).json({ message: "Unable to create/update quizPerformance" });
   }
 };
