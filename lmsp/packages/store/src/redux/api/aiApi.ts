@@ -217,10 +217,10 @@ export const aiApi = createApi({
     }),
 
     uploadDocuments: build.mutation<RagUploadResponse, FormData>({
-      query:(data) => ({
-        url:'/file-upload-rag',
-        method:'POST',
-        body:data
+      query: (data) => ({
+        url: '/file-upload-rag',
+        method: 'POST',
+        body: data
       }),
       invalidatesTags: ['Documents'],
     }),
@@ -243,32 +243,32 @@ export const aiApi = createApi({
 
     questionPaperScraper: build.mutation<QuestionPaperScraperResponse, FormData>({
       query: (data) => ({
-        method:'POST',
-        url:'/question-papers-scraper',
+        method: 'POST',
+        url: '/question-papers-scraper',
         body: data
       })
     }),
 
     questionAnalyzer: build.mutation<unknown, QuestionAnalyzerRequest>({
       query: (data) => ({
-        method:'POST',
-        url:'/analyze-question-topics',
-        body:data
+        method: 'POST',
+        url: '/analyze-question-topics',
+        body: data
       })
     }),
 
     airagUploadStatus: build.query<RagJobStatus, string>({
-      query:(id) => ({
-        url:`rag/job/${id}`,
-        method:'GET'
+      query: (id) => ({
+        url: `rag/job/${id}`,
+        method: 'GET'
       })
     }),
 
     aiUserPerFormance: build.mutation<AiPerformanceResponse, unknown>({
-      query:(data) => ({
-        url:'/user-performance',
-        method:'POST',
-        body:data
+      query: (data) => ({
+        url: '/user-performance',
+        method: 'POST',
+        body: data
       })
     }),
 
