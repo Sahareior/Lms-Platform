@@ -61,10 +61,12 @@ export {
 } from './redux/api/baseApi';
 
 // ─── RTK Query AI API (separate endpoint on port 5000) ─────
-export { configureAiApi, aiApi } from './redux/api/aiApi';
+export { configureAiApi, aiApi, getDocumentFileUrl } from './redux/api/aiApi';
 export {
   useSendChatMessageMutation,
   useUploadDocumentsMutation,
+  useGetRagDocumentsQuery,
+  useDeleteRagDocumentMutation,
   useQuestionAnalyzerMutation,
   useQuestionPaperScraperMutation,
   useAiUserPerFormanceMutation,
@@ -79,6 +81,9 @@ export type {
   QuestionAnalyzerRequest,
   RagUploadResponse,
   RagJobStatus,
+  RagDocument,
+  GetDocumentsResponse,
+  DeleteDocumentResponse,
   AiPerformanceStats,
   AiScoreAnalysis,
   AiSubjectBreakdown,

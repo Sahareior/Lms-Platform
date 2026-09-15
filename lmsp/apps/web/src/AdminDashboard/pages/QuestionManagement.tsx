@@ -271,6 +271,7 @@ export default function QuestionManagement() {
                 setRagJobId(null);
                 setRagFinal(null);
               }}
+              onShowToast={showToast}
             />
           ) : (
             <QuestionScraperPanel

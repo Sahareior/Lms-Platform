@@ -7,6 +7,8 @@ import {
    useSaveAiChatMessagesMutation,
    type AiChatHistoryMessage,
 } from '@my-monorepo/store';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type ChatMessage = {
    id: string;
@@ -263,7 +265,7 @@ const AIChatInterface = () => {
                         <div
                            className={`max-w-[95%] ${
                               message.sender === 'user'
-                                 ? 'md:max-w-[70%] bg-[#2F80ED] text-white rounded-2xl rounded-tr-sm'
+                                 ? 'md:max-w-[70%] bg-[#065f46] text-white rounded-2xl rounded-tr-sm'
                                  : 'md:max-w-[85%] bg-[#161920] border border-[#23262D] rounded-2xl'
                            } p-4`}
                         >
@@ -275,9 +277,40 @@ const AIChatInterface = () => {
                                  <span className="text-xs font-bold text-[#F5F7FA]">AI Assistant</span>
                               </div>
                            )}
-                           <p className={`text-[16px] leading-relaxed ${message.sender === 'user' ? 'font-semibold' : 'text-[#A1A8B3]'}`}>
-                              {message.text}
-                           </p>
+                           {message.sender === 'user' && (
+                              <p className="text-[19px] text-white leading-relaxed font-medium">
+                                 {message.text}
+                              </p>
+                           )}
+                           {message.sender === 'ai' && (
+                              <div className="text-[19px] leading-relaxed text-white font-medium w-full break-words">
+                                 <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                       h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-4 text-[#F5F7FA]" {...props} />,
+                                       h2: ({node, ...props}) => <h2 className="text-xl font-bold mt-6 mb-3 text-[#F5F7FA]" {...props} />,
+                                       h3: ({node, ...props}) => <h3 className="text-lg font-bold mt-4 mb-2 text-[#F5F7FA]" {...props} />,
+                                       p: ({node, ...props}) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
+                                       ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-4 space-y-2" {...props} />,
+                                       ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-4 space-y-2" {...props} />,
+                                       li: ({node, ...props}) => <li className="leading-relaxed" {...props} />,
+                                       a: ({node, ...props}) => <a className="text-[#00E5B3] hover:underline" {...props} />,
+                                       strong: ({node, ...props}) => <strong className="font-bold text-[#F5F7FA]" {...props} />,
+                                       code: ({node, className, children, ...props}) => {
+                                          return <code className={`bg-[#1C1F26] px-1.5 py-0.5 rounded text-sm text-[#00E5B3] font-mono ${className || ''}`} {...props}>{children}</code>;
+                                       },
+                                       pre: ({node, children, ...props}) => {
+                                          return <pre className="block bg-[#0B0D12] p-4 rounded-lg text-sm font-mono overflow-x-auto my-3 border border-[#23262D]" {...props}>{children}</pre>;
+                                       },
+                                       table: ({node, ...props}) => <div className="overflow-x-auto my-4"><table className="w-full text-left border-collapse" {...props} /></div>,
+                                       th: ({node, ...props}) => <th className="border-b border-[#23262D] pb-2 font-semibold text-[#F5F7FA]" {...props} />,
+                                       td: ({node, ...props}) => <td className="border-b border-[#23262D] py-2" {...props} />,
+                                    }}
+                                 >
+                                    {message.text}
+                                 </ReactMarkdown>
+                              </div>
+                           )}
                            <div className={`mt-2 text-[10px] ${message.sender === 'user' ? 'text-white/60 text-right' : 'text-[#6B7280] text-left'} font-medium`}>
                               {message.time}
                            </div>
