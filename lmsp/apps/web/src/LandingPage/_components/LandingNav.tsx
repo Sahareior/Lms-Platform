@@ -48,18 +48,8 @@ const LandingNav = () => {
                 )}
               </a>
             ))}
-          </div>
 
-          {/* Right Actions */}
-          <div className="hidden lg:flex items-center gap-5">
-            <Link
-              to="/login"
-              className="text-sm text-gray-400 hover:text-white transition-colors"
-            >
-              Sign in
-            </Link>
-
-            <button
+                        <button
               onClick={() => {
                 if (deferredPrompt) {
                   handleInstallClick();
@@ -70,12 +60,28 @@ const LandingNav = () => {
               className={`flex items-center gap-2 text-[13px] px-4 py-2 rounded-[6px] transition-all border ${
                 deferredPrompt 
                   ? 'border-white/20 text-white bg-white/5 hover:bg-white/10' 
-                  : 'border-white/5 text-gray-600 cursor-not-allowed bg-transparent'
+                  : 'border-white/5 text-gray-600 cursor-not-allowed none bg-transparent'
               }`}
             >
               <Download size={16} />
               Install App
             </button>
+          </div>
+
+          {/* Right Actions */}
+          <div className="hidden lg:flex items-center gap-5">
+
+
+
+
+
+            <Link
+              to="/login"
+              className="text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Sign in
+            </Link>
+
 
             <Link
               to="/register"
