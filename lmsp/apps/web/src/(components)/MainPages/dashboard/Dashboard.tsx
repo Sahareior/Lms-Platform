@@ -449,8 +449,8 @@ export default function Dashboard() {
               key={tab._id}
               onClick={() => setActiveTab(tab._id)}
               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all border ${active
-                  ? "bg-[#2F80ED] text-white border-[#2F80ED] shadow-[0_4px_12px_rgba(47,128,237,0.3)]"
-                  : "bg-[#111318] text-[#A1A8B3] border-[#23262D] hover:bg-[#161920] hover:text-[#F5F7FA]"
+                ? "bg-[#2F80ED] text-white border-[#2F80ED] shadow-[0_4px_12px_rgba(47,128,237,0.3)]"
+                : "bg-[#111318] text-[#A1A8B3] border-[#23262D] hover:bg-[#161920] hover:text-[#F5F7FA]"
                 }`}
             >
               {tab.name}

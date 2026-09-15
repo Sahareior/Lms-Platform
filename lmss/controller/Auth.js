@@ -162,7 +162,9 @@ export const updateUser = async (req, res) => {
 
 export const allUsers = async (req, res) => {
     try {
-        const users = await User.find({}, '-password'); // Exclude the password field
+        // Newest first (_id embeds the creation timestamp) so "Recent Users"
+        // consumers on the admin dashboard get the latest signups.
+        const users = await User.find({}, '-password').sort({ _id: -1 }); // Exclude the password field
         res.status(200).json(users);
     } catch (err) {
         res.status(500).json({ message: 'Something went wrong' });
