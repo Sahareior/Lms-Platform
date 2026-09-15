@@ -1,13 +1,18 @@
 import express from 'express';
 import { authenticate, requireRole, requireSelfOrAdmin } from '../middleware/auth.js';
 import { authRateLimit } from '../middleware/rateLimit.js';
-import { handelSignUps, handelSingIn, updateUser, allUsers, getUserById, deleteUser, getMe, exportUsersCsv, forgotPassword, resetPassword } from '../controller/Auth.js';
+import { handelSignUps, handelSingIn, updateUser, allUsers, getUserById, deleteUser, getMe, exportUsersCsv, forgotPassword, resetPassword, refreshAccessToken, logout, googleSignIn } from '../controller/Auth.js';
 
 const user = express.Router()
 
 // Public: sign-up and sign-in (dedicated brute-force limiter)
 user.post('/sign-up', authRateLimit, handelSignUps)
 user.post('/sign-in', authRateLimit, handelSingIn)
+user.post('/google', authRateLimit, googleSignIn)
+
+// Public: token refresh + logout (rate-limited to slow refresh-token brute force)
+user.post('/refresh', authRateLimit, refreshAccessToken)
+user.post('/logout', logout)
 
 // Public: password reset (also rate-limited to slow down token brute force)
 user.post('/forgot-password', authRateLimit, forgotPassword)

@@ -35,11 +35,13 @@ const examApi = api.injectEndpoints({
             })
         }),
 
-        getAnalyzedQuestions: builder.query<any[], { examId?: string; versionId?: string } | void>({
+        getAnalyzedQuestions: builder.query<any[], { examId?: string; versionId?: string; subjectId?: string; board?: string } | void>({
             query: (params) => {
                 const search = new URLSearchParams();
                 if (params?.examId) search.set('exam', params.examId);
                 if (params?.versionId) search.set('examVersion', params.versionId);
+                if (params?.subjectId) search.set('subject', params.subjectId);
+                if (params?.board) search.set('board', params.board);
                 const qs = search.toString();
                 return { url: `/questions/question-pattern${qs ? `?${qs}` : ''}` };
             },
@@ -96,6 +98,10 @@ const examApi = api.injectEndpoints({
             query: (scheduleId) => ({ url: `/schedule-exams/${scheduleId}/questions` }),
             providesTags: (_result, _error, id) => [{ type: 'ScheduleExam', id }],
         }),
+
+        getSubjects: builder.query<SubjectByExam[], void>({
+            query: () => ({ url: '/subjects' }),
+        }),
     }),
 });
 
@@ -106,6 +112,7 @@ export const { useGetExamsQuery,
      usePostScrapQuestionsMutation,
      usePostQuestionPatternMutation,
      useGetSubjectsByExamQuery,
+     useGetSubjectsQuery,
      useGetImportentTopicsQuery,
      useGetExamVersionsByExamQuery,
      useGetQuestionsByExamQuery,

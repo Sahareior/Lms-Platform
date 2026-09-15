@@ -20,9 +20,12 @@ import {
     useSaveTempExamSubmissionMutation,
     useDeleteTempExamSubmissionMutation,
     useRecordQuestionStatsMutation,
+    useRecordMistakesMutation,
     getAuthToken,
 } from '@my-monorepo/store';
+import { emitXpGained, emitLevelUp } from '../../../../../gamification/GamificationToast';
 import { usePostUserQuizsMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
+import type { RecordMistakeQuestion } from '@my-monorepo/store';
 import FormattedQuestion from '../_components/FormattedQuestion.tsx';
 import {
     computeLocalScore,
@@ -191,6 +194,7 @@ const Omer: React.FC<ExamPaperProps> = ({
     const [completeAttempt, { isLoading: isCompleting }] =
         useCompleteAttemptMutation();
     const [postUserQuizs] = usePostUserQuizsMutation();
+    const [recordMistakes] = useRecordMistakesMutation();
     const { data: tempSubmission } = useGetTempExamSubmissionQuery(
         {
             userId,
@@ -218,6 +222,13 @@ const Omer: React.FC<ExamPaperProps> = ({
         (scheduleExams?.length === 1 ? scheduleExams[0] : undefined);
 
     const durationSeconds = (schedule?.duration ?? 120) * 60;
+
+    const effectiveVersionId =
+        versionId ||
+        (typeof schedule?.examVersion === 'object'
+            ? (schedule?.examVersion as any)?._id
+            : (schedule?.examVersion as string)) ||
+        undefined;
 
     // Correct answer index resolver
     const getCorrectAnswerIndex = useCallback((q: any): number | undefined => {
@@ -576,11 +587,11 @@ const Omer: React.FC<ExamPaperProps> = ({
                 persistTempProgress(updated);
 
                 // Persist quiz performance (fire-and-forget)
-                if (userId && qItem.id && examId && versionId) {
+                if (userId && qItem.id && examId) {
                     postUserQuizs({
                         user: userId,
                         exam: examId,
-                        examVersion: versionId,
+                        examVersion: effectiveVersionId || null,
                         subject: null,
                         submittedQuestions: [
                             {
@@ -597,7 +608,9 @@ const Omer: React.FC<ExamPaperProps> = ({
 
                 // Record question statistics (fire-and-forget)
                 if (qItem.id) {
-                    const isCorr = oIndex === qItem.correctIndex;
+                    // QuestionItem exposes the correct index as `correctAnswer`
+                    // (`correctIndex` doesn't exist, so isCorr was always false).
+                    const isCorr = oIndex === qItem.correctAnswer;
                     recordQuestionStats({
                         questionId: String(qItem.id),
                         isCorrect: isCorr,
@@ -610,7 +623,7 @@ const Omer: React.FC<ExamPaperProps> = ({
                 return updated;
             });
         },
-        [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, postUserQuizs, recordQuestionStats, selectedAnswers, persistTempProgress, examId, versionId]
+        [isSubmitted, isSubmitting, userId, allQuestions, saveAnswer, postUserQuizs, recordQuestionStats, selectedAnswers, persistTempProgress, examId, effectiveVersionId]
     );
 
     // ─── Handle Submit ───
@@ -679,7 +692,86 @@ const Omer: React.FC<ExamPaperProps> = ({
                         }),
                     }).unwrap();
 
-                    await completeAttempt({ attemptId }).unwrap();
+                    await completeAttempt({ attemptId }).unwrap().then((res) => {
+                        // XP toast + level-up celebration from the complete-attempt response
+                        const gm = res?.gamification;
+                        if (gm && gm.xpAwarded > 0) {
+                            emitXpGained({
+                                xpAwarded: gm.xpAwarded,
+                                level: gm.level,
+                                xpIntoLevel: gm.xpIntoLevel,
+                                xpForNextLevel: gm.xpForNextLevel,
+                                progress: gm.progress,
+                                currentStreak: gm.currentStreak,
+                                source: 'mock_exam',
+                            });
+                            if (gm.levelUp) {
+                                emitLevelUp({
+                                    level: gm.level,
+                                    xpIntoLevel: gm.xpIntoLevel,
+                                    xpForNextLevel: gm.xpForNextLevel,
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // Bulk-save all answered questions to QuizPerformance on submit.
+                // This is the authoritative write – per-answer fire-and-forgets are
+                // best-effort; this guarantees the AI performance controller always
+                // finds data for this user.
+                if (userId && examId) {
+                    const answeredSubmissions = allQuestions
+                        .map((q, idx) => {
+                            const selIdx = selectedAnswers[idx];
+                            if (selIdx === undefined || !q.id) return null;
+                            return {
+                                question: q.id,
+                                providedAnswer: q.optionKeys?.[selIdx] ?? '',
+                            };
+                        })
+                        .filter(Boolean);
+
+                    if (answeredSubmissions.length > 0) {
+                        await postUserQuizs({
+                            user: userId,
+                            exam: examId,
+                            examVersion: effectiveVersionId || null,
+                            subject: null,
+                            submittedQuestions: answeredSubmissions,
+                        })
+                            .unwrap()
+                            .catch((err) => {
+                                console.warn('Bulk quiz performance save failed:', err);
+                            });
+                    }
+
+                    // ── Mistake Notebook: add every wrongly-answered question
+                    // to the spaced-repetition review queue (fire-and-forget) ──
+                    const wrongMistakes = allQuestions
+                        .map((q, idx) => {
+                            const selIdx = selectedAnswers[idx];
+                            if (selIdx === undefined || !q.id) return null;
+                            if (selIdx === q.correctAnswer) return null;
+                            return {
+                                questionId: String(q.id),
+                                questionText: q.question || '',
+                                options: Object.fromEntries(
+                                    (q.optionKeys ?? []).map((k, oi) => [k, q.options[oi] ?? ''])
+                                ),
+                                correctAnswer: q.optionKeys?.[q.correctAnswer ?? -1] ?? null,
+                                lastWrongAnswer: q.optionKeys?.[selIdx] ?? null,
+                                exam: examId,
+                                examName: currentExam?.name || '',
+                            } as RecordMistakeQuestion;
+                        })
+                        .filter(Boolean) as RecordMistakeQuestion[];
+
+                    if (wrongMistakes.length > 0) {
+                        recordMistakes({ questions: wrongMistakes }).catch((err) => {
+                            console.warn('Failed to add mistakes to notebook:', err);
+                        });
+                    }
                 }
 
                 // Delete temporary exam submission upon completion
@@ -728,6 +820,7 @@ const Omer: React.FC<ExamPaperProps> = ({
             completeAttempt,
             batchSaveAnswers,
             deleteTempExamSubmission,
+            postUserQuizs,
             userId,
             examId,
             versionId,

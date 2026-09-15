@@ -22,7 +22,9 @@ export const listExams = async (req, res) => {
     if (category === 'academic' || category === 'job_preparation') {
       filter.category = category;
     }
-    const exams = await Exam.find(filter);
+    // Newest first (_id embeds the creation timestamp) so "Recent Exams"
+    // consumers on the admin dashboard get the latest created exams.
+    const exams = await Exam.find(filter).sort({ _id: -1 });
 
     // Existing exams created before categories existed get the job_preparation default
     for (const exam of exams) {

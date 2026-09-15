@@ -13,7 +13,7 @@ export default function SubjectAccuracyList({
   aiStats: any;
 }) {
   return (
-    <div className="bg-[#111318] h-[400px] overflow-y-auto border border-[#23262D] rounded-2xl p-2">
+    <div className="bg-[#111318] h-[400px] overflow-y-auto border border-[#23262D] rounded-2xl p-4">
       <div className="flex justify-between items-start mb-6">
         <div>
           <h3 className="text-base font-bold text-[#F5F7FA]">Subject-wise Accuracy</h3>

@@ -27,7 +27,7 @@ questions.post('/question-pattern-save', authenticate, requireRole('admin'), pos
 questions.put('/:questionId', authenticate, requireRole('admin'), updateQuestionDocument);
 questions.delete('/:questionId', authenticate, requireRole('admin'), deleteQuestionDocument);
 questions.put('/:questionId/question/:questionNumber', authenticate, requireRole('admin'), updateSingleQuestion);
-questions.put('/:questionId/question/:questionNumber/explanation', updateQuestionExplanation);
+questions.put('/:questionId/question/:questionNumber/explanation', authenticate, requireRole('admin'), updateQuestionExplanation);
 questions.delete('/:questionId/question/:questionNumber', authenticate, requireRole('admin'), deleteSingleQuestion);
 
 export default questions;

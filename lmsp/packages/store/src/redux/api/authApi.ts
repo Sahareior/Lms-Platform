@@ -41,6 +41,10 @@ export interface AuthResponse {
   token: string;
 }
 
+export interface GoogleSignInRequest {
+  idToken: string;
+}
+
 // ─── Injected Endpoints ─────────────────────────────────────
 const authApi = api.injectEndpoints({
   endpoints: (build) => ({
@@ -102,6 +106,16 @@ const authApi = api.injectEndpoints({
       }),
     }),
 
+    // ── Google Sign-In ───────────────────────────────────────
+    googleSignIn: build.mutation<AuthResponse, GoogleSignInRequest>({
+      query: (data) => ({
+        url: '/auth/google',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['User'],
+    }),
+
     // ── Update Profile ───────────────────────────────────────
     updateProfile: build.mutation<User, Partial<User>>({
       query: (data) => ({
@@ -125,4 +139,5 @@ export const {
   useAddUserInfoMutation,
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useGoogleSignInMutation,
 } = authApi;

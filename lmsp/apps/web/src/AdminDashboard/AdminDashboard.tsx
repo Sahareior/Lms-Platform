@@ -76,7 +76,7 @@ const AdminDashboard: React.FC = () => {
     {
       key: 'questions',
       icon: <QuestionCircleOutlined />,
-      label: 'Upload Questions',
+      label: 'Upload Documents',
       onClick: () => navigate('/admin/questions'),
     },
     {

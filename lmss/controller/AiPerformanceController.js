@@ -120,7 +120,7 @@ function buildLocalReport(performances) {
           user_answer: sq.providedAnswer || "",
           correct_answer: qd.correct_answer || "",
           explanation:
-            "Review this topic's fundamentals to avoid repeating the same mistake.",
+            "এই প্রশ্নের সঠিক উত্তরটি মনোযোগ সহকারে লক্ষ্য করুন এবং সংশ্লিষ্ট অধ্যায়ের মূল নিয়মাবলী রিভিশন করুন।",
         });
       }
     }
@@ -152,7 +152,7 @@ function buildLocalReport(performances) {
     .map((s) => ({
       topic: s.subject,
       accuracy: s.accuracy,
-      detail: `Strong performance in ${s.subject} with ${s.accuracy}% accuracy.`,
+      detail: `${s.subject} বিষয়ে আপনার পারফরম্যান্স বেশ শক্তিশালী (${s.accuracy}% সঠিকতা অর্জন করেছেন)।`,
     }));
   const weak_areas = sorted
     .filter((s) => s.accuracy < 60 && s.attempted > 0)
@@ -160,8 +160,8 @@ function buildLocalReport(performances) {
     .map((s) => ({
       topic: s.subject,
       accuracy: s.accuracy,
-      reason: `Accuracy in ${s.subject} is ${s.accuracy}%, below the 60% target.`,
-      recommendation: `Spend focused revision time on ${s.subject} and retry practice questions.`,
+      reason: `${s.subject} বিষয়ে আপনার সঠিকতা ${s.accuracy}%, যা লক্ষ্যমাত্রার চেয়ে কম। ধারণাগত কিছু ঘাটতি রয়েছে।`,
+      recommendation: `${s.subject}-এর মূল ধারণা ও সূত্রগুলো পুনরায় পড়ুন এবং অন্তত ১৫-২০টি প্রশ্ন অনুশীলন করুন।`,
     }));
 
   const verdict =
@@ -172,6 +172,17 @@ function buildLocalReport(performances) {
       : score_percentage >= 40
       ? "Needs Improvement"
       : "Critical";
+
+  const verdictBangla =
+    verdict === "Excellent"
+      ? "অসাধারণ ফলাফল! আপনার প্রস্তুতি অত্যন্ত চমৎকার।"
+      : verdict === "Good"
+      ? "বেশ ভালো হয়েছে! একটু নিয়মিত প্র্যাকটিস করলে আরও দুর্দান্ত ফলাফল হবে।"
+      : verdict === "Needs Improvement"
+      ? "ধারাবাহিক অনুশীলন চালিয়ে যান এবং দুর্বল অধ্যায়গুলোতে বাড়তি মনোযোগ দিন।"
+      : "মৌলিক বিষয়গুলো আবার ভালো করে পড়া দরকার। নিচে দেওয়া দুর্বল ক্ষেত্রগুলোতে মনোযোগ দিন।";
+
+  const banglaDays = ["১ম দিন", "২য় দিন", "৩য় দিন", "৪র্থ দিন", "৫ম দিন", "৬ষ্ঠ দিন"];
 
   return {
     stats: {
@@ -185,20 +196,18 @@ function buildLocalReport(performances) {
       score_analysis: {
         percentage: Math.round(score_percentage),
         verdict,
-        message: `You scored ${score_percentage}% across ${total} question${
-          total === 1 ? "" : "s"
-        }. ${verdict === "Excellent" ? "Outstanding work — keep it up!" : verdict === "Good" ? "Solid effort — a bit more practice will push you higher." : "Keep practising consistently to build accuracy and confidence."}`,
+        message: `আপনি মোট ${total}টি প্রশ্নের মধ্যে ${score_percentage}% স্কোর করেছেন (${correct}টি সঠিক, ${incorrect}টি ভুল)। ${verdictBangla}`,
       },
       subject_breakdown,
       strengths,
       weak_areas,
       mistake_breakdown: mistakes.slice(0, 10),
-      study_plan: weak_areas.slice(0, 3).map((w, i) => ({
-        day: `Day ${i + 1}`,
+      study_plan: weak_areas.slice(0, 4).map((w, i) => ({
+        day: banglaDays[i] || `দিন ${i + 1}`,
         focus_subject: w.topic,
-        title: `${w.topic} Fundamentals`,
-        description: `Revise core concepts in ${w.topic} and attempt 10-15 practice questions.`,
-        duration_minutes: 30,
+        title: `${w.topic} রিভিশন ও প্র্যাকটিস`,
+        description: `${w.topic}-এর গুরুত্বপূর্ণ নিয়ম ও সূত্রগুলো পড়ুন এবং অন্তত ১০-১৫টি বিগত বছরের প্রশ্ন সমাধান করুন।`,
+        duration_minutes: 45,
       })),
     },
   };
@@ -299,14 +308,14 @@ function mergeExamReports(examReports) {
       ? "Needs Improvement"
       : "Critical";
 
-  const verdictMessage =
+  const verdictBangla =
     verdict === "Excellent"
-      ? "Outstanding work — keep it up!"
+      ? "অসাধারণ ফলাফল! আপনার প্রস্তুতি অত্যন্ত চমৎকার, এই ধারাবাহিকতা বজায় রাখুন।"
       : verdict === "Good"
-      ? "Solid effort — a bit more practice will push you higher."
+      ? "বেশ ভালো ফলাফল! নিয়মিত চর্চা ও একটু সচেতন রিভিশন আপনাকে আরও এগিয়ে নিয়ে যাবে।"
       : verdict === "Needs Improvement"
-      ? "Keep practising consistently to build accuracy and confidence."
-      : "Focus on your weak areas below to turn them into strengths.";
+      ? "আরও অনুশীলনের সুযোগ রয়েছে। দুর্বল অধ্যায়গুলোতে বাড়তি সময় দিয়ে আত্মবিশ্বাস বাড়ান।"
+      : "গুরুত্বপূর্ণ রিভিশন প্রয়োজন। মৌলিক বিষয়গুলো ভালোভাবে পড়ে প্রস্তুতিকে মজবুত করুন।";
 
   return {
     stats: {
@@ -320,7 +329,7 @@ function mergeExamReports(examReports) {
       score_analysis: {
         percentage: Math.round(score_percentage),
         verdict,
-        message: `You scored ${score_percentage}% across ${total} question${total === 1 ? "" : "s"} (${correct} correct, ${incorrect} incorrect). ${verdictMessage}`,
+        message: `আপনি মোট ${total}টি প্রশ্নের মধ্যে ${score_percentage}% স্কোর করেছেন (${correct}টি সঠিক, ${incorrect}টি ভুল)। ${verdictBangla}`,
       },
       subject_breakdown: [...subjectMap.values()],
       strengths,
@@ -387,15 +396,31 @@ function generateAndSaveReport(userId, examId = null, authHeader) {
     return inflightGeneration.get(cacheKey);
   }
   const promise = (async () => {
+    const userQuery = mongoose.Types.ObjectId.isValid(userId)
+      ? new mongoose.Types.ObjectId(userId)
+      : userId;
+    const examQuery = examId
+      ? mongoose.Types.ObjectId.isValid(examId)
+        ? { exam: new mongoose.Types.ObjectId(examId) }
+        : { exam: examId }
+      : {};
+
     const performances = await quizPerform
-      .find({ user: userId, ...(examId ? { exam: examId } : {}) })
+      .find({ user: userQuery, ...examQuery })
       .populate("user", "name email")
       .populate("exam", "name")
       .populate("examVersion", "examVersion")
       .populate("subject", "name");
+
     const resolved = await resolveSubmittedQuestions(performances);
 
-    if (!resolved || resolved.length === 0) {
+    const resolvedQuestionsCount = resolved.reduce(
+      (sum, p) => sum + (p.submittedQuestions || []).filter((sq) => sq.questionData).length,
+      0
+    );
+
+    if (!resolved || resolved.length === 0 || resolvedQuestionsCount === 0) {
+      console.warn("generateAndSaveReport: no resolved questions found, returning empty: true");
       return { empty: true };
     }
 

@@ -9,15 +9,26 @@ import {
 // ─── Hero header ─────────────────────────────────────────────
 export default function AnalysisHero({
   examName,
+  subjectName,
   versionName,
+  boardName,
   topicCount,
   totalQuestions,
 }: {
   examName: string | null;
-  versionName?: string;
+  subjectName?: string | null;
+  versionName?: string | null;
+  boardName?: string | null;
   topicCount: number;
   totalQuestions: number;
 }) {
+  const scopeParts = [
+    examName,
+    subjectName ? `Subject: ${subjectName}` : null,
+    versionName ? `Year: ${versionName}` : null,
+    boardName ? `Board: ${boardName}` : null,
+  ].filter(Boolean);
+
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[#111318] border border-[#23262D] p-7 md:p-10 shadow-sm">
       <div className="absolute -top-20 -right-20 w-72 h-72 bg-[#9B51E0]/20 rounded-full blur-3xl" />
@@ -33,11 +44,9 @@ export default function AnalysisHero({
               <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
                 Question Pattern Analysis
               </h1>
-              <p className="text-sm text-[#A1A8B3] mt-1 max-w-xl">
-                {examName
-                  ? `High-probability topics and trends for ${examName}${
-                      versionName ? ` • ${versionName}` : ""
-                    }`
+              <p className="text-sm text-[#A1A8B3] mt-1 max-w-2xl">
+                {scopeParts.length > 0
+                  ? `Targeted high-probability topics and trends for ${scopeParts.join(" • ")}`
                   : "Discover high-probability topics and trends from exam data powered by AI analysis."}
               </p>
             </div>
@@ -47,7 +56,7 @@ export default function AnalysisHero({
         <div className="flex md:mb-6 items-center gap-3 text-xs font-semibold bg-[#161920] text-[#F5F7FA] px-4 py-2.5 rounded-xl border border-[#23262D]">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#00E5B3] animate-pulse" />{" "}
-            10 Years
+            {versionName || "All Years"}
           </span>
           <span className="w-px h-3.5 bg-[#23262D]" />
           <span>{topicCount} Topics</span>

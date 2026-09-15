@@ -13,7 +13,7 @@ import PrivacyPolicy from './legal/PrivacyPolicy';
 // Each page ships in its own chunk, loaded on first visit, so the
 // initial bundle stays small instead of pulling in the whole admin
 // panel, recharts, antd, etc. up front.
-const Dashboard = lazy(() => import('./(components)/dashboard/Dashboard'));
+const Dashboard = lazy(() => import('./(components)/MainPages/dashboard/Dashboard'));
 const LessonPage = lazy(() => import('./(components)/MainPages/lesson/LessonPage'));
 const QuizPreatise = lazy(() => import('./(components)/MainPages/mock_exam/ExamPaper/ExamPaper'));
 const MockExamInterface = lazy(() => import('./(components)/MockExamInterface'));
@@ -21,6 +21,7 @@ const AIChatInterface = lazy(() => import('./(components)/MainPages/chat_interfa
 const QuestionPatterns = lazy(() => import('./(components)/MainPages/question_patterns/QuestionPatterns'));
 const Perfomence = lazy(() => import('./(components)/MainPages/performence/Perfomence'));
 const SearchPage = lazy(() => import('./(components)/MainPages/search/SearchPage'));
+const MistakeNotebook = lazy(() => import('./(components)/MainPages/mistake_notebook/MistakeNotebook'));
 const Settings = lazy(() => import('./(components)/Settings'));
 const AvailableCourses = lazy(() => import('./(components)/AvailableCourses'));
 const CourseDetails = lazy(() => import('./(components)/CourseDetails'));
@@ -156,6 +157,9 @@ const router = createBrowserRouter([
           { path: 'question-bank', element: <QuestionPatterns /> },
           { path: 'performance', element: <Perfomence /> },
           { path: 'search', element: <SearchPage /> },
+          { path: 'notebook', element: <MistakeNotebook /> },
+          // Old path kept as a redirect so existing links keep working
+          { path: 'mistake-notebook', element: <Navigate to="/notebook" replace /> },
           { path: 'question-center', element: <ExamCategorySelection /> },
           {
             path: 'question-center/:examType',

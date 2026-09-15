@@ -357,7 +357,7 @@ const Settings: React.FC = () => {
   ];
 
   return (
-    <div className="font-sans text-[#F5F7FA] space-y-8">
+    <div className="font-sans text-[#F5F7FA] p-3 space-y-8">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-[#00E5B3]/10 border border-[#00E5B3]/30 flex items-center justify-center">

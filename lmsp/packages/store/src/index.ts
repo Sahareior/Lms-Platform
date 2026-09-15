@@ -50,13 +50,23 @@ export type {
 } from './redux/slices/aiPerformanceSlice';
 
 // ─── RTK Query Base (config + auth token) ───────────────────
-export { configureApi, setAuthToken, getAuthToken } from './redux/api/baseApi';
+export {
+  configureApi,
+  setAuthToken,
+  getAuthToken,
+  setRefreshToken,
+  getRefreshToken,
+  clearAuthTokens,
+  onAccessTokenRefreshed,
+} from './redux/api/baseApi';
 
 // ─── RTK Query AI API (separate endpoint on port 5000) ─────
-export { configureAiApi, aiApi } from './redux/api/aiApi';
+export { configureAiApi, aiApi, getDocumentFileUrl } from './redux/api/aiApi';
 export {
   useSendChatMessageMutation,
   useUploadDocumentsMutation,
+  useGetRagDocumentsQuery,
+  useDeleteRagDocumentMutation,
   useQuestionAnalyzerMutation,
   useQuestionPaperScraperMutation,
   useAiUserPerFormanceMutation,
@@ -71,6 +81,9 @@ export type {
   QuestionAnalyzerRequest,
   RagUploadResponse,
   RagJobStatus,
+  RagDocument,
+  GetDocumentsResponse,
+  DeleteDocumentResponse,
   AiPerformanceStats,
   AiScoreAnalysis,
   AiSubjectBreakdown,
@@ -92,12 +105,14 @@ export {
   useUpdateProfileMutation,
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useGoogleSignInMutation,
 } from './redux/api/authApi';
 export type {
   LoginRequest,
   RegisterRequest,
   UpdateUser,
   AuthResponse,
+  GoogleSignInRequest,
 } from './redux/api/authApi';
 
 // ─── RTK Query Upload API (Cloudinary via backend) ─────────
@@ -170,6 +185,7 @@ export type {
   SaveAnswerRequest,
   BatchSaveAnswersRequest,
   CompleteAttemptRequest,
+  GamificationPayload,
   QuestionResponse,
   AttemptSummary,
   Attempt,
@@ -324,6 +340,31 @@ export type {
   GetFavoritesResponse,
   GetFavoriteIdsResponse,
 } from './redux/api/favoriteApi';
+
+// ─── RTK Query Gamification + Mistake Notebook API ────────
+export {
+  useGetMyGamificationQuery,
+  useGetLeaderboardQuery,
+  useAwardPracticeXpMutation,
+  useGetMistakeNotebookQuery,
+  useGetMistakeNotebookStatsQuery,
+  useRecordMistakesMutation,
+  useReviewNotebookEntryMutation,
+  useDeleteNotebookEntryMutation,
+  useGetNotebookQuestionsQuery,
+} from './redux/api/gamificationApi';
+export type {
+  GamificationStats,
+  LeaderboardEntry,
+  LeaderboardResponse,
+  NotebookEntry,
+  NotebookResponse,
+  NotebookStats,
+  RecordMistakeQuestion,
+  NotebookItem,
+  NotebookQuestionsResponse,
+  PracticeXpResponse,
+} from './redux/api/gamificationApi';
 
 // ─── RTK Query Stats API ────────────────────────────────────
 export {

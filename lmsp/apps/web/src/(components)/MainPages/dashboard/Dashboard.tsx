@@ -41,6 +41,8 @@ import AiRecommendationsCard from "./_components/AiRecommendationsCard";
 import SubjectAccuracyList from "./_components/SubjectAccuracyList";
 import DashboardHeader from "./_components/DashboardHeader";
 import StatsRow from "./_components/StatsRow";
+import StreakCard from "./_components/StreakCard";
+import LeaderboardCard from "./_components/LeaderboardCard";
 
 // ─── Weekly Study Activity helpers ──────────────────────────
 const WEEK_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -273,12 +275,12 @@ export default function Dashboard() {
   const overviewRecommendations = [
     ...weakSubjects.map((w) => ({
       title: w.subject,
-      desc: `Accuracy ${w.accuracy}% — below the 60% target. Spend focused revision time on ${w.subject}.`,
+      desc: `সঠিকতার হার ${w.accuracy}% — কাঙ্ক্ষিত ৬০%-এর নিচে। ${w.subject} বিষয়ের মৌলিক বিষয়গুলোতে আরও একটু মনোযোগ দিন।`,
       color: "border-l-[#EB5757]",
     })),
     ...strongSubjects.map((s) => ({
       title: s.subject,
-      desc: `Strong performance in ${s.subject} with ${s.accuracy}% accuracy.`,
+      desc: `${s.subject} বিষয়ে আপনার পারফরম্যান্স বেশ ভালো (${s.accuracy}% সঠিকতা অর্জন করেছেন)।`,
       color: "border-l-[#00E5B3]",
     })),
   ].slice(0, 4);
@@ -344,6 +346,9 @@ export default function Dashboard() {
 
       {/* ────── STATS ROW ────── */}
       <StatsRow statsCards={statsCards} />
+
+      {/* ────── STREAK & XP CARD (hidden for brand-new users) ────── */}
+      <StreakCard />
 
       {/* ────── QUICK ACTIONS ────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -444,8 +449,8 @@ export default function Dashboard() {
               key={tab._id}
               onClick={() => setActiveTab(tab._id)}
               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all border ${active
-                  ? "bg-[#2F80ED] text-white border-[#2F80ED] shadow-[0_4px_12px_rgba(47,128,237,0.3)]"
-                  : "bg-[#111318] text-[#A1A8B3] border-[#23262D] hover:bg-[#161920] hover:text-[#F5F7FA]"
+                ? "bg-[#2F80ED] text-white border-[#2F80ED] shadow-[0_4px_12px_rgba(47,128,237,0.3)]"
+                : "bg-[#111318] text-[#A1A8B3] border-[#23262D] hover:bg-[#161920] hover:text-[#F5F7FA]"
                 }`}
             >
               {tab.name}
@@ -534,7 +539,7 @@ export default function Dashboard() {
       </div>
 
       {/* ────── BOTTOM CHARTS ROW ────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         {/* Weekly Study Activity */}
         <WeeklyActivityChart
           weeklyDays={weeklyDays}
@@ -550,6 +555,9 @@ export default function Dashboard() {
           selectedExams={selectedExams}
           aiStats={aiStats}
         />
+
+        {/* XP Leaderboard (week / all-time) */}
+        <LeaderboardCard />
       </div>
 
       <div className="h-4" />

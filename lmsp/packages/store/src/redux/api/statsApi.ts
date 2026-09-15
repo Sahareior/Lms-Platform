@@ -63,7 +63,7 @@ const statsApi = api.injectEndpoints({
     }),
 
     getQuestionStats: build.query<QuestionStatItem, string>({
-      query: (questionId) => `stats/question/${questionId}`,
+      query: (questionId) => ({ url: `stats/question/${questionId}` }),
       providesTags: (_result, _error, questionId) => [
         { type: 'QuestionStats', id: questionId },
       ],

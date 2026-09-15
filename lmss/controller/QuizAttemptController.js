@@ -3,6 +3,7 @@ import QuestionModel from "../models/QuestionModel.js";
 import ScheduleExam from "../models/ScheduleExamModel.js";
 import QuestionStat, { calculateDifficulty, formatAvgTime } from "../models/QuestionStat.js";
 import { invalidatePrefix } from "../middleware/cache.js";
+import { updateStreakOnActivity, awardXp, XP_REWARDS } from "../utils/gamification.js";
 
 // ─── Helper: look up a single question from the QuestionModel data[] array ──
 // QuestionModel stores questions in a `data` subdocument array. Each element
@@ -515,6 +516,25 @@ export const completeAttempt = async (req, res) => {
 
     await invalidatePrefix('cache:quiz-attempt');
 
+    // ── Gamification: update streak + award XP (awaited so the response
+    // can carry the user's new XP/level/streak for UI celebrations; on any
+    // error we still complete the attempt without gamification data) ──
+    let gamification = null;
+    try {
+      await updateStreakOnActivity(attempt.user);
+      const xp =
+        XP_REWARDS.QUIZ_COMPLETED +
+        (attempt.percentage >= 80 ? XP_REWARDS.QUIZ_HIGH_SCORE : 0) +
+        attempt.questions.reduce(
+          (sum, q) =>
+            sum + (q.isCorrect === true ? XP_REWARDS.QUESTION_CORRECT : q.isCorrect === false ? XP_REWARDS.QUESTION_ATTEMPTED : 0),
+          0
+        );
+      gamification = await awardXp(attempt.user, xp);
+    } catch (gamErr) {
+      console.warn('Gamification update warning:', gamErr.message);
+    }
+
     // Update global question stats in background
     (async () => {
       try {
@@ -574,6 +594,7 @@ export const completeAttempt = async (req, res) => {
         timeTaken: attempt.timeTaken,
         questions: attempt.questions,
       },
+      gamification,
     });
   } catch (err) {
     console.error("Error completing attempt:", err);

@@ -13,6 +13,8 @@ const UserManagement: React.FC = () => {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
 
+  console.log(users,'thus is users')
+
   const handleDeleteUser = async (userId: string) => {
     try {
       await deleteUser(userId).unwrap();
@@ -37,7 +39,7 @@ const UserManagement: React.FC = () => {
     if (!searchText) return true;
     const search = searchText.toLowerCase();
     return (
-      user.username?.toLowerCase().includes(search) ||
+      user.name?.toLowerCase().includes(search) ||
       user.email?.toLowerCase().includes(search) ||
       user.division?.toLowerCase().includes(search) ||
       user.district?.toLowerCase().includes(search) ||
@@ -48,8 +50,8 @@ const UserManagement: React.FC = () => {
   const columns: ColumnsType<AdminUser> = [
     {
       title: 'User',
-      dataIndex: 'username',
-      key: 'username',
+      dataIndex: 'name',
+      key: 'name',
       render: (name: string, record: AdminUser) => (
         <div className="flex items-center gap-3">
           <Avatar style={{ backgroundColor: '#14532D', verticalAlign: 'middle' }} size="large">
@@ -61,7 +63,7 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       ),
-      sorter: (a, b) => (a.username || '').localeCompare(b.username || ''),
+      sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
     },
     {
       title: 'Contact',
@@ -81,27 +83,8 @@ const UserManagement: React.FC = () => {
         </div>
       ),
     },
-    {
-      title: 'Location',
-      key: 'location',
-      render: (_: unknown, record: AdminUser) => (
-        <span className="text-sm text-[#9BA8A0]">
-          {[record.division, record.district, record.thana].filter(Boolean).join(', ') || '—'}
-        </span>
-      ),
-    },
-    {
-      title: 'Education',
-      dataIndex: 'education',
-      key: 'education',
-      render: (val: string) => val || '—',
-    },
-    {
-      title: 'Institute',
-      dataIndex: 'institute',
-      key: 'institute',
-      render: (val: string) => val || '—',
-    },
+
+
     {
       title: 'Exams',
       dataIndex: 'selectedExams',
@@ -173,9 +156,7 @@ const UserManagement: React.FC = () => {
             style={{ width: 250 }}
             allowClear
           />
-          <Button icon={<DownloadOutlined />} onClick={handleExportCsv}>
-            Export CSV
-          </Button>
+         
           <Button icon={<ReloadOutlined />} onClick={refetch}>
             Refresh
           </Button>
@@ -219,7 +200,7 @@ const UserDetail: React.FC<{ userId: string }> = ({ userId }) => {
 
   return (
     <Descriptions column={2} bordered size="small" className="mt-4">
-      <Descriptions.Item label="Username">{user.username || 'N/A'}</Descriptions.Item>
+      <Descriptions.Item label="Username">{user.name || 'N/A'}</Descriptions.Item>
       <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
       <Descriptions.Item label="Phone">{user.phone || 'N/A'}</Descriptions.Item>
       <Descriptions.Item label="Date of Birth">{user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : 'N/A'}</Descriptions.Item>

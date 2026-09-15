@@ -8,16 +8,46 @@ import {
   RiseOutlined,
   ExperimentOutlined,
 } from '@ant-design/icons';
-import { useGetAdminUsersQuery, useGetAdminExamsQuery, useGetAdminCoursesQuery, useGetAdminQuestionsQuery } from '@my-monorepo/store';
+import { useGetAdminUsersQuery, useGetAdminExamsQuery, useGetAdminCoursesQuery, useGetAdminQuestionsQuery, useGetScheduleExamsQuery } from '@my-monorepo/store';
 
 const DashboardOverview: React.FC = () => {
   const { data: users, isLoading: usersLoading, error: usersError } = useGetAdminUsersQuery();
   const { data: exams, isLoading: examsLoading, error: examsError } = useGetAdminExamsQuery();
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useGetAdminCoursesQuery();
   const { data: questions, isLoading: questionsLoading, error: questionsError } = useGetAdminQuestionsQuery();
+  const { data: mockExams, isLoading: mockExamsLoading, error: mockExamsError } = useGetScheduleExamsQuery();
 
-  const isLoading = usersLoading || examsLoading || coursesLoading || questionsLoading;
-  const error = usersError || examsError || coursesError || questionsError;
+  const isLoading = usersLoading || examsLoading || coursesLoading || questionsLoading || mockExamsLoading;
+  const error = usersError || examsError || coursesError || questionsError || mockExamsError;
+
+  // ── Recency helpers ────────────────────────────────────────
+  // The backend sorts newest-first, but sort defensively here too so the
+  // "Recent" lists stay correct even if an endpoint returns unsorted data.
+  // ObjectId prefixes encode the creation timestamp (works for legacy rows
+  // that predate the createdAt field).
+  const objectIdTime = (id?: string) => (id ? parseInt(id.slice(0, 8), 16) * 1000 : 0);
+  const recentTime = (x: { _id?: string; createdAt?: string }) =>
+    (x.createdAt ? new Date(x.createdAt).getTime() : 0) || objectIdTime(x._id);
+  const recentUsers = [...(users ?? [])].sort((a, b) => recentTime(b) - recentTime(a)).slice(0, 5);
+  // Latest scheduled (mock) exams by start date — newest scheduled first
+  
+
+  const recentMockExams = [...(mockExams ?? [])]
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+    .slice(0, 5);
+  const formatDateTime = (iso: string) =>
+    new Date(iso).toLocaleString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  const formatDate = (x: { createdAt?: string; _id?: string }) =>
+    new Date(recentTime(x)).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
 
   if (isLoading) {
     return (
@@ -141,9 +171,9 @@ const DashboardOverview: React.FC = () => {
             title={<span style={{ color: '#4ADE80', fontSize: 15 }}>Recent Users</span>}
             style={{ borderRadius: 14, border: '1px solid #1F1F1F' }}
           >
-            {users && users.length > 0 ? (
+            {recentUsers.length > 0 ? (
               <div className="space-y-3">
-                {users.slice(0, 5).map((user) => (
+                {recentUsers.map((user) => (
                   <div key={user._id} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: '#171717' }}>
                     <div className="flex items-center gap-3">
                       <div
@@ -160,15 +190,15 @@ const DashboardOverview: React.FC = () => {
                           fontWeight: 600,
                         }}
                       >
-                        {(user.username || user.email || '?')[0].toUpperCase()}
+                        {(user.name || user.email || '?')[0].toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-medium text-sm m-0" style={{ color: '#E8F5EC' }}>{user.username || 'N/A'}</p>
+                        <p className="font-medium text-sm m-0" style={{ color: '#E8F5EC' }}>{user.name || 'N/A'}</p>
                         <p className="text-xs m-0" style={{ color: '#9BA8A0' }}>{user.email}</p>
                       </div>
                     </div>
-                    <span className="text-xs" style={{ color: '#5F6B64' }}>
-                      {user.division || user.district || '—'}
+                    <span className="text-xs shrink-0" style={{ color: '#5F6B64' }}>
+                      Joined {formatDate(user)}
                     </span>
                   </div>
                 ))}
@@ -181,40 +211,67 @@ const DashboardOverview: React.FC = () => {
 
         <Col xs={24} lg={12}>
           <Card
-            title={<span style={{ color: '#4ADE80', fontSize: 15 }}>Recent Exams</span>}
+            title={<span style={{ color: '#4ADE80', fontSize: 15 }}>Recent Mock Exams</span>}
             style={{ borderRadius: 14, border: '1px solid #1F1F1F' }}
           >
-            {exams && exams.length > 0 ? (
+            {recentMockExams.length > 0 ? (
               <div className="space-y-3">
-                {exams.slice(0, 5).map((exam) => (
-                  <div key={exam._id} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: '#171717' }}>
-                    <div className="flex items-center gap-3">
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 10,
-                          background: 'rgba(34, 197, 94, 0.14)',
-                          border: '1px solid rgba(34, 197, 94, 0.3)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#4ADE80',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {(exam.name || '?')[0].toUpperCase()}
+                {recentMockExams.map((exam) => {
+                  const parentExam =
+                    typeof exam.exam === 'object' && exam.exam !== null
+                      ? exam.exam
+                      : null;
+                  const parentName = parentExam?.name ?? '—';
+                  const statusColor =
+                    exam.status === 'active'
+                      ? '#4ADE80'
+                      : exam.status === 'upcoming'
+                        ? '#F2C94C'
+                        : exam.status === 'cancelled'
+                          ? '#EB5757'
+                          : '#9BA8A0';
+                  return (
+                    <div key={exam._id} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: '#171717' }}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            background: 'rgba(34, 197, 94, 0.14)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#4ADE80',
+                            fontWeight: 600,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {(exam.title || '?')[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm m-0 truncate" style={{ color: '#E8F5EC' }}>{exam.title}</p>
+                          <p className="text-xs m-0" style={{ color: '#9BA8A0' }}>
+                            {parentName !== '—' ? `${parentName} · ` : ''}
+                            {exam.totalQuestions ?? 0} questions
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm m-0" style={{ color: '#E8F5EC' }}>{exam.name}</p>
-                        <p className="text-xs m-0" style={{ color: '#9BA8A0' }}>{exam.applicants || '0'} applicants</p>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-semibold m-0" style={{ color: statusColor, textTransform: 'capitalize' }}>
+                          {exam.status}
+                        </p>
+                        <p className="text-[11px] m-0" style={{ color: '#5F6B64' }}>
+                          {formatDateTime(exam.startDate)}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <p className="text-center py-4 m-0" style={{ color: '#5F6B64' }}>No exams found</p>
+              <p className="text-center py-4 m-0" style={{ color: '#5F6B64' }}>No mock exams scheduled yet</p>
             )}
           </Card>
         </Col>
