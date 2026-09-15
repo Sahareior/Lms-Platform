@@ -7,8 +7,19 @@ const userSchema = new mongoose.Schema({
         unique: true
     },
     password: {
-        required: true,
+        required: false,
         type: String
+    },
+    googleId: {
+        type: String,
+        sparse: true,
+        unique: true,
+        default: null,
+    },
+    authProvider: {
+        type: String,
+        enum: ['local', 'google'],
+        default: 'local',
     },
     name: {
         type: String

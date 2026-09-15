@@ -13,6 +13,7 @@ import {
   revokeAllUserRefreshTokens,
 } from "../utils/refreshToken.js"
 import { sendEmail } from "../config/resend.js"
+import { verifyGoogleToken } from "../config/firebaseAdmin.js"
 
 /** Generate a JWT for the given user object (without password). */
 function generateToken(user) {
@@ -405,3 +406,77 @@ export const logout = async (req, res) => {
     res.status(200).json({ message: 'Logged out' });
   }
 }
+
+/**
+ * POST /auth/google — Exchange a Firebase Google ID token for an app JWT.
+ *
+ * Flow:
+ *   1. Verify the ID token with Firebase Admin SDK.
+ *   2. Look up the user by googleId, then by email as a fallback.
+ *   3. Create a new user record if none exists.
+ *   4. Issue your app's own JWT + refresh token.
+ */
+export const googleSignIn = async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken || typeof idToken !== 'string') {
+    return res.status(400).json({ message: 'idToken is required' });
+  }
+
+  try {
+    // 1. Verify Google ID token
+    let decoded;
+    try {
+      decoded = await verifyGoogleToken(idToken);
+    } catch (verifyErr) {
+      console.error('Google token verification failed:', verifyErr.message);
+      return res.status(401).json({ message: 'Invalid or expired Google token' });
+    }
+
+    const { uid: googleId, email, name, picture } = decoded;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Google account has no email address' });
+    }
+
+    // 2. Find existing user by googleId or email
+    let user = await User.findOne({ googleId });
+    if (!user) {
+      user = await User.findOne({ email: email.toLowerCase().trim() });
+    }
+
+    if (user) {
+      // Link the Google account if the user was previously email/password only
+      if (!user.googleId) {
+        user.googleId = googleId;
+        user.authProvider = 'google';
+        if (picture && !user.profilePic) user.profilePic = picture;
+        await user.save();
+      }
+    } else {
+      // 3. Create new user
+      user = new User({
+        email: email.toLowerCase().trim(),
+        name: name || email.split('@')[0],
+        googleId,
+        authProvider: 'google',
+        profilePic: picture || undefined,
+        agreed: true, // Google accounts implicitly agreed via Google's ToS
+      });
+      await user.save();
+    }
+
+    // 4. Issue JWT + refresh token
+    const userData = sanitizeUser(user);
+    const { token, refreshToken } = await issueAuthTokens(userData, req);
+
+    return res.status(200).json({
+      message: 'Signed in with Google',
+      user: userData,
+      token,
+      refreshToken,
+    });
+  } catch (err) {
+    console.error('Google sign-in error:', err);
+    res.status(500).json({ message: 'Something went wrong' });
+  }
+};

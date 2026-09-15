@@ -105,12 +105,14 @@ export {
   useUpdateProfileMutation,
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useGoogleSignInMutation,
 } from './redux/api/authApi';
 export type {
   LoginRequest,
   RegisterRequest,
   UpdateUser,
   AuthResponse,
+  GoogleSignInRequest,
 } from './redux/api/authApi';
 
 // ─── RTK Query Upload API (Cloudinary via backend) ─────────
