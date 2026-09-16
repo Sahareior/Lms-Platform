@@ -59,7 +59,11 @@ export const selectExamForUser = async (req, res) => {
       preferredCenter,
       hearAbout,
       notes,
-      agreed
+      agreed,
+      studentClass,
+      class: userClass,
+      hometown,
+      location
     } = req.body;
 
     if (!userId || !examId) {
@@ -83,6 +87,21 @@ export const selectExamForUser = async (req, res) => {
     // Update user profile with provided information
     if (fullName) user.username = fullName;
     if (phone) user.phone = phone;
+    const targetClass = studentClass || userClass;
+    if (targetClass) {
+      user.studentClass = targetClass;
+      user.class = targetClass;
+      if (!user.education) user.education = targetClass;
+    }
+    if (hometown) {
+      user.hometown = hometown;
+      if (!user.district) user.district = hometown;
+    }
+    if (location) {
+      user.location = location;
+      if (!user.district) user.district = location;
+      if (!user.fullAddress) user.fullAddress = location;
+    }
     if (email) user.email = email;
     if (dateOfBirth) user.dateOfBirth = dateOfBirth;
     if (division) user.division = division;
@@ -116,6 +135,10 @@ export const selectExamForUser = async (req, res) => {
         username: user.username,
         email: user.email,
         phone: user.phone,
+        studentClass: user.studentClass,
+        class: user.class,
+        hometown: user.hometown,
+        location: user.location,
         dateOfBirth: user.dateOfBirth,
         division: user.division,
         district: user.district,

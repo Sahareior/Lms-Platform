@@ -32,7 +32,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, isLo
 
       {/* Main Card Container */}
       <div className="w-full max-w-5xl bg-[#111318]/90 backdrop-blur-2xl rounded-2xl md:rounded-3xl border border-[#23262D] overflow-hidden flex flex-col lg:flex-row shadow-2xl shadow-black/50 transition-all">
-        
+
         {/* Left: Form Section */}
         <div className="flex-1 p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col relative justify-between">
           <div>
@@ -243,10 +243,10 @@ const GoogleButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { l
       <Loader2 size={18} className="animate-spin text-[#00E5B3]" />
     ) : (
       <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
-        <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/>
-        <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.4 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8H6.1C9.4 35.7 16.2 44 24 44z"/>
-        <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.6l6.2 5.2C41.1 36 44 30.4 44 24c0-1.3-.1-2.7-.4-3.9z"/>
+        <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z" />
+        <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.4 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8H6.1C9.4 35.7 16.2 44 24 44z" />
+        <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.6l6.2 5.2C41.1 36 44 30.4 44 24c0-1.3-.1-2.7-.4-3.9z" />
       </svg>
     )}
     <span>{children}</span>
@@ -308,7 +308,7 @@ export const Login: React.FC = () => {
     setErrorMessage(null);
     try {
       const data = await login({ email, password }).unwrap();
-      
+
       const userInfo = {
         _id: data.user._id,
         name: data.user.name || email.split('@')[0],
@@ -487,7 +487,7 @@ export const SignUp: React.FC = () => {
     setErrorMessage(null);
     try {
       const data = await register({ email, password, name }).unwrap();
-      
+
       const userInfo = {
         _id: data.user._id,
         name: data.user.name || name,
@@ -610,11 +610,10 @@ export const SignUp: React.FC = () => {
           <button
             type="button"
             onClick={() => setAgreed(!agreed)}
-            className={`w-4 h-4 mt-0.5 rounded border transition-all flex items-center justify-center flex-shrink-0 cursor-pointer ${
-              agreed
+            className={`w-4 h-4 mt-0.5 rounded border transition-all flex items-center justify-center flex-shrink-0 cursor-pointer ${agreed
                 ? 'bg-[#00E5B3] border-[#00E5B3]'
                 : 'border-[#323742] bg-[#161920] hover:border-[#4B5260]'
-            }`}
+              }`}
           >
             {agreed && <CheckCircle2 size={13} className="text-[#0B0D12]" />}
           </button>

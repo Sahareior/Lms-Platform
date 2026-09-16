@@ -56,6 +56,21 @@ const userSchema = new mongoose.Schema({
     fullAddress: {
         type: String
     },
+    phone: {
+        type: String
+    },
+    studentClass: {
+        type: String
+    },
+    class: {
+        type: String
+    },
+    hometown: {
+        type: String
+    },
+    location: {
+        type: String
+    },
     education: {
         type: String
     },

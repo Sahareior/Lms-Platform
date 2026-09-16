@@ -34,6 +34,10 @@ export interface UpdateUser {
   notes?: string;
   agreed?: boolean;
   selectedExams?: string[];
+  studentClass?: string;
+  class?: string;
+  hometown?: string;
+  location?: string;
 }
 
 export interface AuthResponse {
