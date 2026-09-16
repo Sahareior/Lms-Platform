@@ -24,6 +24,11 @@ export interface User {
   notes?: string;
   agreed?: boolean;
   selectedExams?: string[]; // array of exam IDs
+  phone?: string;
+  class?: string;
+  studentClass?: string;
+  hometown?: string;
+  location?: string;
 }
 
 export interface AuthState {

@@ -159,11 +159,10 @@ const App: React.FC = () => {
                       navigate(item.path);
                       if (isMobile) setCollapsed(true);
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${
-                      active
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${active
                         ? `${item.activeColorClass} ${item.glowClass} border-transparent`
                         : 'bg-transparent text-[#A1A8B3] border-transparent hover:bg-[#161920] hover:text-[#F5F7FA]'
-                    }`}
+                      }`}
                   >
                     {item.icon}
                     <span className="font-medium text-sm">{item.label}</span>

@@ -126,6 +126,10 @@ const UPDATABLE_PROFILE_FIELDS = [
   'notes',
   'agreed',
   'selectedExams',
+  'studentClass',
+  'class',
+  'hometown',
+  'location',
 ];
 
 export const updateUser = async (req, res) => {

@@ -68,8 +68,8 @@ const router = createBrowserRouter([
     element: <Navigate to="/" replace />,
   },
   {
-    path:'omr',
-    element:<Omer />
+    path: 'omr',
+    element: <Omer />
   },
 
   {
