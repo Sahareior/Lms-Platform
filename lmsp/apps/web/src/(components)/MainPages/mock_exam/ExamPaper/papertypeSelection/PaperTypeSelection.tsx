@@ -59,7 +59,7 @@ function ExamRulesModal({ onAgree, onCancel }: { onAgree: () => void; onCancel: 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="relative bg-[#13151C] border border-[#23262D] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-[#13151C] border-b border-[#23262D] px-6 pt-6 pb-4 rounded-t-2xl z-10">
+        <div className="sticky -top-1 bg-[#13151C] border-b border-[#23262D] px-6 pt-6 pb-4 rounded-t-2xl z-10">
           <div className="flex items-center gap-3 mb-1">
             <div className="w-10 h-10 bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-xl flex items-center justify-center">
               <ShieldAlert size={20} className="text-[#EB5757]" />

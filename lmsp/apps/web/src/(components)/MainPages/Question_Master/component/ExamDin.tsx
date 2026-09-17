@@ -599,7 +599,7 @@ export default function ExamDin() {
 
       {/* ────── SUBMITTED SCORE BANNER ────── */}
       {isSubmitted && (
-        <div className="sticky top-0 z-30 bg-[#00E5B3]/10 border-b border-[#00E5B3]/30 px-4 md:px-8 py-3">
+        <div className="sticky -top-1 z-30 bg-[#00E5B3]/10 border-b border-[#00E5B3]/30 px-4 md:px-8 py-3">
           <div className="max-w-4xl mx-auto flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
               <CheckCircle className="text-[#00E5B3] text-xl" />

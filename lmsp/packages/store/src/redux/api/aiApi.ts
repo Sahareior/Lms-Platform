@@ -9,8 +9,8 @@ import { getAuthToken } from './baseApi';
 
 // ─── Configuration State ───────────────────────────────────
 // Separate base URL for AI-specific endpoints (default port 5000).
-let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
-// let _aiBaseUrl = 'http://localhost:8000/';
+// let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
+let _aiBaseUrl = 'http://localhost:8000/';
 
 /**
  * Configure the AI API client.
@@ -53,6 +53,8 @@ export interface QuestionAnalyzerQuestion {
 
 export interface QuestionAnalyzerRequest {
   questions: QuestionAnalyzerQuestion[];
+  existing_topics?: string[];
+  subject?: string;
 }
 
 /** Response from POST /file-upload-rag — indexing runs in the background. */

@@ -14,6 +14,7 @@ import {
   NotebookPen,
 } from 'lucide-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import {
   useAppDispatch,
   useAppSelector,
@@ -187,10 +188,35 @@ const App: React.FC = () => {
                 </div>
                 <button
                   onClick={() => {
-                    dispatch(logout());
-                    setAuthToken(null);
-                    clearPersistedAuth();
-                    navigate('/login', { replace: true });
+                    Swal.fire({
+                      title: 'Are you sure?',
+                      text: 'You will be logged out from your current session.',
+                      icon: 'warning',
+                      iconColor: '#10B981',
+                      showCancelButton: true,
+                      confirmButtonText: 'Yes, log out',
+                      cancelButtonText: 'Cancel',
+                      reverseButtons: true,
+                      background: '#111318',
+                      color: '#F5F7FA',
+                      border: '1px solid rgba(16, 185, 129, 0.55)',
+                      customClass: {
+                        popup: 'rounded-2xl z-[9999999] shadow-[0_20px_60px_rgba(15,23,42,0.8)] border border-emerald-500/40',
+                        title: 'text-[1.15rem] font-semibold text-[#F5F7FA]',
+                        confirmButton: 'bg-[#0F172A] text-[#D1FAE5] border border-[#34D399] px-4 py-2 rounded-xl font-medium hover:bg-[#0B1F17] transition-colors',
+                        cancelButton: 'bg-[#161920] text-[#F5F7FA] border border-[#2A2F3A] px-4 py-2 rounded-xl font-medium',
+                        actions: 'gap-3 mt-2',
+                        htmlContainer: 'text-[#A1A8B3] text-sm',
+                      },
+                      buttonsStyling: false,
+                    }).then((result) => {
+                      if (!result.isConfirmed) return;
+
+                      dispatch(logout());
+                      setAuthToken(null);
+                      clearPersistedAuth();
+                      navigate('/login', { replace: true });
+                    });
                   }}
                   className="p-2 rounded-lg text-[#A1A8B3] hover:text-[#EB5757] hover:bg-[#EB5757]/10 transition-all"
                   title="Log out"

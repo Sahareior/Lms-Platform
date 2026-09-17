@@ -98,7 +98,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, isLo
         {/* Right: Visual / Showcase Section (Desktop) */}
         <div className="hidden lg:flex lg:w-[44%] bg-gradient-to-br from-[#141720] via-[#10131A] to-[#0D0F14] p-10 flex-col justify-between text-white relative overflow-hidden border-l border-[#23262D]">
           {/* Subtle Accent Lights */}
-          <div className="absolute top-0 right-0 w-80 h-80 bg-[#00E5B3]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-1 right-0 w-80 h-80 bg-[#00E5B3]/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#2F80ED]/10 rounded-full blur-3xl pointer-events-none" />
 
           {/* Top Tag & Header */}

@@ -55,7 +55,12 @@ export const getOptionEntries = (options: Record<string, string> = {}): [string,
  * This translates between the two shapes so pattern analysis can be re-run
  * from the bank without re-uploading the source paper.
  */
-export const buildAnalyzerPayload = (data: QuestionItem[], year: number) => ({
+export const buildAnalyzerPayload = (
+  data: QuestionItem[],
+  year: number,
+  existingTopics?: string[],
+  subject?: string
+) => ({
   questions: data.map((item) => {
     const keys = Object.keys(item.options || {});
     return {
@@ -65,6 +70,8 @@ export const buildAnalyzerPayload = (data: QuestionItem[], year: number) => ({
       answer: item.options[item.correct_answer || ''] || item.correct_answer || '',
     };
   }),
+  existing_topics: existingTopics && existingTopics.length > 0 ? existingTopics : undefined,
+  subject: subject || undefined,
 });
 
 /** Filter a document's questions by search text and a quick status flag. */

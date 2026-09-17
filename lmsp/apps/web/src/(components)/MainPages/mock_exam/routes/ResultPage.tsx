@@ -117,7 +117,7 @@ const ResultPage = () => {
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
       {/* ────── HEADER ────── */}
-      <header className="sticky top-0 z-40 bg-[#111318]/95 backdrop-blur-sm border-b border-[#23262D] px-4 md:px-8 py-3 flex items-center justify-between">
+      <header className="sticky -top-1 z-40 bg-[#111318]/95 backdrop-blur-sm border-b border-[#23262D] px-4 md:px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/mock-exam")}

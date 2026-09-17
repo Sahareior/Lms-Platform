@@ -206,6 +206,10 @@ export {
   useGetExamVersionsByExamQuery,
   useGetQuestionsByExamQuery,
   useGetScheduleExamQuestionsQuery,
+  usePostQuestionPatternMutation,
+  useGetTopicsByExamAndSubjectQuery,
+  useLazyGetTopicsByExamAndSubjectQuery,
+  useResolveTopicsMutation,
 } from './redux/api/examApi';
 export type {
   courseResponse,

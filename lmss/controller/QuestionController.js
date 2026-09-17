@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import QuestionModel from "../models/QuestionModel.js";
 import QuestionPatternModel from "../models/QuestionPatternModel.js";
+import { resolveTopics } from "../utils/topicMatcher.js";
 import { invalidatePrefix } from "../middleware/cache.js";
 
 // Mark a question document as analyzed so the Question Bank can show a Yes/No
@@ -140,12 +141,49 @@ export const postQuestionPattern = async(req, res) => {
             });
         }
 
-        // Create new pattern
+        // Resolve and canonicalize topics against DB Topic collection
+        const questionsBySubject = new Map();
+        for (const q of categorized_questions) {
+            const sName = (q.subject || '').trim();
+            if (!questionsBySubject.has(sName)) {
+                questionsBySubject.set(sName, []);
+            }
+            questionsBySubject.get(sName).push(q.topic);
+        }
+
+        const canonicalMapping = new Map();
+        for (const [sName, rawTopicsList] of questionsBySubject.entries()) {
+            const resolved = await resolveTopics({
+                exam,
+                subject: subjectRef || undefined,
+                subjectName: sName,
+                rawTopics: rawTopicsList,
+            });
+            for (const [raw, canonical] of resolved.entries()) {
+                canonicalMapping.set(raw, canonical);
+            }
+        }
+
+        // Apply canonical topic names to categorized_questions
+        const canonicalQuestions = categorized_questions.map((q) => ({
+            ...q,
+            topic: canonicalMapping.get(q.topic) || q.topic,
+        }));
+
+        // Rebuild canonical topics counter map
+        const canonicalTopics = {};
+        for (const q of canonicalQuestions) {
+            if (q.topic) {
+                canonicalTopics[q.topic] = (canonicalTopics[q.topic] || 0) + 1;
+            }
+        }
+
+        // Create new pattern with canonicalized topics
         const questionPattern = new QuestionPatternModel({
             exam,
-            topics,
+            topics: canonicalTopics,
             subjects,
-            categorized_questions
+            categorized_questions: canonicalQuestions
         });
         
         // Only set if provided (optional fields)
@@ -159,6 +197,7 @@ export const postQuestionPattern = async(req, res) => {
         await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef, questionDocumentId);
 
         await invalidatePrefix('cache:question-pattern');
+        await invalidatePrefix('cache:topics');
 
         const displayName = versionLabel ? `${exam} ${versionLabel}` : exam;
         return res.status(201).json({

@@ -32,7 +32,10 @@ import {
   useUpdateAdminQuestionExplanationMutation,
   useQuestionAnalyzerMutation,
 } from '@my-monorepo/store';
-import { usePostQuestionPatternMutation } from '@my-monorepo/store/src/redux/api/examApi';
+import {
+  usePostQuestionPatternMutation,
+  useLazyGetTopicsByExamAndSubjectQuery,
+} from '@my-monorepo/store/src/redux/api/examApi';
 import QuestionCard from './_components/QuestionCard';
 import EditQuestionDrawer, {
   type QuestionEditPayload,
@@ -89,6 +92,7 @@ const QuestionManager: React.FC = () => {
   const [deleteQuestion] = useDeleteAdminSingleQuestionMutation();
   const [questionAnalyzer] = useQuestionAnalyzerMutation();
   const [postQuestionPattern] = usePostQuestionPatternMutation();
+  const [getStoredTopics] = useLazyGetTopicsByExamAndSubjectQuery();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // ── Toolbar state ──────────────────────────────────────────
@@ -170,8 +174,27 @@ const QuestionManager: React.FC = () => {
     }
     setIsAnalyzing(true);
     try {
+      // Fetch existing stored topics for this exam & subject (token optimized: capped to top 40)
+      let existingTopics: string[] = [];
+      try {
+        const topicsRes = await getStoredTopics({
+          examId: questionDoc.exam,
+          subjectId: questionDoc.subject || undefined,
+        }).unwrap();
+        if (Array.isArray(topicsRes)) {
+          existingTopics = topicsRes.slice(0, 40).map((t: any) => t.name);
+        }
+      } catch {
+        // Fallback gracefully if topics fetch fails
+      }
+
       const res = await questionAnalyzer(
-        buildAnalyzerPayload(questionDoc.data, new Date().getFullYear())
+        buildAnalyzerPayload(
+          questionDoc.data,
+          new Date().getFullYear(),
+          existingTopics,
+          questionDoc.subjectName
+        )
       ).unwrap();
 
       const patternPayload: Record<string, unknown> = {

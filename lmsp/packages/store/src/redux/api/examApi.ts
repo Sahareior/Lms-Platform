@@ -102,6 +102,24 @@ const examApi = api.injectEndpoints({
         getSubjects: builder.query<SubjectByExam[], void>({
             query: () => ({ url: '/subjects' }),
         }),
+
+        getTopicsByExamAndSubject: builder.query<any[], { examId: string; subjectId?: string; subjectName?: string }>({
+            query: ({ examId, subjectId, subjectName }) => {
+                const params = new URLSearchParams();
+                if (examId) params.set('exam', examId);
+                if (subjectId) params.set('subject', subjectId);
+                if (subjectName) params.set('subjectName', subjectName);
+                return { url: `/topics?${params.toString()}` };
+            },
+        }),
+
+        resolveTopics: builder.mutation<{ mapping: Record<string, string> }, { exam: string; subject?: string; subjectName?: string; topics: string[] }>({
+            query: (data) => ({
+                url: '/topics/resolve',
+                method: 'POST',
+                body: data,
+            }),
+        }),
     }),
 });
 
@@ -116,5 +134,8 @@ export const { useGetExamsQuery,
      useGetImportentTopicsQuery,
      useGetExamVersionsByExamQuery,
      useGetQuestionsByExamQuery,
-     useGetScheduleExamQuestionsQuery } = examApi;
+     useGetScheduleExamQuestionsQuery,
+     useGetTopicsByExamAndSubjectQuery,
+     useLazyGetTopicsByExamAndSubjectQuery,
+     useResolveTopicsMutation } = examApi;
 export default examApi;

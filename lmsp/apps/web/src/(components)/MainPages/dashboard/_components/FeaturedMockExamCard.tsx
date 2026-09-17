@@ -172,7 +172,7 @@ export default function FeaturedMockExamCard({
   // ─── Main card (Upcoming or Live) ─────────────────────────────────
   return (
     <div className="lg:col-span-2 bg-gradient-to-br from-[#111318] to-[#1C1F26] border border-[#23262D] rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-[#9B51E0]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+      <div className="absolute -top-1 right-0 w-64 h-64 bg-[#9B51E0]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-3">
           <span

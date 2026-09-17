@@ -48,7 +48,7 @@ const LandingHero = () => {
         {/* Top fade */}
         <div
           className="
-          absolute inset-x-0 top-0
+          absolute inset-x-0 -top-1
           h-32
           bg-gradient-to-b
           from-[#020409]/60

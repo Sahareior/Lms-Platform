@@ -225,7 +225,7 @@ export default function SubjectCategorySelection() {
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
       {/* Top Header */}
-      <div className="bg-[#111318]/95 backdrop-blur-xl border-b border-[#23262D] sticky top-0 z-20">
+      <div className="bg-[#111318]/95 backdrop-blur-xl border-b border-[#23262D] sticky -top-1 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             

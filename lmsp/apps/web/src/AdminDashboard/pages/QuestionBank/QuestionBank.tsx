@@ -12,7 +12,10 @@ import {
   useQuestionAnalyzerMutation,
   type AdminQuestion,
 } from '@my-monorepo/store';
-import { usePostQuestionPatternMutation } from '@my-monorepo/store/src/redux/api/examApi';
+import {
+  usePostQuestionPatternMutation,
+  useLazyGetTopicsByExamAndSubjectQuery,
+} from '@my-monorepo/store/src/redux/api/examApi';
 import QuestionBankStats from './_components/QuestionBankStats';
 import QuestionBankFilters from './_components/QuestionBankFilters';
 import type { QuestionBankFilterValues } from './_components/QuestionBankFilters';
@@ -56,6 +59,7 @@ const QuestionBank: React.FC = () => {
   const [deleteDocument] = useDeleteAdminQuestionDocumentMutation();
   const [questionAnalyzer] = useQuestionAnalyzerMutation();
   const [postQuestionPattern] = usePostQuestionPatternMutation();
+  const [getStoredTopics] = useLazyGetTopicsByExamAndSubjectQuery();
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
 
   const activeFilterCount = useMemo(
@@ -106,7 +110,26 @@ const QuestionBank: React.FC = () => {
     }
     setAnalyzingId(record._id);
     try {
-      const payload = buildAnalyzerPayload(record.data, new Date().getFullYear());
+      // Fetch existing stored topics for this exam & subject (token optimized: capped to top 40)
+      let existingTopics: string[] = [];
+      try {
+        const topicsRes = await getStoredTopics({
+          examId: record.exam,
+          subjectId: record.subject || undefined,
+        }).unwrap();
+        if (Array.isArray(topicsRes)) {
+          existingTopics = topicsRes.slice(0, 40).map((t: any) => t.name);
+        }
+      } catch {
+        // Fallback gracefully if topics fetch fails
+      }
+
+      const payload = buildAnalyzerPayload(
+        record.data,
+        new Date().getFullYear(),
+        existingTopics,
+        record.subjectName
+      );
       const res = await questionAnalyzer(payload).unwrap();
 
       const patternPayload: Record<string, unknown> = {

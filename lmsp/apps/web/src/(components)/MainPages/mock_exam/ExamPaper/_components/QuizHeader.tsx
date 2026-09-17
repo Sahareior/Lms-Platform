@@ -22,7 +22,7 @@ export default function QuizHeader({
   onSubmit,
 }: QuizHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 bg-[#111318]/95 backdrop-blur-sm border-b border-[#23262D] px-4 md:px-8 py-3 flex justify-between items-center">
+    <header className="sticky -top-1 z-40 bg-[#111318]/95 backdrop-blur-sm border-b border-[#23262D] px-4 md:px-8 py-3 flex justify-between items-center">
       <div className="flex items-center gap-4">
         <button
           onClick={onBack}
