@@ -91,12 +91,12 @@ const DashboardOverview: React.FC = () => {
     },
     {
       title: 'Total Questions',
-      value: questions?.reduce((acc, q) => acc + (q.data?.length ?? 0), 0) ?? 0,
+      value: questions?.reduce((acc, q) => acc + (q.questionCount ?? 0), 0) ?? 0,
       icon: <ExperimentOutlined style={{ fontSize: 28, color: '#4ADE80' }} />,
     },
     {
       title: 'Avg Questions/Exam',
-      value: exams?.length ? Math.round((questions?.reduce((acc, q) => acc + (q.data?.length ?? 0), 0) ?? 0) / exams.length) : 0,
+      value: exams?.length ? Math.round((questions?.reduce((acc, q) => acc + (q.questionCount ?? 0), 0) ?? 0) / exams.length) : 0,
       icon: <RiseOutlined style={{ fontSize: 28, color: '#4ADE80' }} />,
     },
   ];

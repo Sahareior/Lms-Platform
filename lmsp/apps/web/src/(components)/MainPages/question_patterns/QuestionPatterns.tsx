@@ -443,9 +443,7 @@ const QuestionPatterns = () => {
           </div>
         ) : (
           <div className="p-10 text-center bg-[#111318] rounded-2xl border border-[#23262D] space-y-4 max-w-xl mx-auto shadow-lg shadow-black/20">
-            <div className="w-14 h-14 rounded-2xl bg-[#9B51E0]/10 border border-[#9B51E0]/30 flex items-center justify-center mx-auto text-[#9B51E0]">
-              <span className="text-2xl">📊</span>
-            </div>
+           
             <div className="space-y-1.5">
               <h4 className="text-lg font-extrabold text-[#F5F7FA] tracking-tight">
                 Not Analyzed Yet

@@ -8,9 +8,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import {
   useGetAdminQuestionsQuery,
+  useLazyGetAdminQuestionByIdQuery,
   useDeleteAdminQuestionDocumentMutation,
   useQuestionAnalyzerMutation,
-  type AdminQuestion,
+  type AdminQuestionSummary,
 } from '@my-monorepo/store';
 import {
   usePostQuestionPatternMutation,
@@ -56,6 +57,10 @@ const QuestionBank: React.FC = () => {
   const { data: questions, isLoading, isFetching, error, refetch } = useGetAdminQuestionsQuery(filterParams);
   const lookups = useQuestionBankLookups();
 
+  // Analysis needs the full data array, which the summaries endpoint doesn't
+  // carry — fetch the single document on demand instead.
+  const [fetchQuestionDoc] = useLazyGetAdminQuestionByIdQuery();
+
   const [deleteDocument] = useDeleteAdminQuestionDocumentMutation();
   const [questionAnalyzer] = useQuestionAnalyzerMutation();
   const [postQuestionPattern] = usePostQuestionPatternMutation();
@@ -71,7 +76,7 @@ const QuestionBank: React.FC = () => {
     const docs = questions ?? [];
     return {
       documents: docs.length,
-      totalQuestions: docs.reduce((sum, doc) => sum + (doc.data?.length || 0), 0),
+      totalQuestions: docs.reduce((sum, doc) => sum + (doc.questionCount || 0), 0),
       analyzed: docs.filter((doc) => doc.analyzed).length,
     };
   }, [questions]);
@@ -103,13 +108,17 @@ const QuestionBank: React.FC = () => {
 
   // Retry path for pattern analysis: re-runs the AI on a stored set without
   // re-uploading the source PDF.
-  const handleAnalyzePattern = async (record: AdminQuestion) => {
-    if (!record.data?.length) {
+  const handleAnalyzePattern = async (record: AdminQuestionSummary) => {
+    if (!record.questionCount) {
       message.warning('This question set has no questions to analyze.');
       return;
     }
     setAnalyzingId(record._id);
     try {
+      // The list endpoint returns summaries only — pull the full document
+      // (with its data array) for the analyzer.
+      const recordFull = await fetchQuestionDoc(record._id).unwrap();
+
       // Fetch existing stored topics for this exam & subject (token optimized: capped to top 40)
       let existingTopics: string[] = [];
       try {
@@ -124,12 +133,7 @@ const QuestionBank: React.FC = () => {
         // Fallback gracefully if topics fetch fails
       }
 
-      const payload = buildAnalyzerPayload(
-        record.data,
-        new Date().getFullYear(),
-        existingTopics,
-        record.subjectName
-      );
+      const payload = buildAnalyzerPayload(recordFull.data, new Date().getFullYear(), existingTopics);
       const res = await questionAnalyzer(payload).unwrap();
 
       const patternPayload: Record<string, unknown> = {

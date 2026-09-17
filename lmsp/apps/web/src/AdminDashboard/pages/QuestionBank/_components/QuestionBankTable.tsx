@@ -8,19 +8,19 @@ import {
   SettingOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import type { AdminQuestion } from '@my-monorepo/store';
+import type { AdminQuestionSummary } from '@my-monorepo/store';
 
 const { Text } = Typography;
 
 interface Props {
-  questions: AdminQuestion[];
+  questions: AdminQuestionSummary[];
   isFetching: boolean;
   analyzingId: string | null;
   getExamName: (id?: string) => string;
   getVersionName: (id?: string) => string;
   getSubjectName: (id?: string) => string;
-  onManage: (record: AdminQuestion) => void;
-  onAnalyze: (record: AdminQuestion) => void;
+  onManage: (record: AdminQuestionSummary) => void;
+  onAnalyze: (record: AdminQuestionSummary) => void;
   onDeleteDocument: (id: string) => void;
 }
 
@@ -31,6 +31,8 @@ interface Props {
  * table is what made this page hard to use. Each row links to its own
  * QuestionManager page instead.
  */
+type BankRow = AdminQuestionSummary;
+
 const QuestionBankTable: React.FC<Props> = ({
   questions,
   isFetching,
@@ -42,7 +44,7 @@ const QuestionBankTable: React.FC<Props> = ({
   onAnalyze,
   onDeleteDocument,
 }) => {
-  const columns: ColumnsType<AdminQuestion> = [
+  const columns: ColumnsType<BankRow> = [
     {
       title: 'Exam',
       dataIndex: 'exam',
@@ -81,11 +83,11 @@ const QuestionBankTable: React.FC<Props> = ({
     },
     {
       title: 'Questions',
-      dataIndex: 'data',
+      dataIndex: 'questionCount',
       key: 'dataCount',
       align: 'center',
-      render: (data: AdminQuestion['data']) => <Tag color="cyan">{data?.length || 0}</Tag>,
-      sorter: (a, b) => (a.data?.length || 0) - (b.data?.length || 0),
+      render: (count: number) => <Tag color="cyan">{count ?? 0}</Tag>,
+      sorter: (a, b) => (a.questionCount ?? 0) - (b.questionCount ?? 0),
     },
     {
       title: 'Analyzed',
@@ -108,7 +110,7 @@ const QuestionBankTable: React.FC<Props> = ({
       title: 'Actions',
       key: 'actions',
       width: 300,
-      render: (_: unknown, record: AdminQuestion) => (
+      render: (_: unknown, record: BankRow) => (
         <Space size={4} wrap>
           <Tooltip title="Open the question manager for this document">
             <Button
@@ -135,7 +137,7 @@ const QuestionBankTable: React.FC<Props> = ({
           </Tooltip>
           <Popconfirm
             title="Delete this entire question document?"
-            description={`This will permanently remove all ${record.data?.length || 0} questions.`}
+            description={`This will permanently remove all ${record.questionCount ?? 0} questions.`}
             onConfirm={() => onDeleteDocument(record._id)}
             okText="Delete All"
             cancelText="Cancel"

@@ -26,7 +26,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  useGetAdminQuestionsQuery,
+  useGetAdminQuestionByIdQuery,
   useDeleteAdminSingleQuestionMutation,
   useUpdateAdminSingleQuestionMutation,
   useUpdateAdminQuestionExplanationMutation,
@@ -79,13 +79,14 @@ const QuestionManager: React.FC = () => {
   const navigate = useNavigate();
   const lookups = useQuestionBankLookups();
 
-  // There is no single-document endpoint, so we reuse the (cached) full list
-  // and pick our document out of it.
-  const { data: documents, isLoading, isFetching, error, refetch } = useGetAdminQuestionsQuery();
-  const questionDoc = useMemo(
-    () => documents?.find((doc) => doc._id === documentId),
-    [documents, documentId]
-  );
+  // Fetch just this document (with its full data array) instead of the whole bank.
+  const {
+    data: questionDoc,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useGetAdminQuestionByIdQuery(documentId, { skip: !documentId });
 
   const [updateQuestion, { isLoading: isSavingEdit }] = useUpdateAdminSingleQuestionMutation();
   const [updateExplanation, { isLoading: isSavingExplanation }] = useUpdateAdminQuestionExplanationMutation();
@@ -189,12 +190,7 @@ const QuestionManager: React.FC = () => {
       }
 
       const res = await questionAnalyzer(
-        buildAnalyzerPayload(
-          questionDoc.data,
-          new Date().getFullYear(),
-          existingTopics,
-          questionDoc.subjectName
-        )
+        buildAnalyzerPayload(questionDoc.data, new Date().getFullYear(), existingTopics)
       ).unwrap();
 
       const patternPayload: Record<string, unknown> = {
