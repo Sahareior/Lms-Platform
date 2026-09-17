@@ -23,18 +23,26 @@
   }
 
   body {
-    font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Space Grotesk', 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background: linear-gradient(180deg, #0B0D12 0%, #0E1016 60%, #12141B 100%);
     color: var(--text-primary);
     min-height: 100vh;
     min-height: 100dvh;
+
     margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 
 .ant-layout-sider .ant-layout-sider-zero-width-trigger{
   z-index: 999999;
+}
+
+
+.swal2-container {
+  z-index: 9999999 !important;
 }
 
 /* Custom Semantic Glow Utilities */
@@ -56,6 +64,112 @@
 
 .glow-gold {
   box-shadow: 0 0 20px -3px rgba(242, 201, 76, 0.35);
+}
+
+/* ═════════════════════════════════════════════════════════
+   GAMIFICATION TOASTS & LEVEL-UP OVERLAY
+   (see src/gamification/GamificationToast.tsx)
+   ═════════════════════════════════════════════════════════ */
+@keyframes gt-slide-in {
+  from {
+    transform: translateX(calc(100% + 1.5rem));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes gt-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(100% + 1.5rem));
+    opacity: 0;
+  }
+}
+
+.gt-enter {
+  animation: gt-slide-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.gt-leave {
+  animation: gt-slide-out 0.25s ease-in both;
+}
+
+@keyframes gt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.gt-fade {
+  animation: gt-fade 0.2s ease-out both;
+}
+
+@keyframes gt-pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.gt-pop {
+  animation: gt-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes gt-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 24px 4px rgba(242, 201, 76, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 48px 10px rgba(242, 201, 76, 0.6);
+  }
+}
+
+.gt-glow {
+  animation: gt-glow-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes gt-confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) rotate(720deg);
+  }
+}
+
+.gt-confetti {
+  top: 0;
+  animation: gt-confetti-fall linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gt-enter,
+  .gt-leave,
+  .gt-fade,
+  .gt-pop,
+  .gt-glow,
+  .gt-confetti {
+    animation: none;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -130,4 +244,33 @@ html {
 
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PRINT — show only the certificate when printing
+   (used by the course-certificate modal)
+   ═══════════════════════════════════════════════════════════ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #certificate-print-area,
+  #certificate-print-area *,
+  #omr-print-area,
+  #omr-print-area *,
+  #privacy-policy-root,
+  #privacy-policy-root * {
+    visibility: visible;
+  }
+
+  #certificate-print-area,
+  #omr-print-area,
+  #privacy-policy-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none !important;
+  }
 }

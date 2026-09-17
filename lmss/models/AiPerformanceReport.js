@@ -19,6 +19,15 @@ const aiPerformanceReport = new mongoose.Schema(
       ref: "Exam",
       default: null,
     },
+    // How the report was produced: 'ai' = AI service, 'local' = deterministic
+    // fallback, 'merged' = combined report built from per-exam AI reports.
+    // Reports created before this field existed carry no source (treated as
+    // stale for the combined scope and regenerated once).
+    source: {
+      type: String,
+      enum: ["ai", "local", "merged"],
+      default: "ai",
+    },
     // Raw `stats` object returned by the AI service
     stats: {
       type: mongoose.Schema.Types.Mixed,

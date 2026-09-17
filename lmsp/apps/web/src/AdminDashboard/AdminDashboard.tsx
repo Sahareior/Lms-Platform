@@ -76,7 +76,7 @@ const AdminDashboard: React.FC = () => {
     {
       key: 'questions',
       icon: <QuestionCircleOutlined />,
-      label: 'Upload Questions',
+      label: 'Upload Documents',
       onClick: () => navigate('/admin/questions'),
     },
     {
@@ -112,7 +112,7 @@ const AdminDashboard: React.FC = () => {
   ];
 
   const handleBackToApp = () => {
-    navigate('/');
+    navigate('/dashboard');
   };
 
   const selectedKey = getSelectedKey();

@@ -9,8 +9,8 @@ import { getAuthToken } from './baseApi';
 
 // ─── Configuration State ───────────────────────────────────
 // Separate base URL for AI-specific endpoints (default port 5000).
-// let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
-let _aiBaseUrl = 'http://127.0.0.1:5000/';
+let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
+// let _aiBaseUrl = 'http://localhost:8000/';
 
 /**
  * Configure the AI API client.
@@ -53,6 +53,8 @@ export interface QuestionAnalyzerQuestion {
 
 export interface QuestionAnalyzerRequest {
   questions: QuestionAnalyzerQuestion[];
+  existing_topics?: string[];
+  subject?: string;
 }
 
 /** Response from POST /file-upload-rag — indexing runs in the background. */
@@ -73,6 +75,31 @@ export interface RagJobStatus {
   message: string | null;
   error: string | null;
   result: unknown;
+}
+
+export interface RagDocument {
+  id: string;
+  filename: string;
+  storage_path?: string;
+  file_size?: number;
+  chunk_count?: number;
+  status: string;
+  created_at?: string;
+  download_url?: string;
+}
+
+export interface GetDocumentsResponse {
+  documents: RagDocument[];
+  count: number;
+}
+
+export interface DeleteDocumentResponse {
+  success: boolean;
+  message: string;
+  deleted_local?: boolean;
+  deleted_supabase?: boolean;
+  qdrant_points_removed?: number;
+  remaining_documents?: number;
 }
 
 // ─── AI User Performance Report Types ────────────────────────
@@ -168,7 +195,7 @@ const dynamicAiBaseQuery: BaseQueryFn<
 };
 
 // ─── Tag Types ──────────────────────────────────────────────
-export const aiTagTypes = ['Chat', 'AI'] as const;
+export const aiTagTypes = ['Chat', 'AI', 'Documents'] as const;
 
 // ─── AI API Slice ───────────────────────────────────────────
 /**
@@ -192,41 +219,66 @@ export const aiApi = createApi({
     }),
 
     uploadDocuments: build.mutation<RagUploadResponse, FormData>({
-      query:(data) => ({
-        url:'/file-upload-rag',
-        method:'POST',
-        body:data
-      })
+      query: (data) => ({
+        url: '/file-upload-rag',
+        method: 'POST',
+        body: data
+      }),
+      invalidatesTags: ['Documents'],
+    }),
+
+    getRagDocuments: build.query<GetDocumentsResponse, void>({
+      query: () => ({
+        url: '/documents',
+        method: 'GET',
+      }),
+      providesTags: ['Documents'],
+    }),
+
+    deleteRagDocument: build.mutation<DeleteDocumentResponse, string>({
+      query: (docId) => ({
+        url: `/documents/${encodeURIComponent(docId)}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Documents'],
     }),
 
     questionPaperScraper: build.mutation<QuestionPaperScraperResponse, FormData>({
       query: (data) => ({
-        method:'POST',
-        url:'/question-papers-scraper',
+        method: 'POST',
+        url: '/question-papers-scraper',
         body: data
       })
     }),
 
     questionAnalyzer: build.mutation<unknown, QuestionAnalyzerRequest>({
       query: (data) => ({
-        method:'POST',
-        url:'/analyze-question-topics',
-        body:data
+        method: 'POST',
+        url: '/analyze-question-topics',
+        body: data
       })
     }),
 
     airagUploadStatus: build.query<RagJobStatus, string>({
-      query:(id) => ({
-        url:`rag/job/${id}`,
-        method:'GET'
+      query: (id) => ({
+        url: `rag/job/${id}`,
+        method: 'GET'
       })
     }),
 
     aiUserPerFormance: build.mutation<AiPerformanceResponse, unknown>({
-      query:(data) => ({
-        url:'/user-performance',
-        method:'POST',
-        body:data
+      query: (data) => ({
+        url: '/user-performance',
+        method: 'POST',
+        body: data
+      })
+    }),
+
+    aiQuestionExplainer: build.mutation({
+      query: (data) => ({
+        method: 'POST',
+        url: '/generate-explanation',
+        body: data
       })
     })
 
@@ -239,8 +291,16 @@ export const aiApi = createApi({
 export const {
   useSendChatMessageMutation,
   useUploadDocumentsMutation,
+  useGetRagDocumentsQuery,
+  useDeleteRagDocumentMutation,
   useQuestionAnalyzerMutation,
   useQuestionPaperScraperMutation,
   useAiUserPerFormanceMutation,
-  useAiragUploadStatusQuery
+  useAiragUploadStatusQuery,
+  useAiQuestionExplainerMutation,
 } = aiApi;
+
+export function getDocumentFileUrl(docId: string): string {
+  const base = _aiBaseUrl.endsWith('/') ? _aiBaseUrl : `${_aiBaseUrl}/`;
+  return `${base}documents/${encodeURIComponent(docId)}/file`;
+}

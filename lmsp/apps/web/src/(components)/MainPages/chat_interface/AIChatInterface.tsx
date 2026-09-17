@@ -7,12 +7,21 @@ import {
    useSaveAiChatMessagesMutation,
    type AiChatHistoryMessage,
 } from '@my-monorepo/store';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type ChatMessage = {
    id: string;
    sender: 'user' | 'ai';
    text: string;
    time: string;
+};
+
+type StreamingState = {
+   id: string;
+   displayText: string;
+   fullText: string;
+   isComplete: boolean;
 };
 
 // Number of history messages loaded per scroll-pagination page.
@@ -29,6 +38,11 @@ const AIChatInterface = () => {
    const updateKbOffsetRef = useRef<() => void>(() => {});
    const date = new Date();
    const [kbOffset, setKbOffset] = useState(0);
+   const [streaming, setStreaming] = useState<StreamingState | null>(null);
+   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   const wordsQueueRef = useRef<string[]>([]);
+   // Ref attached to the streaming bubble so we can scroll it into view on start
+   const streamingBubbleRef = useRef<HTMLDivElement | null>(null);
 
    // ── Chat history (persisted per user on the backend) ────────────
    const userId = useAppSelector((state) => state.user.user?._id);
@@ -115,6 +129,52 @@ const AIChatInterface = () => {
       setMessages((prev) => [...prev, message]);
    };
 
+   // ── Typewriter streaming effect ───────────────────────────────────
+   const startStreaming = (id: string, fullText: string, time: string) => {
+      // Clear any in-progress stream
+      if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
+
+      const words = fullText.split(' ');
+      wordsQueueRef.current = words;
+      let wordIndex = 0;
+
+      setStreaming({ id, displayText: '', fullText, isComplete: false });
+      // Don't auto-scroll during streaming — we'll scroll to the bubble top instead
+      autoScrollRef.current = false;
+
+      // Scroll the new AI bubble into view (top of bubble) after React renders it
+      requestAnimationFrame(() => {
+         requestAnimationFrame(() => {
+            streamingBubbleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+         });
+      });
+
+      // Reveal 1 word at a time at a comfortable reading pace
+      const WORDS_PER_TICK = 1;
+      const INTERVAL_MS = 40;
+
+      streamIntervalRef.current = setInterval(() => {
+         wordIndex += WORDS_PER_TICK;
+         const slice = wordsQueueRef.current.slice(0, wordIndex).join(' ');
+         const done = wordIndex >= wordsQueueRef.current.length;
+
+         setStreaming({ id, displayText: done ? fullText : slice, fullText, isComplete: done });
+
+         // No forced scroll — user is free to read at their own pace
+
+         if (done) {
+            if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
+            streamIntervalRef.current = null;
+            // Commit the finished message into the permanent list
+            setMessages((prev) => [
+               ...prev,
+               { id, sender: 'ai', text: fullText, time },
+            ]);
+            setStreaming(null);
+         }
+      }, INTERVAL_MS);
+   };
+
    // ── Scroll to the top → load an older page of history ────────────
    const handleScroll = () => {
       const container = chatContainerRef.current;
@@ -162,6 +222,8 @@ const AIChatInterface = () => {
       autoScrollRef.current = true;
 
       let aiText: string;
+      const aiId = `ai-${Date.now()}`;
+      const aiTime = createTimestamp();
       try {
          const response = await sendChatMessage({ question }).unwrap();
          aiText = response.answer;
@@ -169,14 +231,11 @@ const AIChatInterface = () => {
          aiText = 'Unable to send your question right now. Please try again.';
       }
 
-      addMessage({
-         id: `ai-${Date.now()}`,
-         sender: 'ai',
-         text: aiText,
-         time: createTimestamp(),
-      });
+      // Animate the response word-by-word instead of dumping it all at once
+      startStreaming(aiId, aiText, aiTime);
 
       // Persist the exchange so it survives page navigation.
+      // (aiText is already in scope from the try/catch above)
       try {
          await saveMessages({
             messages: [
@@ -263,7 +322,7 @@ const AIChatInterface = () => {
                         <div
                            className={`max-w-[95%] ${
                               message.sender === 'user'
-                                 ? 'md:max-w-[70%] bg-[#2F80ED] text-white rounded-2xl rounded-tr-sm'
+                                 ? 'md:max-w-[70%] bg-[#065f46] text-white rounded-2xl rounded-tr-sm'
                                  : 'md:max-w-[85%] bg-[#161920] border border-[#23262D] rounded-2xl'
                            } p-4`}
                         >
@@ -275,9 +334,40 @@ const AIChatInterface = () => {
                                  <span className="text-xs font-bold text-[#F5F7FA]">AI Assistant</span>
                               </div>
                            )}
-                           <p className={`text-sm leading-relaxed ${message.sender === 'user' ? 'font-semibold' : 'text-[#A1A8B3]'}`}>
-                              {message.text}
-                           </p>
+                           {message.sender === 'user' && (
+                              <p className="md:text-[19px] text-[16px] text-white leading-relaxed font-medium">
+                                 {message.text}
+                              </p>
+                           )}
+                           {message.sender === 'ai' && (
+                              <div className="md:text-[19px] text-[16px] leading-relaxed text-white font-medium w-full break-words">
+                                 <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                       h1: ({node, ref, ...props}: any) => <h1 className="text-2xl font-bold mb-4 text-[#F5F7FA]" {...props} />,
+                                       h2: ({node, ref, ...props}: any) => <h2 className="text-xl font-bold mt-6 mb-3 text-[#F5F7FA]" {...props} />,
+                                       h3: ({node, ref, ...props}: any) => <h3 className="text-lg font-bold mt-4 mb-2 text-[#F5F7FA]" {...props} />,
+                                       p: ({node, ref, ...props}: any) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
+                                       ul: ({node, ref, ...props}: any) => <ul className="list-disc pl-5 mb-4 space-y-2" {...props} />,
+                                       ol: ({node, ref, ...props}: any) => <ol className="list-decimal pl-5 mb-4 space-y-2" {...props} />,
+                                       li: ({node, ref, ...props}: any) => <li className="leading-relaxed" {...props} />,
+                                       a: ({node, ref, ...props}: any) => <a className="text-[#00E5B3] hover:underline" {...props} />,
+                                       strong: ({node, ref, ...props}: any) => <strong className="font-bold text-[#F5F7FA]" {...props} />,
+                                       code: ({node, ref, className, children, ...props}: any) => {
+                                          return <code className={`bg-[#1C1F26] px-1.5 py-0.5 rounded text-sm text-[#00E5B3] font-mono ${className || ''}`} {...props}>{children}</code>;
+                                       },
+                                       pre: ({node, ref, children, ...props}: any) => {
+                                          return <pre className="block bg-[#0B0D12] p-4 rounded-lg text-sm font-mono overflow-x-auto my-3 border border-[#23262D]" {...props}>{children}</pre>;
+                                       },
+                                       table: ({node, ref, ...props}: any) => <div className="overflow-x-auto my-4"><table className="w-full text-left border-collapse" {...props} /></div>,
+                                       th: ({node, ref, ...props}: any) => <th className="border-b border-[#23262D] pb-2 font-semibold text-[#F5F7FA]" {...props} />,
+                                       td: ({node, ref, ...props}: any) => <td className="border-b border-[#23262D] py-2" {...props} />,
+                                    }}
+                                 >
+                                    {message.text}
+                                 </ReactMarkdown>
+                              </div>
+                           )}
                            <div className={`mt-2 text-[10px] ${message.sender === 'user' ? 'text-white/60 text-right' : 'text-[#6B7280] text-left'} font-medium`}>
                               {message.time}
                            </div>
@@ -286,7 +376,53 @@ const AIChatInterface = () => {
                   ))
                )}
 
-               {isLoading && (
+               {/* Streaming (typewriter) AI bubble */}
+               {streaming && (
+                  <div ref={streamingBubbleRef} className="flex justify-start">
+                     <div className="max-w-[95%] md:max-w-[85%] bg-[#161920] border border-[#23262D] rounded-2xl p-4">
+                        <div className="flex items-center gap-2 mb-2 pb-2.5 border-b border-[#23262D]">
+                           <div className="w-6 h-6 bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-full flex items-center justify-center text-[10px] font-extrabold text-[#00E5B3]">
+                              AI
+                           </div>
+                           <span className="text-xs font-bold text-[#F5F7FA]">AI Assistant</span>
+                        </div>
+                        <div className="md:text-[19px] text-[16px] leading-relaxed text-white font-medium w-full break-words">
+                           <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                 h1: ({node, ref, ...props}: any) => <h1 className="text-2xl font-bold mb-4 text-[#F5F7FA]" {...props} />,
+                                 h2: ({node, ref, ...props}: any) => <h2 className="text-xl font-bold mt-6 mb-3 text-[#F5F7FA]" {...props} />,
+                                 h3: ({node, ref, ...props}: any) => <h3 className="text-lg font-bold mt-4 mb-2 text-[#F5F7FA]" {...props} />,
+                                 p: ({node, ref, ...props}: any) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
+                                 ul: ({node, ref, ...props}: any) => <ul className="list-disc pl-5 mb-4 space-y-2" {...props} />,
+                                 ol: ({node, ref, ...props}: any) => <ol className="list-decimal pl-5 mb-4 space-y-2" {...props} />,
+                                 li: ({node, ref, ...props}: any) => <li className="leading-relaxed" {...props} />,
+                                 a: ({node, ref, ...props}: any) => <a className="text-[#00E5B3] hover:underline" {...props} />,
+                                 strong: ({node, ref, ...props}: any) => <strong className="font-bold text-[#F5F7FA]" {...props} />,
+                                 code: ({node, ref, className, children, ...props}: any) => {
+                                    return <code className={`bg-[#1C1F26] px-1.5 py-0.5 rounded text-sm text-[#00E5B3] font-mono ${className || ''}`} {...props}>{children}</code>;
+                                 },
+                                 pre: ({node, ref, children, ...props}: any) => {
+                                    return <pre className="block bg-[#0B0D12] p-4 rounded-lg text-sm font-mono overflow-x-auto my-3 border border-[#23262D]" {...props}>{children}</pre>;
+                                 },
+                                 table: ({node, ref, ...props}: any) => <div className="overflow-x-auto my-4"><table className="w-full text-left border-collapse" {...props} /></div>,
+                                 th: ({node, ref, ...props}: any) => <th className="border-b border-[#23262D] pb-2 font-semibold text-[#F5F7FA]" {...props} />,
+                                 td: ({node, ref, ...props}: any) => <td className="border-b border-[#23262D] py-2" {...props} />,
+                              }}
+                           >
+                              {streaming.displayText}
+                           </ReactMarkdown>
+                           {/* Blinking cursor while streaming */}
+                           {!streaming.isComplete && (
+                              <span className="inline-block w-0.5 h-4 bg-[#00E5B3] ml-0.5 animate-pulse align-middle" />
+                           )}
+                        </div>
+                     </div>
+                  </div>
+               )}
+
+               {/* Thinking dots — only shown while waiting for the API, not during streaming */}
+               {isLoading && !streaming && (
                   <div className="flex justify-start">
                      <div className="bg-[#161920] border border-[#23262D] rounded-2xl p-4 flex items-center gap-3">
                         <div className="flex gap-1.5">

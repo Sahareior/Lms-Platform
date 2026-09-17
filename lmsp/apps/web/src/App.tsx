@@ -10,8 +10,11 @@ import {
   Settings,
   LogOut,
   ShieldCheck,
+  Search,
+  NotebookPen,
 } from 'lucide-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import {
   useAppDispatch,
   useAppSelector,
@@ -25,6 +28,7 @@ import {
 } from '@my-monorepo/store';
 import { clearPersistedAuth } from './auth/AuthInitializer';
 import { useGetOrGenerateAiPerformanceMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
+import NotificationBell from './(components)/MainPages/notifications/NotificationBell';
 
 const { Content, Sider } = Layout;
 
@@ -37,13 +41,14 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/', glowClass: 'glow-primary', activeColorClass: 'bg-[#2F80ED] text-white' },
+  { label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/dashboard', glowClass: 'glow-primary', activeColorClass: 'bg-[#2F80ED] text-white' },
   { label: 'My Courses', icon: <BookOpen size={18} />, path: '/courses', glowClass: 'glow-primary', activeColorClass: 'bg-[#2F80ED] text-white' },
   { label: 'AI Assistant', icon: <Bot size={18} />, path: '/ai-assistant', glowClass: 'glow-ai', activeColorClass: 'bg-[#00E5B3] text-black font-semibold' },
   { label: 'Mock Exam', icon: <FileCheck size={18} />, path: '/mock-exam', glowClass: 'glow-purple', activeColorClass: 'bg-[#9B51E0] text-white' },
   { label: 'Question Analysis', icon: <Library size={18} />, path: '/question-bank', glowClass: 'glow-cyan', activeColorClass: 'bg-[#00C8FF] text-black font-semibold' },
   { label: 'Performance', icon: <BarChart3 size={18} />, path: '/performance', glowClass: 'glow-cyan', activeColorClass: 'bg-[#00C8FF] text-black font-semibold' },
   { label: 'Question Center', icon: <BarChart3 size={18} />, path: '/question-center', glowClass: 'glow-cyan', activeColorClass: 'bg-[#00C8FF] text-black font-semibold' },
+  { label: 'Notebook', icon: <NotebookPen size={18} />, path: '/notebook', glowClass: 'glow-purple', activeColorClass: 'bg-[#9B51E0] text-white' },
   { label: 'Settings', icon: <Settings size={18} />, path: '/settings', glowClass: 'glow-primary', activeColorClass: 'bg-[#23262D] text-[#F5F7FA]' },
 ];
 
@@ -52,6 +57,7 @@ const App: React.FC = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { user } = useAppSelector((state) => state.user);
   const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
   const lastSentKey = useRef<string | null>(null);
@@ -61,51 +67,45 @@ const App: React.FC = () => {
     return location.pathname.startsWith(path);
   };
 
-
-useEffect(() => {
-  // No logged-in user → drop any stale report (e.g. after logout)
-  if (!user?._id) {
-    lastSentKey.current = null;
-    dispatch(clearAiReport());
-    return;
-  }
-
-  // Avoid re-sending the same request on StrictMode double-invoke / refetches.
-  // The backend caches the result for the whole day, so this only triggers the
-  // expensive AI call at most once per day per user.
-  if (lastSentKey.current === user._id) return;
-  lastSentKey.current = user._id;
-
-  const sendData = async () => {
-    try {
-      dispatch(setAiReportLoading(true));
-      const res = await getOrGenerateAiPerformance({ userId: user._id }).unwrap();
-      // No performance data yet → clear any stale report (keep saved history)
-      if (res.empty || !res.stats || !res.ai_report) {
-        dispatch(clearCurrentReport());
-        return;
-      }
-      dispatch(
-        setAiReport({
-          report: {
-            success: res.success,
-            stats: res.stats,
-            ai_report: res.ai_report,
-          },
-          previous: res.previous,
-          isCached: res.cached,
-          generatedAt: res.generatedAt,
-        })
-      );
-    } catch (err) {
-      console.error(err);
-      // Allow a retry on the next mount / user change if loading failed
+  useEffect(() => {
+    if (!user?._id) {
       lastSentKey.current = null;
-      dispatch(setAiReportError('Failed to load AI performance report'));
+      dispatch(clearAiReport());
+      return;
     }
-  };
-  sendData();
-}, [user?._id, getOrGenerateAiPerformance, dispatch]);
+
+    if (lastSentKey.current === user._id) return;
+    lastSentKey.current = user._id;
+
+    const sendData = async () => {
+      try {
+        dispatch(setAiReportLoading({ scope: 'all', isLoading: true }));
+        const res = await getOrGenerateAiPerformance({ userId: user._id }).unwrap();
+        if (res.empty || !res.stats || !res.ai_report) {
+          dispatch(clearCurrentReport({ scope: 'all' }));
+          return;
+        }
+        dispatch(
+          setAiReport({
+            scope: 'all',
+            report: {
+              success: res.success,
+              stats: res.stats,
+              ai_report: res.ai_report,
+            },
+            previous: res.previous,
+            isCached: res.cached,
+            generatedAt: res.generatedAt,
+          })
+        );
+      } catch (err) {
+        console.error(err);
+        lastSentKey.current = null;
+        dispatch(setAiReportError({ scope: 'all', error: 'Failed to load AI performance report' }));
+      }
+    };
+    sendData();
+  }, [user?._id, getOrGenerateAiPerformance, dispatch]);
 
   return (
     <ConfigProvider
@@ -119,7 +119,7 @@ useEffect(() => {
           colorPrimary: '#2F80ED',
           colorText: '#F5F7FA',
           colorTextDescription: '#A1A8B3',
-          fontFamily: "'Geist', 'Inter', sans-serif",
+          fontFamily: "'Space Grotesk', 'Geist', 'Inter', sans-serif",
           borderRadius: 12,
         },
       }}
@@ -132,79 +132,97 @@ useEffect(() => {
           collapsible
           collapsed={collapsed}
           onCollapse={(value) => setCollapsed(value)}
-          // When `collapsedWidth` is 0, Antd renders a small trigger button —
-          // `zeroWidthTriggerStyle` lets us position it. Center vertically
-          // and nudge it slightly into the content area.
-          zeroWidthTriggerStyle={{ top: '50%', transform: 'translateY(-50%)',  }}
+          onBreakpoint={(broken) => setIsMobile(broken)}
+          zeroWidthTriggerStyle={isMobile ? { top: '50%', transform: 'translateY(-50%)' } : undefined}
           style={{ background: '#111318', borderRight: '1px solid #23262D' }}
         >
-          <aside className="w-full h-full bg-[#111318] text-[#F5F7FA] p-6 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-8">
-              
+          {/* FIX: Changed to h-full flex flex-col with proper overflow handling */}
+          <aside className="w-full h-full bg-[#111318] text-[#F5F7FA] flex flex-col">
+            {/* Logo Section - Fixed height */}
+            <div className="p-6 pb-4 shrink-0">
+              <div className="flex items-center gap-1">
                 <img className='w-24' src="/a.png" alt="" />
-             
                 <div>
-                  <h1 className="font-bold text-lg text-[#F5F7FA] tracking-wide">Geneseon</h1>
+                  <h1 className="font-bold text-lg text-[#F5F7FA] tracking-wide" style={{ fontFeatureSettings: '"ss01"' }}>Geneseon</h1>
                   <p className="text-xs text-[#A1A8B3]">AI LMS Platform</p>
                 </div>
               </div>
-
-              <nav className="space-y-2 overflow-y-auto h-[85%] custom-scrollbar">
-                {navItems.map((item, index) => {
-                  const active = isActive(item.path);
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        navigate(item.path);
-                        // collapse the sider after navigation (good for small screens)
-                        setCollapsed(true);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${
-                        active
-                          ? `${item.activeColorClass} ${item.glowClass} border-transparent`
-                          : 'bg-transparent text-[#A1A8B3] border-transparent hover:bg-[#161920] hover:text-[#F5F7FA]'
-                      }`}
-                    >
-                      {item.icon}
-                      <span className="font-medium text-sm">{item.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
             </div>
 
-            {/* ── Bottom Section: Admin Panel + User Profile Card ── */}
-            <div>
-    
+            {/* Navigation - Flexible height with scroll */}
+            <nav className="flex-1 overflow-y-auto px-6 space-y-2 custom-scrollbar min-h-0">
+              {navItems.map((item, index) => {
+                const active = isActive(item.path);
+                return (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      navigate(item.path);
+                      if (isMobile) setCollapsed(true);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${active
+                        ? `${item.activeColorClass} ${item.glowClass} border-transparent`
+                        : 'bg-transparent text-[#A1A8B3] border-transparent hover:bg-[#161920] hover:text-[#F5F7FA]'
+                      }`}
+                  >
+                    {item.icon}
+                    <span className="font-medium text-sm">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
 
-              {/* ── User Profile Card ───────────────────────── */}
-              <div className="bg-[#161920] border border-[#23262D] rounded-2xl  p-1 mt-3 flex items-center gap-3 group">
-              <div className="h-9 w-9 rounded-full bg-[#2F80ED]/20 text-[#2F80ED] font-semibold flex items-center justify-center border border-[#2F80ED]/40 shrink-0">
-                {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
-              </div>
-              <div className="overflow-hidden flex-1 min-w-0">
-                <p className="font-semibold text-sm text-[#F5F7FA] truncate">
-                  {user?.name || user?.email || 'User'}
-                </p>
-                <p className="text-xs text-[#A1A8B3] truncate capitalize">
-                  {user?.role || 'Student'}
-                </p>
-              </div>
-              {/* ── Logout Button ──────────────────────────────── */}
-              <button
-                onClick={() => {
-                  dispatch(logout());
-                  setAuthToken(null);
-                  clearPersistedAuth();
-                  navigate('/login', { replace: true });
-                }}
-                className="p-2 rounded-lg text-[#A1A8B3] hover:text-[#EB5757] hover:bg-[#EB5757]/10 transition-all "
-                title="Log out"
-              >
-                <LogOut size={16} />
-              </button>
+            {/* Bottom Section - Fixed height */}
+            <div className="p-6 pt-4 shrink-0">
+              <div className="bg-[#161920] border border-[#23262D] rounded-2xl p-1 mt-3 flex items-center gap-3 group">
+                <div className="h-9 w-9 rounded-full bg-[#2F80ED]/20 text-[#2F80ED] font-semibold flex items-center justify-center border border-[#2F80ED]/40 shrink-0">
+                  {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
+                </div>
+                <div className="overflow-hidden flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-[#F5F7FA] truncate">
+                    {user?.name || user?.email || 'User'}
+                  </p>
+                  <p className="text-xs text-[#A1A8B3] truncate capitalize">
+                    {user?.role || 'Student'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    Swal.fire({
+                      title: 'Are you sure?',
+                      text: 'You will be logged out from your current session.',
+                      icon: 'warning',
+                      iconColor: '#10B981',
+                      showCancelButton: true,
+                      confirmButtonText: 'Yes, log out',
+                      cancelButtonText: 'Cancel',
+                      reverseButtons: true,
+                      background: '#111318',
+                      color: '#F5F7FA',
+                      border: '1px solid rgba(16, 185, 129, 0.55)',
+                      customClass: {
+                        popup: 'rounded-2xl z-[9999999] shadow-[0_20px_60px_rgba(15,23,42,0.8)] border border-emerald-500/40',
+                        title: 'text-[1.15rem] font-semibold text-[#F5F7FA]',
+                        confirmButton: 'bg-[#0F172A] text-[#D1FAE5] border border-[#34D399] px-4 py-2 rounded-xl font-medium hover:bg-[#0B1F17] transition-colors',
+                        cancelButton: 'bg-[#161920] text-[#F5F7FA] border border-[#2A2F3A] px-4 py-2 rounded-xl font-medium',
+                        actions: 'gap-3 mt-2',
+                        htmlContainer: 'text-[#A1A8B3] text-sm',
+                      },
+                      buttonsStyling: false,
+                    }).then((result) => {
+                      if (!result.isConfirmed) return;
+
+                      dispatch(logout());
+                      setAuthToken(null);
+                      clearPersistedAuth();
+                      navigate('/login', { replace: true });
+                    });
+                  }}
+                  className="p-2 rounded-lg text-[#A1A8B3] hover:text-[#EB5757] hover:bg-[#EB5757]/10 transition-all"
+                  title="Log out"
+                >
+                  <LogOut size={16} />
+                </button>
               </div>
             </div>
           </aside>

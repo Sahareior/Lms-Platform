@@ -24,6 +24,11 @@ export interface User {
   notes?: string;
   agreed?: boolean;
   selectedExams?: string[]; // array of exam IDs
+  phone?: string;
+  class?: string;
+  studentClass?: string;
+  hometown?: string;
+  location?: string;
 }
 
 export interface AuthState {
@@ -33,6 +38,19 @@ export interface AuthState {
 }
 
 export type ExamCategory = 'academic' | 'job_preparation';
+
+export type BangladeshBoard = 'Barishal' | 'Chattogram' | 'Comilla' | 'Dhaka' | 'Dinajpur' | 'Jessore' | 'Rajshahi' | 'Sylhet';
+
+export const BANGLADESH_BOARDS: BangladeshBoard[] = [
+  'Barishal',
+  'Chattogram',
+  'Comilla',
+  'Dhaka',
+  'Dinajpur',
+  'Jessore',
+  'Rajshahi',
+  'Sylhet',
+];
 
 export interface Exam {
    _id: string;

@@ -1,14 +1,14 @@
 {
-  "name": "Image to Favicon From Poper",
-  "short_name": "Image to Favicon From Poper",
-  "description": null,
+  "name": "Geneseon LMS",
+  "short_name": "Geneseon LMS",
+  "description": "AI-powered learning platform for competitive exam preparation with mock tests, quizzes, and personalized AI performance reports.",
   "dir": "auto",
   "lang": "en-US",
   "display": "standalone",
   "orientation": "any",
-  "start_url": "/?homescreen=1",
-  "background_color": "#fff",
-  "theme_color": "#fff",
+  "start_url": "/",
+  "background_color": "#0B0D12",
+  "theme_color": "#0B0D12",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",

@@ -72,14 +72,14 @@ function matchLabel(index: number): string {
 
 export default function ExamCategorySelection() {
   const navigate = useNavigate();
-  const { data: exams, isLoading, isError } = useGetExamsQuery();
-  const {data:user} = useGetMeQuery()
-  console.log(exams)
+
+  const {data:user,isLoading,isError} = useGetMeQuery()
+
 
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
       {/* Header */}
-      <div className="bg-[#111318]/95 backdrop-blur-xl border-b border-[#23262D] top-0 z-20">
+      <div className="bg-[#111318]/95 backdrop-blur-xl border-b border-[#23262D] -top-1 z-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
           <div className="text-center">
             <div className="inline-flex items-center gap-1.5 bg-[#9B51E0]/10 text-[#9B51E0] text-[10px] font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider mb-4 border border-[#9B51E0]/30">

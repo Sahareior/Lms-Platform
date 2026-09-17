@@ -42,17 +42,31 @@ export {
 } from './redux/slices/aiPerformanceSlice';
 export type {
   AiPerformanceState,
+  AiReportEntry,
   SetAiReportPayload,
+  SetAiReportLoadingPayload,
+  SetAiReportErrorPayload,
+  ClearCurrentReportPayload,
 } from './redux/slices/aiPerformanceSlice';
 
 // ─── RTK Query Base (config + auth token) ───────────────────
-export { configureApi, setAuthToken, getAuthToken } from './redux/api/baseApi';
+export {
+  configureApi,
+  setAuthToken,
+  getAuthToken,
+  setRefreshToken,
+  getRefreshToken,
+  clearAuthTokens,
+  onAccessTokenRefreshed,
+} from './redux/api/baseApi';
 
 // ─── RTK Query AI API (separate endpoint on port 5000) ─────
-export { configureAiApi, aiApi } from './redux/api/aiApi';
+export { configureAiApi, aiApi, getDocumentFileUrl } from './redux/api/aiApi';
 export {
   useSendChatMessageMutation,
   useUploadDocumentsMutation,
+  useGetRagDocumentsQuery,
+  useDeleteRagDocumentMutation,
   useQuestionAnalyzerMutation,
   useQuestionPaperScraperMutation,
   useAiUserPerFormanceMutation,
@@ -67,6 +81,9 @@ export type {
   QuestionAnalyzerRequest,
   RagUploadResponse,
   RagJobStatus,
+  RagDocument,
+  GetDocumentsResponse,
+  DeleteDocumentResponse,
   AiPerformanceStats,
   AiScoreAnalysis,
   AiSubjectBreakdown,
@@ -86,12 +103,16 @@ export {
   useGetProfileQuery,
   useGetMeQuery,
   useUpdateProfileMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
+  useGoogleSignInMutation,
 } from './redux/api/authApi';
 export type {
   LoginRequest,
   RegisterRequest,
   UpdateUser,
   AuthResponse,
+  GoogleSignInRequest,
 } from './redux/api/authApi';
 
 // ─── RTK Query Upload API (Cloudinary via backend) ─────────
@@ -156,15 +177,24 @@ export {
   useGetActiveAttemptQuery,
   useGetUserAttemptsQuery,
   useGetAttemptByIdQuery,
+  useGetWeeklyActivityQuery,
+  useGetQuizOverviewQuery,
 } from './redux/api/quizAttemptApi';
 export type {
   StartAttemptRequest,
   SaveAnswerRequest,
   BatchSaveAnswersRequest,
   CompleteAttemptRequest,
+  GamificationPayload,
   QuestionResponse,
   AttemptSummary,
   Attempt,
+  WeeklyAttempt,
+  WeeklyActivityResponse,
+  QuizOverviewResponse,
+  OverallOverview,
+  ExamOverview,
+  SubjectOverview,
 } from './redux/api/quizAttemptApi';
 
 export {
@@ -174,7 +204,12 @@ export {
   useRemoveExamMutation,
   useGetSubjectsByExamQuery,
   useGetExamVersionsByExamQuery,
-  useGetQuestionsByExamQuery
+  useGetQuestionsByExamQuery,
+  useGetScheduleExamQuestionsQuery,
+  usePostQuestionPatternMutation,
+  useGetTopicsByExamAndSubjectQuery,
+  useLazyGetTopicsByExamAndSubjectQuery,
+  useResolveTopicsMutation,
 } from './redux/api/examApi';
 export type {
   courseResponse,
@@ -194,6 +229,25 @@ export type {
   SaveAiChatMessagesResponse,
 } from './redux/api/aiChatApi';
 
+// ─── RTK Query Notifications API ───────────────────────────
+export {
+  useGetMyNotificationsQuery,
+  useMarkNotificationReadMutation,
+  useMarkAllNotificationsReadMutation,
+} from './redux/api/notificationApi';
+export type { AppNotification } from './redux/api/notificationApi';
+
+// ─── RTK Query Certificates API ────────────────────────────
+export {
+  useIssueCertificateMutation,
+  useGetMyCertificatesQuery,
+} from './redux/api/certificateApi';
+export type { Certificate } from './redux/api/certificateApi';
+
+// ─── RTK Query Search API ──────────────────────────────────
+export { useSearchAllQuery } from './redux/api/searchApi';
+export type { SearchResults } from './redux/api/searchApi';
+
 // ─── RTK Query User Performance API ────────────────────────
 export {
   useGetUserPerformanceQuery,
@@ -211,6 +265,19 @@ export type {
   AiReportSnapshot,
   AiHistoryItem,
 } from './redux/api/userPerformanceApi';
+
+// ─── RTK Query Temp Exam Submission API ───────────────────
+export {
+  useGetTempExamSubmissionQuery,
+  useSaveTempExamSubmissionMutation,
+  useDeleteTempExamSubmissionMutation,
+} from './redux/api/tempExamSubmissionApi';
+export type {
+  TempExamSubmission,
+  SaveTempExamSubmissionRequest,
+  DeleteTempExamSubmissionRequest,
+  SubmittedAnswerItem,
+} from './redux/api/tempExamSubmissionApi';
 
 // ─── RTK Query Admin API ─────────────────────────────────────
 export {
@@ -230,12 +297,18 @@ export {
   useCreateAdminCourseMutation,
   useUpdateAdminCourseMutation,
   useGetAdminQuestionsQuery,
+  useGetAdminQuestionByIdQuery,
+  useLazyGetAdminQuestionByIdQuery,
   useUpdateAdminQuestionDocumentMutation,
   useDeleteAdminQuestionDocumentMutation,
   useUpdateAdminSingleQuestionMutation,
   useDeleteAdminSingleQuestionMutation,
   useGetAdminQuestionPatternsQuery,
   useGetCourseLessonsQuery,
+  useGetCourseModulesQuery,
+  useCreateAdminModuleMutation,
+  useUpdateAdminModuleMutation,
+  useDeleteAdminModuleMutation,
   useCreateAdminLessonMutation,
   useUpdateAdminLessonMutation,
   useDeleteAdminLessonMutation,
@@ -255,16 +328,76 @@ export {
   useGetFeaturedScheduleExamQuery,
   useSetFeaturedScheduleExamMutation,
 
+  useUpdateAdminQuestionExplanationMutation,
   useGetAllQuizAttemptsQuery,
 } from './redux/api/adminApi';
+
+// ─── RTK Query Favorite API ─────────────────────────────────
+export {
+  useToggleFavoriteMutation,
+  useGetMyFavoritesQuery,
+  useGetFavoriteQuestionIdsQuery,
+} from './redux/api/favoriteApi';
+export type {
+  FavoriteItem,
+  FavoriteQuestionSnapshot,
+  ToggleFavoriteRequest,
+  ToggleFavoriteResponse,
+  GetFavoritesResponse,
+  GetFavoriteIdsResponse,
+} from './redux/api/favoriteApi';
+
+// ─── RTK Query Gamification + Mistake Notebook API ────────
+export {
+  useGetMyGamificationQuery,
+  useGetLeaderboardQuery,
+  useAwardPracticeXpMutation,
+  useGetMistakeNotebookQuery,
+  useGetMistakeNotebookStatsQuery,
+  useRecordMistakesMutation,
+  useReviewNotebookEntryMutation,
+  useDeleteNotebookEntryMutation,
+  useGetNotebookQuestionsQuery,
+} from './redux/api/gamificationApi';
+export type {
+  GamificationStats,
+  LeaderboardEntry,
+  LeaderboardResponse,
+  NotebookEntry,
+  NotebookResponse,
+  NotebookStats,
+  RecordMistakeQuestion,
+  NotebookItem,
+  NotebookQuestionsResponse,
+  PracticeXpResponse,
+} from './redux/api/gamificationApi';
+
+// ─── RTK Query Stats API ────────────────────────────────────
+export {
+  useRecordQuestionStatsMutation,
+  useGetQuestionStatsQuery,
+  useGetBatchQuestionStatsMutation,
+} from './redux/api/statsApi';
+export type {
+  QuestionStatItem,
+  RecordStatPayloadItem,
+  RecordStatsRequest,
+  RecordStatsResponse,
+  BatchStatsResponse,
+} from './redux/api/statsApi';
 export type {
   AdminUser,
   AdminCourse,
   AdminExam,
   AdminExamVersion,
   AdminQuestion,
+  AdminQuestionSummary,
   AdminQuestionPattern,
   AdminLesson,
+  AdminModule,
+  AdminModuleWithLessons,
+  CreateModuleRequest,
+  UpdateModuleRequest,
   EnrolledStudent,
   CreateExamRequest,
   CreateExamVersionRequest,
@@ -281,6 +414,7 @@ export type {
   UpdateScheduleExamRequest,
   AdminQuizAttemptResponse,
   AdminQuizAttempt,
+  AdminQuizAttemptQuestion,
   QuizAttemptSummary,
 } from './redux/api/adminApi';
 
@@ -297,5 +431,7 @@ export type {
   Theme,
   UIState,
   ExamCategory,
+  BangladeshBoard,
   RootState as AppRootState,
 } from './types';
+export { BANGLADESH_BOARDS } from './types';

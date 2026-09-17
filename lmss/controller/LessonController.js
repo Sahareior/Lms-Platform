@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import Lesson from "../models/Lesson.js";
 import CourseModel from "../models/Courses.js";
+import Module from "../models/Module.js";
 import UserData from "../models/UserDataModel.js";
+import { invalidatePrefix } from "../middleware/cache.js";
 
 export const createLesson = async (req, res) => {
     const lessonData = req.body;
@@ -11,6 +13,14 @@ export const createLesson = async (req, res) => {
             return res.status(404).json({ message: 'Course not found' });
         }
 
+        // If a module is provided, make sure it belongs to the same course.
+        if (lessonData.module) {
+            const module = await Module.findById(lessonData.module);
+            if (!module || module.course.toString() !== lessonData.course) {
+                return res.status(400).json({ message: 'Module does not belong to this course' });
+            }
+        }
+
         const newLesson = new Lesson(lessonData);
         await newLesson.save();
 
@@ -18,6 +28,9 @@ export const createLesson = async (req, res) => {
             course.lessons.push(newLesson._id);
             await course.save();
         }
+
+        await invalidatePrefix('cache:lesson');
+        await invalidatePrefix('cache:course');
 
         res.status(201).json({ message: 'Lesson created successfully', lesson: newLesson });
     } catch (err) {
@@ -34,7 +47,9 @@ export const getLessonsByCourseId = async (req, res) => {
         return res.status(400).json({ message: 'Invalid course id' });
     }
     try {
-        const lessons = await Lesson.find({ course: courseId }).sort({ order: 1, createdAt: 1 });
+        const lessons = await Lesson.find({ course: courseId })
+            .populate('module')
+            .sort({ order: 1, createdAt: 1 });
 
         // Determine which lessons this user has completed (if logged in)
         let completedLessonIds = new Set();
@@ -67,6 +82,7 @@ export const updateLesson = async (req, res) => {
         if (!updatedLesson) {
             return res.status(404).json({ message: 'Lesson not found' });
         }
+        await invalidatePrefix('cache:lesson');
         res.status(200).json({ message: 'Lesson updated successfully', lesson: updatedLesson });
     } catch (err) {
         console.error(err);
@@ -118,6 +134,9 @@ export const markLessonComplete = async (req, res) => {
 
         await userData.save();
 
+        await invalidatePrefix('cache:lesson');
+        await invalidatePrefix('cache:course-enrolled');
+
         res.status(200).json({
             message: 'Lesson marked as complete',
             courseId,
@@ -144,6 +163,9 @@ export const deleteLesson = async (req, res) => {
         });
 
         await Lesson.findByIdAndDelete(lessonId);
+
+        await invalidatePrefix('cache:lesson');
+        await invalidatePrefix('cache:course');
 
         res.status(200).json({ message: 'Lesson deleted successfully' });
     } catch (err) {
