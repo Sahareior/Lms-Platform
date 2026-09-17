@@ -53,6 +53,8 @@ export interface QuestionAnalyzerQuestion {
 
 export interface QuestionAnalyzerRequest {
   questions: QuestionAnalyzerQuestion[];
+  existing_topics?: string[];
+  subject?: string;
 }
 
 /** Response from POST /file-upload-rag — indexing runs in the background. */

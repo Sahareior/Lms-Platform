@@ -3,6 +3,7 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 import { cacheMiddleware } from '../middleware/cache.js';
 import {
     getAllQuestions,
+    getQuestionById,
     getQuestionPattern,
     getQuestionsByExam,
     postQuestionPattern,
@@ -20,6 +21,9 @@ const questions = express.Router();
 questions.get('/', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:question' }), getAllQuestions);
 questions.get('/exam/:examId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:question' }), getQuestionsByExam);
 questions.get('/question-pattern', cacheMiddleware({ ttl: 600, keyPrefix: 'cache:question-pattern' }), getQuestionPattern);
+// Single full document (with data array) — must be registered before the
+// admin PUT/DELETE routes below.
+questions.get('/:questionId', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:question' }), getQuestionById);
 
 // Admin only: create, update, delete questions
 questions.post('/save', authenticate, requireRole('admin'), saveQuestionsInDb);

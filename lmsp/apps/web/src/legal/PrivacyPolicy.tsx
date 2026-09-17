@@ -586,7 +586,7 @@ export default function PrivacyPolicy() {
   return (
     <div id="privacy-policy-root" className="min-h-dvh select-text bg-[#07090E] text-[#F5F7FA]">
       {/* ── Top bar ─────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#07090E]/80 backdrop-blur-xl print:hidden">
+      <header className="sticky -top-1 z-40 border-b border-white/[0.06] bg-[#07090E]/80 backdrop-blur-xl print:hidden">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link to="/" aria-label="Geneseon home" className="flex items-center gap-2.5">
             <img src="/logo1.png" className="w-8 object-cover" alt="Geneseon logo" />

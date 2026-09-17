@@ -3,14 +3,17 @@ import {
   useGetSubjectsByExamQuery,
   useGetQuestionsByExamQuery,
 } from "@my-monorepo/store/src/redux/api/examApi";
-import { useGetMeQuery, useGetExamVersionsByExamQuery } from "@my-monorepo/store";
+import {
+  useGetMeQuery,
+  useGetExamVersionsByExamQuery,
+  BANGLADESH_BOARDS,
+} from "@my-monorepo/store";
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   GraduationCap,
   Loader2,
-  RotateCcw,
   LayoutGrid,
 } from "lucide-react";
 import AiPredictTopic from "./_components/AiPredictTopic";
@@ -32,33 +35,14 @@ import type { AnalysisData } from "./_components/patternUtils";
 const QuestionPatterns = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const examId = searchParams.get("examId");
-  const urlSubjectId = searchParams.get("subjectId");
-  const urlSubjectName = searchParams.get("subjectName");
-  const urlVersionId = searchParams.get("versionId");
-  const urlBoard = searchParams.get("board");
-  const urlViewAll = searchParams.get("viewAll") === "true";
-
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(urlSubjectId);
-  const [selectedSubjectName, setSelectedSubjectName] = useState<string | null>(urlSubjectName);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(urlVersionId);
-  const [selectedBoard, setSelectedBoard] = useState<string | null>(urlBoard);
-  const [showAllCombined, setShowAllCombined] = useState<boolean>(urlViewAll);
+  const selectedSubjectId = searchParams.get("subjectId");
+  const selectedSubjectName = searchParams.get("subjectName");
+  const selectedVersionId = searchParams.get("versionId");
+  const selectedBoard = searchParams.get("board");
+  const showAllCombined = searchParams.get("viewAll") === "true";
   const [cachedAnalysis, setCachedAnalysis] = useState<any[] | null>(null);
 
-  // Sync state changes back to searchParams
-  const updateParams = (updates: Record<string, string | null>) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      for (const [key, value] of Object.entries(updates)) {
-        if (value) {
-          next.set(key, value);
-        } else {
-          next.delete(key);
-        }
-      }
-      return next;
-    });
-  };
+  const hasSubjectSelected = Boolean(selectedSubjectId || selectedSubjectName || showAllCombined);
 
   // Query analyzed patterns for active exam, subject, version (year), and board
   const {
@@ -91,16 +75,23 @@ const QuestionPatterns = () => {
   useEffect(() => {
     if (analysisData && analysisData.length > 0) {
       setCachedAnalysis(analysisData);
+    } else if (!isAnalysisLoading && analysisData && analysisData.length === 0) {
+      setCachedAnalysis(null);
     }
-  }, [analysisData]);
+  }, [analysisData, isAnalysisLoading]);
 
-  // While a new version/board is being fetched, keep charts visible via cache
+  // When filters are active, visible analysis must reflect analysisData directly
+  // (do not fall back to broad exam-wide data when filtered data is empty)
+  const isFiltered = Boolean(selectedVersionId || selectedBoard || selectedSubjectId || selectedSubjectName);
+
   const visibleAnalysis =
     isAnalysisLoading && cachedAnalysis
       ? cachedAnalysis
       : analysisData && analysisData.length > 0
         ? analysisData
-        : broadAnalysisData;
+        : isFiltered
+          ? []
+          : broadAnalysisData;
 
   const {
     data: examVersions = [],
@@ -144,6 +135,34 @@ const QuestionPatterns = () => {
     if (!selectedVersionId || examVersions.length === 0) return null;
     return examVersions.find((v: any) => v._id === selectedVersionId) || null;
   }, [selectedVersionId, examVersions]);
+
+  // When viewing subject patterns, ensure first Year and Board are always set in the URL
+  useEffect(() => {
+    if (!hasSubjectSelected) return;
+
+    let changed = false;
+    const next = new URLSearchParams(searchParams);
+
+    if (examVersionWithQuestions.length > 0) {
+      const isValid = examVersionWithQuestions.some((v: any) => v._id === selectedVersionId);
+      if (!selectedVersionId || !isValid) {
+        next.set("versionId", examVersionWithQuestions[0]._id);
+        changed = true;
+      }
+    }
+
+    if (BANGLADESH_BOARDS.length > 0) {
+      const isValid = selectedBoard && BANGLADESH_BOARDS.includes(selectedBoard as any);
+      if (!selectedBoard || !isValid) {
+        next.set("board", BANGLADESH_BOARDS[0]);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [hasSubjectSelected, examVersionWithQuestions, selectedVersionId, selectedBoard, searchParams, setSearchParams]);
 
   // Build subject list: combine subjects fetched from API with analysis & question set subjects
   const subjectMap = useMemo(() => {
@@ -195,74 +214,65 @@ const QuestionPatterns = () => {
   );
 
   const handleSelectExam = (id: string) => {
-    setSearchParams({ examId: id });
-    setSelectedSubjectId(null);
-    setSelectedSubjectName(null);
-    setSelectedVersionId(null);
-    setSelectedBoard(null);
-    setShowAllCombined(false);
     setCachedAnalysis(null);
+    setSearchParams({ examId: id });
   };
 
   const handleClearExam = () => {
-    setSearchParams({});
-    setSelectedSubjectId(null);
-    setSelectedSubjectName(null);
-    setSelectedVersionId(null);
-    setSelectedBoard(null);
-    setShowAllCombined(false);
     setCachedAnalysis(null);
+    setSearchParams({});
   };
 
   const handleSubjectSelect = (id: string | null, name: string | null) => {
-    setSelectedSubjectId(id);
-    setSelectedSubjectName(name);
-    setShowAllCombined(false);
-    updateParams({
-      subjectId: id,
-      subjectName: name,
-      viewAll: null,
-    });
+    const params = new URLSearchParams();
+    if (examId) params.set("examId", examId);
+
+    if (id && name) {
+      params.set("subjectId", id);
+      params.set("subjectName", name);
+    } else {
+      params.set("viewAll", "true");
+    }
+
+    // Auto-select first available Year (exam version)
+    if (examVersionWithQuestions.length > 0) {
+      params.set("versionId", examVersionWithQuestions[0]._id);
+    }
+
+    // Auto-select first available Board
+    if (BANGLADESH_BOARDS.length > 0) {
+      params.set("board", BANGLADESH_BOARDS[0]);
+    }
+
+    setCachedAnalysis(null);
+    setSearchParams(params);
   };
 
   const handleBackToSubjectSelection = () => {
-    setSelectedSubjectId(null);
-    setSelectedSubjectName(null);
-    setShowAllCombined(false);
-    updateParams({
-      subjectId: null,
-      subjectName: null,
-      viewAll: null,
-      versionId: null,
-      board: null,
-    });
+    const params = new URLSearchParams();
+    if (examId) params.set("examId", examId);
+    setCachedAnalysis(null);
+    setSearchParams(params);
   };
 
   const handleViewAllCombined = () => {
-    setSelectedSubjectId(null);
-    setSelectedSubjectName(null);
-    setShowAllCombined(true);
-    updateParams({
-      subjectId: null,
-      subjectName: null,
-      viewAll: "true",
-    });
+    handleSubjectSelect(null, null);
   };
 
   const handleVersionSelect = (versionId: string | null) => {
-    setSelectedVersionId(versionId);
-    updateParams({ versionId });
+    if (!versionId) return;
+    const params = new URLSearchParams(searchParams);
+    params.set("versionId", versionId);
+    setCachedAnalysis(null);
+    setSearchParams(params);
   };
 
   const handleBoardSelect = (board: string | null) => {
-    setSelectedBoard(board);
-    updateParams({ board });
-  };
-
-  const handleResetFilters = () => {
-    setSelectedVersionId(null);
-    setSelectedBoard(null);
-    updateParams({ versionId: null, board: null });
+    if (!board) return;
+    const params = new URLSearchParams(searchParams);
+    params.set("board", board);
+    setCachedAnalysis(null);
+    setSearchParams(params);
   };
 
   // ═══════════════════ STEP 1: EXAM SELECTION ═══════════════════
@@ -270,23 +280,20 @@ const QuestionPatterns = () => {
     return <ExamSelectionScreen onSelectExam={handleSelectExam} />;
   }
 
-  // ═══════════════════ LOADING ═══════════════════
-  if ((isAnalysisLoading || isVersionsLoading || isSubjectsLoading) && !visibleAnalysis) {
-    return (
-      <div className="flex-1 min-h-screen font-sans flex items-center justify-center bg-[#0B0D12]">
-        <div className="text-center space-y-4">
-          <Loader2 size={32} className="animate-spin text-[#9B51E0] mx-auto" />
-          <p className="text-[#A1A8B3] font-medium">Analyzing question patterns...</p>
-        </div>
-      </div>
-    );
-  }
-
   // ═══════════════════ STEP 2: SUBJECT SELECTION SCREEN ═══════════════════
   // When exam is chosen and user has not picked a subject yet and not viewing all combined
-  const hasSubjectSelected = Boolean(selectedSubjectId || selectedSubjectName || showAllCombined);
-
   if (!hasSubjectSelected) {
+    if (isSubjectsLoading && subjectOptions.length === 0) {
+      return (
+        <div className="flex-1 min-h-screen font-sans flex items-center justify-center bg-[#0B0D12]">
+          <div className="text-center space-y-4">
+            <Loader2 size={32} className="animate-spin text-[#9B51E0] mx-auto" />
+            <p className="text-[#A1A8B3] font-medium">Loading subjects...</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <SubjectSelectionScreen
         examName={currentExam?.name || "Exam"}
@@ -296,6 +303,18 @@ const QuestionPatterns = () => {
         onViewAllCombined={handleViewAllCombined}
         onChangeExam={handleClearExam}
       />
+    );
+  }
+
+  // ═══════════════════ STEP 3: PATTERN ANALYSIS LOADING ═══════════════════
+  if ((isAnalysisLoading || isVersionsLoading) && !visibleAnalysis && !cachedAnalysis) {
+    return (
+      <div className="flex-1 min-h-screen font-sans flex items-center justify-center bg-[#0B0D12]">
+        <div className="text-center space-y-4">
+          <Loader2 size={32} className="animate-spin text-[#9B51E0] mx-auto" />
+          <p className="text-[#A1A8B3] font-medium">Analyzing question patterns...</p>
+        </div>
+      </div>
     );
   }
 
@@ -423,23 +442,30 @@ const QuestionPatterns = () => {
             <FrequentTopicsChart topTopics={topTopics} raw={raw} />
           </div>
         ) : (
-          <div className="p-8 text-center bg-[#111318] rounded-2xl border border-[#23262D] space-y-3">
-            <div className="text-3xl">🔍</div>
-            <h4 className="text-base font-bold text-[#F5F7FA]">
-              No question patterns found for this specific Year / Board combination
-            </h4>
-            <p className="text-xs text-[#A1A8B3] max-w-md mx-auto">
-              No paper analysis was stored yet matching {selectedSubjectName ? `"${selectedSubjectName}"` : ""}{" "}
-              {currentVersion?.examVersion ? `in ${currentVersion.examVersion}` : ""}{" "}
-              {selectedBoard ? `(${selectedBoard} Board)` : ""}. Try viewing &quot;All Years&quot; or &quot;All Boards&quot;.
+          <div className="p-10 text-center bg-[#111318] rounded-2xl border border-[#23262D] space-y-4 max-w-xl mx-auto shadow-lg shadow-black/20">
+           
+            <div className="space-y-1.5">
+              <h4 className="text-lg font-extrabold text-[#F5F7FA] tracking-tight">
+                Not Analyzed Yet
+              </h4>
+              <p className="text-xs text-[#A1A8B3] max-w-md mx-auto leading-relaxed">
+                No question paper patterns have been analyzed yet for{" "}
+                {selectedSubjectName ? (
+                  <span className="text-[#00C8FF] font-semibold">{selectedSubjectName}</span>
+                ) : (
+                  "this subject"
+                )}
+                {currentVersion?.examVersion ? (
+                  <> in <span className="text-[#2F80ED] font-semibold">{currentVersion.examVersion}</span></>
+                ) : null}
+                {selectedBoard ? (
+                  <> (<span className="text-[#F2C94C] font-semibold">{selectedBoard} Board</span>)</>
+                ) : null}.
+              </p>
+            </div>
+            <p className="text-[11px] text-[#6B7280]">
+              Upload and analyze question papers for this Year and Board to see topic breakdowns and frequent patterns.
             </p>
-            <button
-              onClick={handleResetFilters}
-              className="inline-flex items-center gap-2 bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-4 py-2 rounded-xl font-bold text-xs hover:bg-[#1C1F26] transition-all mt-2"
-            >
-              <RotateCcw size={13} />
-              Reset Year & Board Filters
-            </button>
           </div>
         )}
 

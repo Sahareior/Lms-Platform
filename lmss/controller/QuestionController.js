@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import QuestionModel from "../models/QuestionModel.js";
 import QuestionPatternModel from "../models/QuestionPatternModel.js";
+import { resolveTopics } from "../utils/topicMatcher.js";
 import { invalidatePrefix } from "../middleware/cache.js";
 
 // Mark a question document as analyzed so the Question Bank can show a Yes/No
@@ -63,23 +64,95 @@ export const saveQuestionsInDb = async (req, res) => {
     }
 };
 
+// Projection for list views: every consumer of GET /questions only needs the
+// document metadata plus a question count — the full `data` array (question
+// texts, options, explanations) is what made this endpoint slow.
+const QUESTION_SUMMARY_PROJECTION = {
+    exam: 1,
+    examVersion: 1,
+    subject: 1,
+    board: 1,
+    division: 1,
+    analyzed: 1,
+    createdAt: 1,
+    updatedAt: 1,
+};
+
 export const getAllQuestions = async (req, res) => {
     try {
         // Optional filters: exam / examVersion / subject / board
-        const { exam, examVersion, subject, board } = req.query;
+        const { exam, examVersion, subject, board, include } = req.query;
         const filter = {};
         if (exam) filter.exam = exam;
         if (examVersion) filter.examVersion = examVersion;
         if (subject) filter.subject = subject;
         if (board) filter.board = board;
 
-        const questions = await QuestionModel.find(filter);
+        // Legacy escape hatch: ?include=data returns full documents.
+        // Prefer GET /questions/:questionId for a single full document.
+        if (include === 'data') {
+            const questions = await QuestionModel.find(filter);
+            return res.status(200).json(questions);
+        }
+
+        // Lightweight summaries: one aggregation computes data size per document
+        // server-side instead of shipping every nested question to the client.
+        // Mongoose does NOT cast $match values in aggregations, so ObjectId-typed
+        // filter fields must be cast from strings manually.
+        const match = {};
+        for (const key of ['exam', 'examVersion', 'subject']) {
+            if (filter[key] === undefined) continue;
+            if (mongoose.Types.ObjectId.isValid(filter[key])) {
+                match[key] = new mongoose.Types.ObjectId(filter[key]);
+            } else {
+                // A non-ObjectId value can never match an ObjectId field.
+                return res.status(200).json([]);
+            }
+        }
+        if (filter.board !== undefined) match.board = filter.board;
+
+        const questions = await QuestionModel.aggregate([
+            { $match: match },
+            {
+                $project: {
+                    ...QUESTION_SUMMARY_PROJECTION,
+                    questionCount: { $size: { $ifNull: ['$data', []] } },
+                },
+            },
+            { $sort: { createdAt: -1 } },
+        ]);
+
         res.status(200).json(questions);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Unable to fetch exams' });
     }
 }
+
+// ─── GET a single question document (full data) ────────────
+export const getQuestionById = async (req, res) => {
+    try {
+        const { questionId } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(questionId)) {
+            return res.status(400).json({ message: 'Invalid question id' });
+        }
+
+        const question = await QuestionModel.findById(questionId)
+            .populate('exam', 'name category')
+            .populate('examVersion', 'examVersion')
+            .populate('subject', 'name');
+
+        if (!question) {
+            return res.status(404).json({ message: 'Question document not found' });
+        }
+
+        res.status(200).json(question);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Unable to fetch question document' });
+    }
+};
 
 export const postQuestionPattern = async(req, res) => {
     try {
@@ -140,12 +213,49 @@ export const postQuestionPattern = async(req, res) => {
             });
         }
 
-        // Create new pattern
+        // Resolve and canonicalize topics against DB Topic collection
+        const questionsBySubject = new Map();
+        for (const q of categorized_questions) {
+            const sName = (q.subject || '').trim();
+            if (!questionsBySubject.has(sName)) {
+                questionsBySubject.set(sName, []);
+            }
+            questionsBySubject.get(sName).push(q.topic);
+        }
+
+        const canonicalMapping = new Map();
+        for (const [sName, rawTopicsList] of questionsBySubject.entries()) {
+            const resolved = await resolveTopics({
+                exam,
+                subject: subjectRef || undefined,
+                subjectName: sName,
+                rawTopics: rawTopicsList,
+            });
+            for (const [raw, canonical] of resolved.entries()) {
+                canonicalMapping.set(raw, canonical);
+            }
+        }
+
+        // Apply canonical topic names to categorized_questions
+        const canonicalQuestions = categorized_questions.map((q) => ({
+            ...q,
+            topic: canonicalMapping.get(q.topic) || q.topic,
+        }));
+
+        // Rebuild canonical topics counter map
+        const canonicalTopics = {};
+        for (const q of canonicalQuestions) {
+            if (q.topic) {
+                canonicalTopics[q.topic] = (canonicalTopics[q.topic] || 0) + 1;
+            }
+        }
+
+        // Create new pattern with canonicalized topics
         const questionPattern = new QuestionPatternModel({
             exam,
-            topics,
+            topics: canonicalTopics,
             subjects,
-            categorized_questions
+            categorized_questions: canonicalQuestions
         });
         
         // Only set if provided (optional fields)
@@ -158,7 +268,9 @@ export const postQuestionPattern = async(req, res) => {
         // The analysis succeeded and was stored — reflect that on the question set.
         await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef, questionDocumentId);
 
+        await invalidatePrefix('cache:question');
         await invalidatePrefix('cache:question-pattern');
+        await invalidatePrefix('cache:topics');
 
         const displayName = versionLabel ? `${exam} ${versionLabel}` : exam;
         return res.status(201).json({
@@ -185,6 +297,7 @@ export const postQuestionPattern = async(req, res) => {
         // Handle duplicate key error
         if (err.code === 11000) {
             await markQuestionsAnalyzed(req.body.exam, req.body.examVersion || '', req.body.subject || '', req.body.board || '', req.body.questionDocumentId || '');
+            await invalidatePrefix('cache:question');
             return res.status(409).json({
                 status: 'DUPLICATE_ERROR',
                 message: `Question pattern for "${req.body.exam}" already exists.`,

@@ -99,9 +99,20 @@ export const processAnalysis = (
     .slice(0, 8);
 
   const topicFrequency: Record<string, number> = {};
+  const canonicalNameMap = new Map<string, string>();
+
+  const normalizeKey = (t: string) =>
+    t.toLowerCase().replace(/&/g, " and ").replace(/[^\w\s\u0980-\u09FF]/g, " ").replace(/\s+/g, " ").trim();
+
   effectiveQuestions.forEach((item) => {
     if (item?.topic) {
-      topicFrequency[item.topic] = (topicFrequency[item.topic] || 0) + 1;
+      const clean = item.topic.trim();
+      const norm = normalizeKey(clean);
+      if (!canonicalNameMap.has(norm)) {
+        canonicalNameMap.set(norm, clean);
+      }
+      const canonical = canonicalNameMap.get(norm)!;
+      topicFrequency[canonical] = (topicFrequency[canonical] || 0) + 1;
     }
   });
 

@@ -206,6 +206,10 @@ export {
   useGetExamVersionsByExamQuery,
   useGetQuestionsByExamQuery,
   useGetScheduleExamQuestionsQuery,
+  usePostQuestionPatternMutation,
+  useGetTopicsByExamAndSubjectQuery,
+  useLazyGetTopicsByExamAndSubjectQuery,
+  useResolveTopicsMutation,
 } from './redux/api/examApi';
 export type {
   courseResponse,
@@ -293,6 +297,8 @@ export {
   useCreateAdminCourseMutation,
   useUpdateAdminCourseMutation,
   useGetAdminQuestionsQuery,
+  useGetAdminQuestionByIdQuery,
+  useLazyGetAdminQuestionByIdQuery,
   useUpdateAdminQuestionDocumentMutation,
   useDeleteAdminQuestionDocumentMutation,
   useUpdateAdminSingleQuestionMutation,
@@ -385,6 +391,7 @@ export type {
   AdminExam,
   AdminExamVersion,
   AdminQuestion,
+  AdminQuestionSummary,
   AdminQuestionPattern,
   AdminLesson,
   AdminModule,

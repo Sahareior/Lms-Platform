@@ -40,6 +40,11 @@
   z-index: 999999;
 }
 
+
+.swal2-container {
+  z-index: 9999999 !important;
+}
+
 /* Custom Semantic Glow Utilities */
 .glow-primary {
   box-shadow: 0 0 20px -3px rgba(47, 128, 237, 0.35);

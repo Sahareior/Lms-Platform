@@ -60,6 +60,23 @@ export interface AdminExam {
   createdAt?: string;
 }
 
+/**
+ * Lightweight summary returned by GET /questions (no nested `data` array).
+ * The server computes the question count so list views don't need the payloads.
+ */
+export interface AdminQuestionSummary {
+  _id: string;
+  exam: string;
+  examVersion?: string;
+  subject?: string;
+  board?: BangladeshBoard;
+  division?: string;
+  analyzed?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  questionCount: number;
+}
+
 export interface AdminQuestion {
   _id: string;
   exam: string;
@@ -648,7 +665,8 @@ const adminApi = api.injectEndpoints({
     }),
 
     // ── Question Bank Management ────────────────────────────
-    getAdminQuestions: build.query<AdminQuestion[], { exam?: string; examVersion?: string; subject?: string; board?: string } | void>({
+    // Returns lightweight summaries (metadata + questionCount, no question payloads).
+    getAdminQuestions: build.query<AdminQuestionSummary[], { exam?: string; examVersion?: string; subject?: string; board?: string } | void>({
       query: (params) => {
         const queryParams = new URLSearchParams();
         if (params?.exam) queryParams.set('exam', params.exam);
@@ -659,6 +677,12 @@ const adminApi = api.injectEndpoints({
         return { url: qs ? `/questions?${qs}` : '/questions' };
       },
       providesTags: ['Question'],
+    }),
+
+    // Single question document including its full data array.
+    getAdminQuestionById: build.query<AdminQuestion, string>({
+      query: (questionId) => ({ url: `/questions/${questionId}` }),
+      providesTags: (_result, _error, questionId) => [{ type: 'Question', id: questionId }],
     }),
 
     updateAdminQuestionDocument: build.mutation<AdminQuestion, { questionId: string; data: Partial<AdminQuestion> }>({
@@ -757,6 +781,8 @@ export const {
   useUpdateAdminExamMutation,
   useDeleteAdminExamMutation,
   useGetAdminQuestionsQuery,
+  useGetAdminQuestionByIdQuery,
+  useLazyGetAdminQuestionByIdQuery,
   useUpdateAdminQuestionDocumentMutation,
   useDeleteAdminQuestionDocumentMutation,
   useUpdateAdminSingleQuestionMutation,

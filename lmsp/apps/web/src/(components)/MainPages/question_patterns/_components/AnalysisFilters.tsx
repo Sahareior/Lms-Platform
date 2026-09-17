@@ -170,28 +170,9 @@ export default function AnalysisFilters({
                 <Calendar size={13} className="text-[#2F80ED]" />
                 <span>Step 2 &bull; Year (Exam Version)</span>
               </label>
-              {selectedVersionId && (
-                <button
-                  onClick={() => onVersionSelect(null)}
-                  className="text-[10px] text-[#A1A8B3] hover:text-white underline font-semibold"
-                >
-                  Clear Year
-                </button>
-              )}
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => onVersionSelect(null)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  !selectedVersionId
-                    ? "bg-[#2F80ED] text-white shadow-md shadow-[#2F80ED]/30"
-                    : "bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:border-[#323742] hover:text-[#F5F7FA]"
-                }`}
-              >
-                All Years
-              </button>
-
               {versions.map((version: any) => {
                 const isSelected = selectedVersionId === version._id;
                 return (
@@ -200,7 +181,7 @@ export default function AnalysisFilters({
                     onClick={() => onVersionSelect(version._id)}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                       isSelected
-                        ? "bg-[#2F80ED] text-white shadow-md shadow-[#2F80ED]/30"
+                        ? "bg-[#2F80ED] text-white shadow-md shadow-[#2F80ED]/30 font-extrabold"
                         : "bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:border-[#323742] hover:text-[#F5F7FA]"
                     }`}
                   >
@@ -218,28 +199,9 @@ export default function AnalysisFilters({
                 <Globe size={13} className="text-[#F2C94C]" />
                 <span>Step 3 &bull; Education Board</span>
               </label>
-              {selectedBoard && (
-                <button
-                  onClick={() => onBoardSelect(null)}
-                  className="text-[10px] text-[#A1A8B3] hover:text-white underline font-semibold"
-                >
-                  Clear Board
-                </button>
-              )}
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => onBoardSelect(null)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  !selectedBoard
-                    ? "bg-[#F2C94C] text-[#0B0D12] shadow-md shadow-[#F2C94C]/30"
-                    : "bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:border-[#323742] hover:text-[#F5F7FA]"
-                }`}
-              >
-                All Boards
-              </button>
-
               {BANGLADESH_BOARDS.map((board: BangladeshBoard) => {
                 const isSelected = selectedBoard?.toLowerCase() === board.toLowerCase();
                 return (
@@ -283,23 +245,11 @@ export default function AnalysisFilters({
             {selectedVersionObj && (
               <span className="px-2.5 py-1 rounded-lg bg-[#2F80ED]/10 text-[#2F80ED] border border-[#2F80ED]/30 font-bold flex items-center gap-1">
                 Year: {selectedVersionObj.examVersion}
-                <button
-                  onClick={() => onVersionSelect(null)}
-                  className="hover:text-white ml-0.5 text-xs"
-                >
-                  &times;
-                </button>
               </span>
             )}
             {selectedBoard && (
               <span className="px-2.5 py-1 rounded-lg bg-[#F2C94C]/10 text-[#F2C94C] border border-[#F2C94C]/30 font-bold flex items-center gap-1">
                 Board: {selectedBoard}
-                <button
-                  onClick={() => onBoardSelect(null)}
-                  className="hover:text-white ml-0.5 text-xs"
-                >
-                  &times;
-                </button>
               </span>
             )}
           </div>

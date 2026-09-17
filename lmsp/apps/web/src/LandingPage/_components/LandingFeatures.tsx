@@ -43,7 +43,7 @@ const LandingFeatures = () => {
         className="
           pointer-events-none
           absolute
-          top-0
+          -top-1
           left-1/2
           -translate-x-1/2
           w-[800px]

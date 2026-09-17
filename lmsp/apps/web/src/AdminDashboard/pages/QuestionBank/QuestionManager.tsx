@@ -26,13 +26,16 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  useGetAdminQuestionsQuery,
+  useGetAdminQuestionByIdQuery,
   useDeleteAdminSingleQuestionMutation,
   useUpdateAdminSingleQuestionMutation,
   useUpdateAdminQuestionExplanationMutation,
   useQuestionAnalyzerMutation,
 } from '@my-monorepo/store';
-import { usePostQuestionPatternMutation } from '@my-monorepo/store/src/redux/api/examApi';
+import {
+  usePostQuestionPatternMutation,
+  useLazyGetTopicsByExamAndSubjectQuery,
+} from '@my-monorepo/store/src/redux/api/examApi';
 import QuestionCard from './_components/QuestionCard';
 import EditQuestionDrawer, {
   type QuestionEditPayload,
@@ -76,19 +79,21 @@ const QuestionManager: React.FC = () => {
   const navigate = useNavigate();
   const lookups = useQuestionBankLookups();
 
-  // There is no single-document endpoint, so we reuse the (cached) full list
-  // and pick our document out of it.
-  const { data: documents, isLoading, isFetching, error, refetch } = useGetAdminQuestionsQuery();
-  const questionDoc = useMemo(
-    () => documents?.find((doc) => doc._id === documentId),
-    [documents, documentId]
-  );
+  // Fetch just this document (with its full data array) instead of the whole bank.
+  const {
+    data: questionDoc,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useGetAdminQuestionByIdQuery(documentId, { skip: !documentId });
 
   const [updateQuestion, { isLoading: isSavingEdit }] = useUpdateAdminSingleQuestionMutation();
   const [updateExplanation, { isLoading: isSavingExplanation }] = useUpdateAdminQuestionExplanationMutation();
   const [deleteQuestion] = useDeleteAdminSingleQuestionMutation();
   const [questionAnalyzer] = useQuestionAnalyzerMutation();
   const [postQuestionPattern] = usePostQuestionPatternMutation();
+  const [getStoredTopics] = useLazyGetTopicsByExamAndSubjectQuery();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // ── Toolbar state ──────────────────────────────────────────
@@ -170,8 +175,22 @@ const QuestionManager: React.FC = () => {
     }
     setIsAnalyzing(true);
     try {
+      // Fetch existing stored topics for this exam & subject (token optimized: capped to top 40)
+      let existingTopics: string[] = [];
+      try {
+        const topicsRes = await getStoredTopics({
+          examId: questionDoc.exam,
+          subjectId: questionDoc.subject || undefined,
+        }).unwrap();
+        if (Array.isArray(topicsRes)) {
+          existingTopics = topicsRes.slice(0, 40).map((t: any) => t.name);
+        }
+      } catch {
+        // Fallback gracefully if topics fetch fails
+      }
+
       const res = await questionAnalyzer(
-        buildAnalyzerPayload(questionDoc.data, new Date().getFullYear())
+        buildAnalyzerPayload(questionDoc.data, new Date().getFullYear(), existingTopics)
       ).unwrap();
 
       const patternPayload: Record<string, unknown> = {
