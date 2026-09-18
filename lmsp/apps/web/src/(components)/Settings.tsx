@@ -357,7 +357,7 @@ const Settings: React.FC = () => {
   ];
 
   return (
-    <div className="font-sans text-[#F5F7FA] p-3 space-y-8">
+    <div className="font-sans text-[#F5F7FA]  space-y-8">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-[#00E5B3]/10 border border-[#00E5B3]/30 flex items-center justify-center">
@@ -577,17 +577,17 @@ const Settings: React.FC = () => {
 
           {/* ── My Exams ────────────────────────────────────── */}
           <section className="bg-[#111318] border border-[#23262D] rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#23262D] flex items-center justify-between">
+            <div className="px-3 sm:px-6 py-4 border-b border-[#23262D] flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-lg bg-[#00E5B3]/10 text-[#00E5B3]">
                   <GraduationCap size={16} />
                 </div>
                 <div>
                   <h2 className="font-bold text-base text-[#F5F7FA]">My Exams</h2>
-                  <p className="text-xs text-[#A1A8B3]">Select or remove the exams you're preparing for</p>
+                  <p className="md:text-xs text-[9px] text-[#A1A8B3]">Select or remove the exams you're preparing for</p>
                 </div>
               </div>
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00E5B3] bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-full px-3 py-1.5">
+              <span className="hidden md:inline-flex items-center gap-1.5 text-xs font-bold text-[#00E5B3] bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-full px-3 py-1.5">
                 <CheckCircle2 size={13} />
                 {selectedIds.size} selected
               </span>
@@ -628,71 +628,107 @@ const Settings: React.FC = () => {
               ) : exams.length === 0 ? (
                 <p className="text-sm text-[#A1A8B3] text-center py-10">No exams available yet.</p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {exams.map((exam: any, index: number) => {
-                    const id = exam._id;
-                    const isSelected = selectedIds.has(id);
-                    const isPending = pendingExamId === id;
-                    const gradient = gradientMap[index % gradientMap.length];
-                    return (
-                      <button
-                        key={id}
-                        onClick={() => handleToggleExam(exam)}
-                        disabled={isBusy}
-                        className={`
-                          group relative text-left rounded-2xl overflow-hidden border transition-all duration-300
-                          ${isSelected
-                            ? 'border-[#00E5B3] ring-2 ring-[#00E5B3]/30 shadow-[0_0_20px_-5px_rgba(0,229,179,0.35)]'
-                            : 'border-[#23262D] hover:border-[#323742] hover:-translate-y-0.5'}
-                          disabled:opacity-70 disabled:cursor-not-allowed
-                        `}
-                      >
-                        <div className={`relative h-20 bg-gradient-to-br ${gradient}`}>
-                          <div className="absolute w-20 h-20 rounded-full bg-white/10 -top-8 -right-6" />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className={`p-2.5 rounded-xl backdrop-blur-sm transition-all duration-300 ${isSelected ? 'bg-[#111318]/80 scale-105' : 'bg-white/10 group-hover:bg-white/20'}`}>
-                              <BookOpen size={20} className={isSelected ? 'text-[#00E5B3]' : 'text-white'} />
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <div className="absolute top-2.5 right-2.5 bg-[#00E5B3] text-black rounded-full p-1 shadow-lg">
-                              <Check size={12} strokeWidth={3} />
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-4">
-                          <h3 className="font-bold text-sm text-[#F5F7FA] mb-1">{exam.name}</h3>
-                          <p className="text-xs text-[#A1A8B3] line-clamp-2 mb-3 min-h-[32px]">{exam.description || 'Comprehensive preparation for this exam.'}</p>
-                          <div className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${isSelected ? 'bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30' : 'bg-[#161920] text-[#A1A8B3] border border-[#23262D] group-hover:text-[#F5F7FA]'}`}>
-                            {isPending ? (
-                              <>
-                                <Loader2 size={11} className="animate-spin" />
-                                <span>Saving...</span>
-                              </>
-                            ) : isSelected ? (
-                              <>
-                                <Check size={11} strokeWidth={3} />
-                                <span>Selected — click to remove</span>
-                              </>
-                            ) : (
-                              <>
-                                <Plus size={11} />
-                                <span>Select Exam</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {exams.map((exam: any, index: number) => {
+    const id = exam._id;
+    const isSelected = selectedIds.has(id);
+    const isPending = pendingExamId === id;
+    const gradient = gradientMap[index % gradientMap.length];
+
+    return (
+      <button
+        key={id}
+        onClick={() => handleToggleExam(exam)}
+        disabled={isBusy}
+        className={`
+          group relative text-left rounded-2xl overflow-hidden
+          bg-[#161920] border transition-all duration-300
+          ${isSelected
+            ? 'border-[#00E5B3]/60 shadow-[0_0_0_1px_rgba(0,229,179,0.25),0_8px_24px_-12px_rgba(0,229,179,0.4)]'
+            : 'border-[#23262D] hover:border-[#323742] hover:bg-[#181B23]'}
+          disabled:opacity-70 disabled:cursor-not-allowed
+        `}
+      >
+        {/* Accent bar on top */}
+        <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${gradient} ${isSelected ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'} transition-opacity`} />
+
+        {/* Soft corner glow */}
+        <div className={`absolute -top-12 -right-12 w-32 h-32 rounded-full blur-2xl transition-opacity duration-300 ${isSelected ? 'bg-[#00E5B3]/10' : 'bg-white/[0.02] group-hover:bg-white/[0.04]'}`} />
+
+        <div className="relative p-4 flex items-start gap-3.5">
+          {/* Icon tile */}
+          <div
+            className={`
+              shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
+              transition-all duration-300
+              ${isSelected
+                ? 'bg-[#00E5B3]/15 text-[#00E5B3] ring-1 ring-[#00E5B3]/30'
+                : 'bg-[#1D2029] text-[#A1A8B3] ring-1 ring-[#23262D] group-hover:text-[#F5F7FA]'}
+            `}
+          >
+            <BookOpen size={18} />
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-sm text-[#F5F7FA] truncate pr-1">
+                {exam.name}
+              </h3>
+
+              {/* Checkbox indicator */}
+              <span
+                className={`
+                  shrink-0 mt-0.5 w-5 h-5 rounded-md flex items-center justify-center
+                  border transition-all duration-200
+                  ${isSelected
+                    ? 'bg-[#00E5B3] border-[#00E5B3] text-black'
+                    : 'border-[#323742] text-transparent group-hover:border-[#4A5160]'}
+                `}
+              >
+                {isPending ? (
+                  <Loader2 size={11} className="animate-spin text-black" />
+                ) : (
+                  <Check size={12} strokeWidth={3} />
+                )}
+              </span>
+            </div>
+
+            <p className="text-xs text-[#8A919E] line-clamp-2 mt-1 leading-relaxed">
+              {exam.description || 'Comprehensive preparation for this exam.'}
+            </p>
+
+            {/* Footer status */}
+            <div className="mt-3 flex items-center gap-2">
+              <span
+                className={`
+                  inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide
+                  px-2 py-0.5 rounded-md
+                  ${isSelected
+                    ? 'text-[#00E5B3] bg-[#00E5B3]/10'
+                    : 'text-[#6B7280] bg-[#1D2029]'}
+                `}
+              >
+                {isPending
+                  ? 'Saving…'
+                  : isSelected
+                    ? 'Selected'
+                    : 'Not selected'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  })}
+</div>
               )}
             </div>
           </section>
 
           {/* ── More Settings (placeholder) ─────────────────── */}
           <section>
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-[#6B7280] mb-3">More Settings</h3>
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-[#6B7280] mb-3">More Settings <span className='text-[10px] text-[#A1A8B3]'> (coming soon)</span></h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {moreGroups.map((group, index) => (
                 <div

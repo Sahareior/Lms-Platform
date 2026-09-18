@@ -242,6 +242,8 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
           {activeTab === 'ai' && (
             <AskAiTab
               lessonTitle={currentLesson.title}
+              chapterId={currentLesson.module?._id || currentLesson.module || currentLessonId}
+              lessonId={currentLessonId}
             />
           )}
 

@@ -37,9 +37,9 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, isLo
         <div className="flex-1 p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col relative justify-between">
           <div>
             {/* Top Navigation & Brand Header */}
-            <div className="flex items-center justify-between gap-4 mb-6">
+            <div className="flex items-center justify-between gap-4 md:mb-3 mb-6">
               <Link to="/" className="inline-flex items-center gap-2 group">
-                <img src="/logo1.png" className="h-8 sm:h-9 w-auto object-contain transition-transform group-hover:scale-105" alt="Geneseon" />
+                <img src="/logo1.png" className="md:h-20  h-16 w-auto object-contain transition-transform group-hover:scale-105" alt="Geneseon" />
               </Link>
 
               <Link

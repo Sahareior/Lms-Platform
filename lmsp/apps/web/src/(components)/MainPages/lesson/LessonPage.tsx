@@ -12,6 +12,14 @@ const LessonPage = () => {
   const { data: enrolledCourses, isLoading: isLoadingEnrolledCourses } =
     useGetEnrolledCourseQuery(userId, { skip: !userId });
 
+  if (isLoadingEnrolledCourses) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-[#0B0D14] text-[#F5F7FA]">
+        <div className="w-8 h-8 border-4 border-[#2F80ED] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   if (!courseId || courseId === 'undefined') {
     return (
       <CourseSelectionScreen
@@ -24,7 +32,22 @@ const LessonPage = () => {
 
   // Find the selected course from enrolled list
   const coursesList = Array.isArray(enrolledCourses) ? enrolledCourses : [];
-  const selectedCourse = coursesList.find((c: any) => c._id === courseId) || {};
+  const selectedCourse = coursesList.find((c: any) => c._id === courseId);
+
+  if (!selectedCourse) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen bg-[#0B0D14] gap-4 text-[#F5F7FA]">
+        <h2 className="text-2xl font-bold">Access Denied</h2>
+        <p className="text-[#A1A8B3]">You need to enroll in this course to view its lessons.</p>
+        <button 
+          onClick={() => navigate('/')}
+          className="px-6 py-2 bg-[#2F80ED] hover:bg-[#256BCE] rounded-xl font-semibold transition active:scale-[0.98]"
+        >
+          Explore Courses
+        </button>
+      </div>
+    );
+  }
 
   return (
     <LessonPlayerScreen

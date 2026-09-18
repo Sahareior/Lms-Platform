@@ -9,6 +9,7 @@ import {
 } from '@my-monorepo/store';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { chatSessionManager } from './chatSessionManager';
 
 type ChatMessage = {
    id: string;
@@ -27,6 +28,31 @@ type StreamingState = {
 // Number of history messages loaded per scroll-pagination page.
 const HISTORY_PAGE_SIZE = 30;
 
+// ── Cross-mount history cache ─────────────────────────────────────
+// Module-level so it survives route changes without refetching. It holds
+// only the newest page (the same one the mount effect would load), which is
+// exactly what the user sees when returning to this route.
+interface CachedChatHistory {
+   userId: string | null;
+   messages: ChatMessage[];
+   hasMore: boolean;
+   nextCursor: string | null;
+}
+let chatHistoryCache: CachedChatHistory | null = null;
+
+/** Append an AI reply to the cache (used when a reply lands while the chat is unmounted). */
+function appendAiToCache(text: string) {
+   if (!chatHistoryCache) return;
+   chatHistoryCache.messages = [
+      ...chatHistoryCache.messages,
+      { id: `ai-cached-${Date.now()}`, sender: 'ai', text, time: createTimestampShared() },
+   ];
+}
+
+function createTimestampShared() {
+   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 const AIChatInterface = () => {
    const [messages, setMessages] = useState<ChatMessage[]>([]);
    const [inputText, setInputText] = useState('');
@@ -43,6 +69,10 @@ const AIChatInterface = () => {
    const wordsQueueRef = useRef<string[]>([]);
    // Ref attached to the streaming bubble so we can scroll it into view on start
    const streamingBubbleRef = useRef<HTMLDivElement | null>(null);
+
+   // In-flight AI response state (synced with cross-route chatSessionManager)
+   const [isAiThinking, setIsAiThinking] = useState(() => chatSessionManager.isActive());
+   const handledInFlightIdRef = useRef<string | null>(null);
 
    // ── Chat history (persisted per user on the backend) ────────────
    const userId = useAppSelector((state) => state.user.user?._id);
@@ -99,22 +129,178 @@ const AIChatInterface = () => {
       time: formatTime(m.createdAt),
    });
 
+   // Merge the active in-flight user message into a loaded page if the DB
+   // hasn't returned it yet (shared by cache-restore and fresh-fetch paths).
+   const withInFlightUserMessage = (loaded: ChatMessage[]): ChatMessage[] => {
+      const active = chatSessionManager.getActiveState();
+      if (active && (active.status === 'pending' || active.status === 'success')) {
+         const alreadyPresent = loaded.some(
+            (m) =>
+               m.id === active.userMessageId ||
+               (m.sender === 'user' && m.text === active.question)
+         );
+         if (!alreadyPresent) {
+            return [
+               ...loaded,
+               {
+                  id: active.userMessageId,
+                  sender: 'user',
+                  text: active.question,
+                  time: active.userMessageTime || createTimestamp(),
+               },
+            ];
+         }
+      }
+      return loaded;
+   };
+
+   // ── Resume pending question (e.g. if page reloaded on an unanswered query) ──
+   const resumePendingQuestion = async (question: string) => {
+      if (chatSessionManager.isActive()) return;
+      setIsAiThinking(true);
+      try {
+         await chatSessionManager.start({
+            question,
+            userMessageId: `user-resume-${Date.now()}`,
+            userMessageTime: createTimestamp(),
+            sendChat: () => sendChatMessage({ question }).unwrap(),
+            saveAiMessage: async (aiText) => {
+               // Mirror into the cross-mount cache in case the reply lands
+               // after this component has unmounted.
+               appendAiToCache(aiText);
+               await saveMessages({
+                  messages: [{ sender: 'ai', text: aiText }],
+               }).unwrap();
+            },
+         });
+      } catch (err) {
+         console.error('Failed to resume AI chat:', err);
+      }
+   };
+
+   // ── Subscribe to cross-route in-flight AI manager ────────────────
+   useEffect(() => {
+      const unsubscribe = chatSessionManager.subscribe((state) => {
+         if (!state) {
+            setIsAiThinking(false);
+            return;
+         }
+
+         if (state.status === 'pending') {
+            setIsAiThinking(true);
+            setMessagesSynced((prev) => {
+               if (
+                  prev.some(
+                     (m) =>
+                        m.id === state.userMessageId ||
+                        (m.sender === 'user' && m.text === state.question)
+                  ) ||
+                  // Mid-restore on remount: component state is still empty but
+                  // the cache holds the history; the restore effect merges the
+                  // pending message via withInFlightUserMessage — skip here.
+                  (prev.length === 0 && !!chatHistoryCache?.messages.length)
+               ) {
+                  return prev;
+               }
+               return [
+                  ...prev,
+                  {
+                     id: state.userMessageId,
+                     sender: 'user',
+                     text: state.question,
+                     time: state.userMessageTime || createTimestamp(),
+                  },
+               ];
+            });
+         } else if (state.status === 'success' || state.status === 'error') {
+            setIsAiThinking(false);
+            // If the reply was persisted into the cross-mount cache while the
+            // chat was unmounted, the restored history already shows it —
+            // don't stream (and double-commit) it again.
+            const alreadyRestored =
+               !!state.aiText &&
+               !!chatHistoryCache?.messages.some((m) => m.sender === 'ai' && m.text === state.aiText);
+            if (
+               state.aiText &&
+               !alreadyRestored &&
+               handledInFlightIdRef.current !== state.userMessageId
+            ) {
+               handledInFlightIdRef.current = state.userMessageId;
+               const aiId = `ai-${Date.now()}`;
+               const aiTime = createTimestamp();
+               startStreaming(aiId, state.aiText, aiTime);
+            }
+         }
+      });
+
+      return () => {
+         unsubscribe();
+      };
+   }, []);
+
    // ── Load the most recent page of history on mount ────────────────
    useEffect(() => {
-      if (!userId || historyLoadedRef.current) return;
+      if (!userId) return;
+
+      // New login/session → drop any cache from a previous user.
+      if (chatHistoryCache && chatHistoryCache.userId !== userId) {
+         chatHistoryCache = null;
+      }
+
+      // Returning visit → restore instantly, no network round-trip.
+      if (chatHistoryCache) {
+         setMessages(withInFlightUserMessage(chatHistoryCache.messages));
+         setHasMore(chatHistoryCache.hasMore);
+         setNextCursor(chatHistoryCache.nextCursor);
+         return;
+      }
+
+      // First visit (or after user switch) → fetch the newest page.
+      if (historyLoadedRef.current) return;
       historyLoadedRef.current = true;
       fetchHistory({ limit: HISTORY_PAGE_SIZE })
          .unwrap()
          .then((res) => {
             setHasMore(res.hasMore);
             setNextCursor(res.nextCursor);
-            setMessages(res.messages.map(toChatMessage));
+            let loaded = res.messages.map(toChatMessage);
+
+            loaded = withInFlightUserMessage(loaded);
+
+            // Populate the cross-mount cache so revisits skip the fetch.
+            chatHistoryCache = {
+               userId,
+               messages: loaded,
+               hasMore: res.hasMore,
+               nextCursor: res.nextCursor,
+            };
+
+            setMessages(loaded);
+
+            // If history loaded and the last message is an unanswered user query, resume it
+            const lastMsg = loaded[loaded.length - 1];
+            if (lastMsg && lastMsg.sender === 'user' && !chatSessionManager.isActive()) {
+               resumePendingQuestion(lastMsg.text);
+            }
          })
          .catch(() => {
             // History failed to load – start with an empty chat; the user
             // can still send messages and history reloads on next visit.
+            historyLoadedRef.current = false;
          });
    }, [userId, fetchHistory]);
+
+   // Auto-scroll when AI thinking starts
+   useEffect(() => {
+      if (isAiThinking) {
+         requestAnimationFrame(() => {
+            const container = chatContainerRef.current;
+            if (container) {
+               container.scrollTop = container.scrollHeight;
+            }
+         });
+      }
+   }, [isAiThinking]);
 
    // Auto-scroll to the bottom when new messages arrive (but NOT while
    // prepending older history pages – see handleScroll).
@@ -125,8 +311,30 @@ const AIChatInterface = () => {
       }
    }, [messages]);
 
+   // setMessages wrapper that keeps the cross-mount cache in lockstep with
+   // component state, so a remount can restore exactly what was on screen.
+   const setMessagesSynced = (
+      updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])
+   ) => {
+      setMessages((prev) => {
+         const next = typeof updater === 'function' ? updater(prev) : updater;
+         // Guard: if component state is empty but the cache holds a fuller
+         // history (mid-restore on remount), a write here would clobber the
+         // cache with an incomplete list — leave the cache alone instead.
+         if (
+            chatHistoryCache &&
+            prev.length === 0 &&
+            chatHistoryCache.messages.length > next.length
+         ) {
+            return next;
+         }
+         if (chatHistoryCache) chatHistoryCache.messages = next;
+         return next;
+      });
+   };
+
    const addMessage = (message: ChatMessage) => {
-      setMessages((prev) => [...prev, message]);
+      setMessagesSynced((prev) => [...prev, message]);
    };
 
    // ── Typewriter streaming effect ───────────────────────────────────
@@ -166,7 +374,7 @@ const AIChatInterface = () => {
             if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
             streamIntervalRef.current = null;
             // Commit the finished message into the permanent list
-            setMessages((prev) => [
+            setMessagesSynced((prev) => [
                ...prev,
                { id, sender: 'ai', text: fullText, time },
             ]);
@@ -192,7 +400,11 @@ const AIChatInterface = () => {
          .then((res) => {
             setHasMore(res.hasMore);
             setNextCursor(res.nextCursor);
-            setMessages((prev) => [...res.messages.map(toChatMessage), ...prev]);
+            setMessagesSynced((prev) => [...res.messages.map(toChatMessage), ...prev]);
+            if (chatHistoryCache) {
+               chatHistoryCache.hasMore = res.hasMore;
+               chatHistoryCache.nextCursor = res.nextCursor;
+            }
             requestAnimationFrame(() => {
                const c = chatContainerRef.current;
                if (c) {
@@ -208,43 +420,47 @@ const AIChatInterface = () => {
 
    const handleSend = async () => {
       const question = inputText.trim();
-      if (!question) return;
+      if (!question || isLoading || isAiThinking) return;
 
+      const userTime = createTimestamp();
+      const userMessageId = `user-${Date.now()}`;
       const userMessage: ChatMessage = {
-         id: `user-${Date.now()}`,
+         id: userMessageId,
          sender: 'user',
          text: question,
-         time: createTimestamp(),
+         time: userTime,
       };
 
       addMessage(userMessage);
       setInputText('');
       autoScrollRef.current = true;
 
-      let aiText: string;
-      const aiId = `ai-${Date.now()}`;
-      const aiTime = createTimestamp();
-      try {
-         const response = await sendChatMessage({ question }).unwrap();
-         aiText = response.answer;
-      } catch (error) {
-         aiText = 'Unable to send your question right now. Please try again.';
-      }
+      // 1. Immediately persist the user message so it survives route navigation
+      saveMessages({
+         messages: [{ sender: 'user', text: question }],
+      }).catch((err) => {
+         console.error('Failed to immediately save user message:', err);
+      });
 
-      // Animate the response word-by-word instead of dumping it all at once
-      startStreaming(aiId, aiText, aiTime);
-
-      // Persist the exchange so it survives page navigation.
-      // (aiText is already in scope from the try/catch above)
+      // 2. Launch through chatSessionManager so if user navigates away,
+      // the request completes in the background and saves the AI response.
       try {
-         await saveMessages({
-            messages: [
-               { sender: 'user', text: question },
-               { sender: 'ai', text: aiText },
-            ],
-         }).unwrap();
-      } catch {
-         // Persistence failure shouldn't break the visible conversation.
+         await chatSessionManager.start({
+            question,
+            userMessageId,
+            userMessageTime: userTime,
+            sendChat: () => sendChatMessage({ question }).unwrap(),
+            saveAiMessage: async (aiText) => {
+               // Mirror into the cross-mount cache in case the reply lands
+               // after this component has unmounted.
+               appendAiToCache(aiText);
+               await saveMessages({
+                  messages: [{ sender: 'ai', text: aiText }],
+               }).unwrap();
+            },
+         });
+      } catch (err) {
+         console.error('Failed in chatSessionManager:', err);
       }
    };
 
@@ -421,8 +637,8 @@ const AIChatInterface = () => {
                   </div>
                )}
 
-               {/* Thinking dots — only shown while waiting for the API, not during streaming */}
-               {isLoading && !streaming && (
+               {/* Thinking dots — shown while waiting for the API, not during streaming */}
+               {(isLoading || isAiThinking) && !streaming && (
                   <div className="flex justify-start">
                      <div className="bg-[#161920] border border-[#23262D] rounded-2xl p-4 flex items-center gap-3">
                         <div className="flex gap-1.5">
@@ -475,7 +691,9 @@ const AIChatInterface = () => {
                      onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                            event.preventDefault();
-                           handleSend();
+                           if (!isLoading && !isAiThinking && inputText.trim()) {
+                              handleSend();
+                           }
                         }
                      }}
                      placeholder="Ask anything about your exam..."
@@ -488,7 +706,7 @@ const AIChatInterface = () => {
                      <button
                         type="button"
                         onClick={handleSend}
-                        disabled={isLoading || !inputText.trim()}
+                        disabled={isLoading || isAiThinking || !inputText.trim()}
                         className="p-2.5 bg-[#00E5B3] hover:bg-[#00C298] rounded-full text-black transition shadow active:scale-95 disabled:cursor-not-allowed disabled:bg-[#23262D] disabled:text-[#6B7280]"
                      >
                         <Send size={16} />
