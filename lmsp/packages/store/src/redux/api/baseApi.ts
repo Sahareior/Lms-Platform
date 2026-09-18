@@ -162,6 +162,7 @@ export const tagTypes = [
   'Note',
   'ExamVersion',
   'Subject',
+  'College',
   'QuizAttempt',
   'ScheduleExam',
   'AiChat',

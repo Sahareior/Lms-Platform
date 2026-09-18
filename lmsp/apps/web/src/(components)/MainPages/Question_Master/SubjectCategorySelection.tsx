@@ -135,6 +135,8 @@ export default function SubjectCategorySelection() {
   // Combine subject list with questions aggregation
   const enrichedSubjects = useMemo(() => {
     const map = new Map<string, EnrichedSubject>();
+    const normalizeSubjectKey = (value?: string) =>
+      (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 
     // 1. Initialize from subjects API if available
     if (subjectsList && Array.isArray(subjectsList)) {
@@ -159,18 +161,22 @@ export default function SubjectCategorySelection() {
       questionSets.forEach((set: any) => {
         const subId =
           set?.subject?._id ||
-          (typeof set?.subject === "string" ? set.subject : null) ||
-          set?._id;
-        const subName = set?.subject?.name || set?.subjectName || "General";
+          (typeof set?.subject === "string" ? set.subject : null);
+        const legacySubjectName =
+          set?.subject?.name ||
+          set?.subjectName ||
+          (Array.isArray(set?.data) ? set.data.find((q: any) => q?.subjectName)?.subjectName : "") ||
+          "General";
+        const subjectKey = subId || normalizeSubjectKey(legacySubjectName) || "general";
         const qCount = Array.isArray(set?.data) ? set.data.length : 0;
         const version = set?.examVersion?.examVersion || "";
 
-        if (subId) {
-          if (!map.has(subId)) {
+        if (subjectKey) {
+          if (!map.has(subjectKey)) {
             // Check if there is already an entry with matching name
             let foundExistingKey: string | null = null;
             for (const [key, val] of map.entries()) {
-              if (val.name.trim().toLowerCase() === subName.trim().toLowerCase()) {
+              if (normalizeSubjectKey(val.name) === normalizeSubjectKey(legacySubjectName)) {
                 foundExistingKey = key;
                 break;
               }
@@ -184,16 +190,16 @@ export default function SubjectCategorySelection() {
                 existing.versions.push(version);
               }
             } else {
-              map.set(subId, {
-                _id: subId,
-                name: subName,
+              map.set(subjectKey, {
+                _id: subjectKey,
+                name: legacySubjectName,
                 setCount: 1,
                 totalQuestions: qCount,
                 versions: version ? [version] : [],
               });
             }
           } else {
-            const existing = map.get(subId)!;
+            const existing = map.get(subjectKey)!;
             existing.setCount += 1;
             existing.totalQuestions += qCount;
             if (version && !existing.versions.includes(version)) {
@@ -321,7 +327,7 @@ export default function SubjectCategorySelection() {
                 <button
                   key={subject._id}
                   onClick={() =>
-                    navigate(`/question-center/${examType}/${subject._id}`, {
+                    navigate(`/question-center/${examType}/${subject._id}/type`, {
                       state: {
                         subjectName: subject.name,
                         examName: examName,

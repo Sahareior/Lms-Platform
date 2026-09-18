@@ -33,6 +33,7 @@ const ResultPage = lazy(() => import('./(components)/MainPages/mock_exam/routes/
 const QuestionMaster = lazy(() => import('./(components)/MainPages/Question_Master/component/QuestionMaster'));
 const ExamDin = lazy(() => import('./(components)/MainPages/Question_Master/component/ExamDin'));
 const QuestionView = lazy(() => import('./(components)/MainPages/Question_Master/component/QuestionView'));
+const QuestionTypeSelection = lazy(() => import('./(components)/MainPages/Question_Master/QuestionTypeSelection'));
 const ExamCategorySelection = lazy(() => import('./(components)/MainPages/Question_Master/ExamCategorySelection'));
 const SubjectCategorySelection = lazy(() => import('./(components)/MainPages/Question_Master/SubjectCategorySelection'));
 const AdminDashboard = lazy(() => import('./AdminDashboard/AdminDashboard'));
@@ -178,6 +179,10 @@ const router = createBrowserRouter([
                 element: <QuestionView />,
               },
             ],
+          },
+          {
+            path: 'question-center/:examType/:subjectId/type',
+            element: <QuestionTypeSelection />,
           },
           { path: 'settings', element: <Settings /> },
         ],

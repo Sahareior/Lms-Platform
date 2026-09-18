@@ -216,6 +216,15 @@ export type {
   SubjectByExam
 } from "./redux/api/examApi"
 
+// ─── RTK Query College API ────────────────────────────────
+export {
+  useGetCollegesQuery,
+  useCreateCollegeMutation,
+  useUpdateCollegeMutation,
+  useDeleteCollegeMutation,
+} from './redux/api/collegeApi';
+export type { College } from './redux/api/collegeApi';
+
 // ─── RTK Query AI Chat History API ─────────────────────────
 export {
   useGetAiChatHistoryQuery,
@@ -432,6 +441,7 @@ export type {
   UIState,
   ExamCategory,
   BangladeshBoard,
+  QuestionType,
   RootState as AppRootState,
 } from './types';
-export { BANGLADESH_BOARDS } from './types';
+export { BANGLADESH_BOARDS, QUESTION_TYPES, getQuestionTypeLabel } from './types';

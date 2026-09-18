@@ -52,6 +52,18 @@ export const BANGLADESH_BOARDS: BangladeshBoard[] = [
   'Sylhet',
 ];
 
+// ─── Question Type (source of a scraped question set) ────────
+export type QuestionType = 'board' | 'testpaper' | 'mockexam';
+
+export const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
+  { value: 'board', label: 'Board Questions' },
+  { value: 'testpaper', label: 'Testpaper Questions' },
+  { value: 'mockexam', label: 'Mockexam Questions' },
+];
+
+export const getQuestionTypeLabel = (value?: string | null): string =>
+  QUESTION_TYPES.find((t) => t.value === value)?.label || '';
+
 export interface Exam {
    _id: string;
    name: string;

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import QuestionModel from "../models/QuestionModel.js";
 import QuestionPatternModel from "../models/QuestionPatternModel.js";
+import CollegeModel from "../models/CollegeModel.js";
 import { resolveTopics } from "../utils/topicMatcher.js";
 import { invalidatePrefix } from "../middleware/cache.js";
 
@@ -20,14 +21,53 @@ const markQuestionsAnalyzed = async (exam, versionLabel, subjectRef, boardRef, q
     await QuestionModel.updateMany(filter, { $set: { analyzed: true } });
 };
 
+const VALID_QUESTION_TYPES = ['board', 'testpaper', 'mockexam'];
+
 export const saveQuestionsInDb = async (req, res) => {
     try {
-        const { exam, examVersion, subject, board, division, data } = req.body;
+        const { exam, examVersion, subject, board, division, questionType, college, year, data } = req.body;
 
-        if (!exam || !examVersion || !Array.isArray(data) || data.length === 0) {
+        // examVersion is optional: board sets use versions (e.g. HSC years),
+        // while testpaper sets use College+year and mockexam sets use neither.
+        if (!exam || !Array.isArray(data) || data.length === 0) {
             return res.status(400).json({
                 message: "Invalid request"
             });
+        }
+
+        if (questionType !== undefined && questionType !== null && questionType !== '') {
+            if (!VALID_QUESTION_TYPES.includes(questionType)) {
+                return res.status(400).json({
+                    message: `Invalid questionType "${questionType}". Must be one of: ${VALID_QUESTION_TYPES.join(', ')}`
+                });
+            }
+        }
+
+        // Type-aware payload: board sets carry a board, testpaper sets carry a
+        // college (from the College master) + year, mockexam sets carry neither.
+        if (questionType === 'board' && !board) {
+            return res.status(400).json({ message: "Board is required for board question sets" });
+        }
+        if (questionType === 'testpaper') {
+            if (!college) {
+                return res.status(400).json({ message: "College is required for testpaper question sets" });
+            }
+            if (!mongoose.Types.ObjectId.isValid(college)) {
+                return res.status(400).json({ message: "Invalid college id" });
+            }
+            const collegeExists = await CollegeModel.findById(college);
+            if (!collegeExists) {
+                return res.status(400).json({ message: "Selected college does not exist" });
+            }
+        }
+        if (questionType === 'mockexam' && (board || college)) {
+            return res.status(400).json({ message: "Mockexam question sets must not have a board or college" });
+        }
+        if (year !== undefined && year !== null && year !== '') {
+            const yr = Number(year);
+            if (!Number.isInteger(yr) || yr < 1990 || yr > 2100) {
+                return res.status(400).json({ message: "Year must be a valid year (1990-2100)" });
+            }
         }
 
         // Prevent duplicate question numbers inside the same upload
@@ -44,12 +84,17 @@ export const saveQuestionsInDb = async (req, res) => {
         // Always create a new document — each scrape is a separate question set
         const createPayload = {
             exam,
-            examVersion,
             subject,
             data,
         };
+        if (examVersion) createPayload.examVersion = examVersion;
         if (board) createPayload.board = board;
         if (division) createPayload.division = division;
+        if (questionType) createPayload.questionType = questionType;
+        if (college) createPayload.college = college;
+        if (year !== undefined && year !== null && year !== '') {
+            createPayload.year = Number(year);
+        }
 
         const saved = await QuestionModel.create(createPayload);
 
@@ -73,6 +118,9 @@ const QUESTION_SUMMARY_PROJECTION = {
     subject: 1,
     board: 1,
     division: 1,
+    questionType: 1,
+    college: 1,
+    year: 1,
     analyzed: 1,
     createdAt: 1,
     updatedAt: 1,
@@ -80,13 +128,17 @@ const QUESTION_SUMMARY_PROJECTION = {
 
 export const getAllQuestions = async (req, res) => {
     try {
-        // Optional filters: exam / examVersion / subject / board
-        const { exam, examVersion, subject, board, include } = req.query;
+        // Optional filters: exam / examVersion / subject / board / questionType /
+        // college / year
+        const { exam, examVersion, subject, board, questionType, college, year, include } = req.query;
         const filter = {};
         if (exam) filter.exam = exam;
         if (examVersion) filter.examVersion = examVersion;
         if (subject) filter.subject = subject;
         if (board) filter.board = board;
+        if (questionType) filter.questionType = questionType;
+        if (college) filter.college = college;
+        if (year) filter.year = Number(year);
 
         // Legacy escape hatch: ?include=data returns full documents.
         // Prefer GET /questions/:questionId for a single full document.
@@ -110,6 +162,13 @@ export const getAllQuestions = async (req, res) => {
             }
         }
         if (filter.board !== undefined) match.board = filter.board;
+        if (filter.questionType !== undefined) match.questionType = filter.questionType;
+        if (filter.college !== undefined) {
+            match.college = mongoose.Types.ObjectId.isValid(filter.college)
+                ? new mongoose.Types.ObjectId(filter.college)
+                : filter.college;
+        }
+        if (filter.year !== undefined) match.year = filter.year;
 
         const questions = await QuestionModel.aggregate([
             { $match: match },
@@ -343,19 +402,37 @@ export const getQuestionPattern = async (req, res) => {
     }
 }
 
+const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const getQuestionsByExam = async (req, res) => {
   try {
     const { examId } = req.params;
-    const { versionId, board, subject } = req.query;
+    const { versionId, board, subject, questionType, college, year } = req.query;
     const filter = { exam: examId };
     if (versionId) filter.examVersion = versionId;
     if (board) filter.board = board;
-    if (subject) filter.subject = subject;
+    if (questionType) filter.questionType = questionType;
+    if (college) filter.college = college;
+    if (year) filter.year = Number(year);
+
+    if (subject) {
+      if (mongoose.Types.ObjectId.isValid(subject)) {
+        filter.subject = subject;
+      } else {
+        const normalized = String(subject).trim();
+        filter.$or = [
+          { subject: subject },
+          { 'data.subjectName': { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') } },
+          { 'data.subjectName': { $regex: new RegExp(`^${escapeRegex(normalized.toLowerCase().replace(/\s+/g, ' '))}$`, 'i') } },
+        ];
+      }
+    }
 
     const questions = await QuestionModel.find(filter)
       .populate('exam', 'name category')
       .populate('examVersion', 'examVersion')
-      .populate('subject', 'name');
+      .populate('subject', 'name')
+      .populate('college', 'name');
 
     res.status(200).json(questions);
   } catch (err) {

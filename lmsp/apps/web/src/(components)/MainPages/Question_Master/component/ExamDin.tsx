@@ -307,7 +307,8 @@ export default function ExamDin() {
       }
 
       const userId = user?._id;
-      if (!userId || !qItem._id || !examId || !examVersionId) return;
+      // examVersionId is optional — testpaper/mockexam sets have none.
+      if (!userId || !qItem._id || !examId) return;
 
       // Only persist the first selection per question
       if (postedRef.current.has(qId)) return;
@@ -359,7 +360,8 @@ export default function ExamDin() {
       }
 
       const userId = user?._id;
-      if (userId && examId && examVersionId) {
+      // examVersionId is optional — testpaper/mockexam sets have none.
+      if (userId && examId) {
         const answeredSubmissions = questions
           .map((q) => {
             const optIdx = selected[q.id];

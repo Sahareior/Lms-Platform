@@ -1,5 +1,6 @@
 import { useGetQuestionsByExamQuery, useGetMeQuery, useGetExamsQuery } from "@my-monorepo/store";
-import { useMemo, useState } from "react";
+import { QUESTION_TYPES, type QuestionType } from "@my-monorepo/store";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   FileText,
@@ -7,6 +8,8 @@ import {
   AlertCircle,
   Calendar,
   Layers,
+  Tag,
+  MapPin,
 } from "lucide-react";
 import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
 
@@ -27,19 +30,30 @@ export default function QuestionMaster() {
   const location = useLocation();
 
   const [selectedYear, setSelectedYear] = useState<string>("All");
+  // Filter by the source of the question set: board / testpaper / mockexam.
+  // Applied server-side via the ?questionType= query param — "All" sends no
+  // param so legacy sets saved before questionType existed stay visible.
+  const resolvedQuestionType = location.state?.questionType === undefined ? "All" : (location.state?.questionType || "All");
+  const [selectedQuestionType, setSelectedQuestionType] = useState<string>(resolvedQuestionType);
+  // Board filter (client-side): only shown when board-type sets exist.
+  const [selectedBoard, setSelectedBoard] = useState<string>("All");
 
   // Determine if we're on a child route (exam-din or question-view)
   const isChildRoute =
     location.pathname.includes("/exam-din") ||
     location.pathname.includes("/question-view");
 
-  // Fetch question sets for this exam category
+  // Fetch question sets for this exam category, filtered server-side by type.
   const {
     data: questionSets,
     isLoading,
     isError,
   } = useGetQuestionsByExamQuery(
-    { examId: examType!, subjectId },
+    {
+      examId: examType!,
+      subjectId,
+      questionType: selectedQuestionType === "All" ? '' : (selectedQuestionType as QuestionType),
+    },
     { skip: !examType }
   );
 
@@ -66,16 +80,27 @@ export default function QuestionMaster() {
     if (!questionSets || !Array.isArray(questionSets)) return [];
     if (!subjectId) return questionSets;
 
+    const normalizedSubjectId = decodeURIComponent(subjectId).trim().toLowerCase().replace(/\s+/g, " ");
+
     return questionSets.filter((set: any) => {
       const sub = set.subject;
-      if (!sub) return false;
       const sId = typeof sub === "object" ? sub._id : sub;
-      const sName = typeof sub === "object" ? sub.name : "";
+      const sName = typeof sub === "object" ? sub.name : (set.subjectName || "");
+      const subjectNames = new Set<string>([
+        sName,
+        set.subjectName,
+        ...(Array.isArray(set.data) ? set.data.map((q: any) => q?.subjectName).filter(Boolean) : []),
+      ].filter(Boolean).map((name: string) => name.trim()));
+
+      const normalizedNames = [...subjectNames].map((name) => name.toLowerCase().replace(/\s+/g, " "));
+
       return (
         sId === subjectId ||
         sId?.toString() === subjectId ||
-        sName === subjectId ||
-        encodeURIComponent(sName) === subjectId
+        sName?.toLowerCase().replace(/\s+/g, " ") === normalizedSubjectId ||
+        encodeURIComponent(sName || "") === subjectId ||
+        normalizedNames.includes(normalizedSubjectId) ||
+        [...subjectNames].some((name) => encodeURIComponent(name) === subjectId)
       );
     });
   }, [questionSets, subjectId]);
@@ -95,15 +120,26 @@ export default function QuestionMaster() {
     return subjectQuestionSets.map((set: any) => {
       const eName = set.exam?.name || examName || "Unknown Exam";
       const board = set?.board || "";
+      const questionType = set?.questionType || "";
+      const collegeName =
+        typeof set?.college === "object" ? set.college?.name : "";
+      const setYear = set?.year || "";
       const examId = set?.exam?._id || examType;
       const examVersionId = set?.examVersion?._id;
       const subId = set?.subject?._id || subjectId;
       const version = set.examVersion?.examVersion || "";
       const subject = set.subject?.name || currentSubjectName || "";
-      const title = `${board ? `${board} - ` : ""}${eName}${version ? ` (${version})` : ""}`;
+      // Board sets: "Dhaka - HSC (2023)"; testpaper sets: "Dhaka College 2024";
+      // mockexam sets: exam name only.
+      const title = collegeName
+        ? `${collegeName}${setYear ? ` ${setYear}` : ""}`
+        : `${board ? `${board} - ` : ""}${eName}${version ? ` (${version})` : ""}`;
       return {
         _id: set._id,
         board,
+        questionType,
+        collegeName,
+        year: setYear,
         title,
         examName: eName,
         version,
@@ -136,10 +172,69 @@ export default function QuestionMaster() {
     return Array.from(examYearBasedFilter).sort();
   }, [exams]);
 
+  // While a type filter is active, the server response only contains that one
+  // type — so the chip row is frozen from the last unfiltered load instead of
+  // being recomputed live (otherwise the other chips would disappear).
+  const [typeChips, setTypeChips] = useState<{ value: QuestionType; label: string }[]>([]);
+
+  useEffect(() => {
+    if (selectedQuestionType !== "All" || !subjectQuestionSets) return;
+    const types = new Set<string>();
+    subjectQuestionSets.forEach((set: any) => {
+      if (set.questionType) types.add(set.questionType);
+    });
+    const next = QUESTION_TYPES.filter((t) => types.has(t.value));
+    // Skip identical updates so refetches don't cause extra renders
+    setTypeChips((prev) =>
+      prev.length === next.length && prev.every((t, i) => t.value === next[i].value) ? prev : next
+    );
+  }, [subjectQuestionSets, selectedQuestionType]);
+
+  // Keep the chosen question type for the active subject, but reset when the
+  // route changes to a different exam/subject without a fresh selection.
+  useEffect(() => {
+    const nextType = location.state?.questionType === undefined ? "All" : (location.state?.questionType || "All");
+    setSelectedQuestionType(nextType);
+    setSelectedBoard("All");
+  }, [examType, subjectId, location.state?.questionType]);
+
+  useEffect(() => {
+    if (isChildRoute || !examType || !subjectId || location.state?.questionType !== undefined) return;
+    navigate(`/question-center/${examType}/${subjectId}/type`, {
+      replace: true,
+      state: {
+        subjectName: currentSubjectName,
+        examName,
+      },
+    });
+  }, [examType, subjectId, isChildRoute, location.state?.questionType, navigate, currentSubjectName, examName]);
+
+  // Reset board filter when switching away from the board type.
+  useEffect(() => {
+    if (selectedQuestionType !== "board") setSelectedBoard("All");
+  }, [selectedQuestionType]);
+
+  // Derive distinct board names present in the loaded sets.
+  const boardChips = useMemo(() => {
+    const seen = new Set<string>();
+    subjectQuestionSets.forEach((set: any) => {
+      if (set.board) seen.add(set.board);
+    });
+    return Array.from(seen).sort();
+  }, [subjectQuestionSets]);
+
   const filteredExams = useMemo(() => {
-    if (selectedYear === "All") return exams;
-    return exams.filter((exam: any) => exam.version === selectedYear);
-  }, [exams, selectedYear]);
+    let result = exams;
+    // Year filter (client-side)
+    if (selectedYear !== "All") {
+      result = result.filter((exam: any) => exam.version === selectedYear);
+    }
+    // Board filter (client-side) — only when board question type is selected
+    if (selectedBoard !== "All") {
+      result = result.filter((exam: any) => exam.board === selectedBoard);
+    }
+    return result;
+  }, [exams, selectedYear, selectedBoard]);
 
   // Accent colour for current category
   const accent = examType ? categoryAccent[examType] || "#9B51E0" : "#9B51E0";
@@ -232,6 +327,76 @@ export default function QuestionMaster() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-5 pb-24">
         
+        {/* Question Type Filter */}
+        {typeChips.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap pb-2 border-b border-[#23262D]/60">
+            <div className="flex items-center gap-1.5 text-xs text-[#A1A8B3] mr-2">
+              <Tag size={14} />
+              <span>Type:</span>
+            </div>
+            <button
+              onClick={() => setSelectedQuestionType("All")}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                selectedQuestionType === "All"
+                  ? "text-white"
+                  : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
+              }`}
+              style={selectedQuestionType === "All" ? { backgroundColor: accent } : {}}
+            >
+              All Types
+            </button>
+            {typeChips.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setSelectedQuestionType(value)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  selectedQuestionType === value
+                    ? "text-white"
+                    : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
+                }`}
+                style={selectedQuestionType === value ? { backgroundColor: accent } : {}}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Board Filter — visible when board question sets exist */}
+        {boardChips.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap pb-2 border-b border-[#23262D]/60">
+            <div className="flex items-center gap-1.5 text-xs text-[#A1A8B3] mr-2">
+              <MapPin size={14} />
+              <span>Board:</span>
+            </div>
+            <button
+              onClick={() => setSelectedBoard("All")}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                selectedBoard === "All"
+                  ? "text-white"
+                  : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
+              }`}
+              style={selectedBoard === "All" ? { backgroundColor: accent } : {}}
+            >
+              All Boards
+            </button>
+            {boardChips.map((board) => (
+              <button
+                key={board}
+                onClick={() => setSelectedBoard(board)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  selectedBoard === board
+                    ? "text-white"
+                    : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
+                }`}
+                style={selectedBoard === board ? { backgroundColor: accent } : {}}
+              >
+                {board}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Year Filter */}
         {examYearArray.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap pb-2 border-b border-[#23262D]/60">
@@ -290,7 +455,15 @@ export default function QuestionMaster() {
             >
               {/* Top Row */}
               <div className="flex justify-between items-center mb-3">
-                <p className="text-xs text-[#A1A8B3] font-medium">{exam.date}</p>
+                <div className="flex items-center gap-2">
+                  {exam.questionType && (
+                    <span className="bg-[#9B51E0]/10 text-[#9B51E0] border border-[#9B51E0]/30 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                      {QUESTION_TYPES.find((t) => t.value === exam.questionType)?.label ||
+                        exam.questionType}
+                    </span>
+                  )}
+                  <p className="text-xs text-[#A1A8B3] font-medium">{exam.date}</p>
+                </div>
                 <span className="bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 text-xs font-semibold px-3 py-0.5 rounded-full">
                   {exam.status}
                 </span>

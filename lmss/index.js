@@ -13,6 +13,7 @@ import module from './routes/module.js';
 import questions from './routes/questions.js';
 import examVer from './routes/examVersion.js';
 import subjectRoutes from './routes/subject.js';
+import collegeRoutes from './routes/colleges.js';
 import topicRoutes from './routes/topic.js';
 import scheduleExamRoutes from './routes/scheduleExam.js';
 import noteRoutes from './routes/note.js';
@@ -92,6 +93,7 @@ app.use('/module', module);
 app.use('/questions', questions)
 app.use('/exam-version',examVer)
 app.use('/subjects', subjectRoutes)
+app.use('/colleges', collegeRoutes)
 app.use('/topics', topicRoutes)
 app.use('/schedule-exams', scheduleExamRoutes)
 app.use('/notes', noteRoutes)
