@@ -9,8 +9,8 @@ import { getAuthToken } from './baseApi';
 
 // ─── Configuration State ───────────────────────────────────
 // Separate base URL for AI-specific endpoints (default port 5000).
-let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
-// let _aiBaseUrl = 'http://localhost:8000/';
+// let _aiBaseUrl = 'https://llm-backend-hfna.onrender.com/';
+let _aiBaseUrl = 'http://localhost:8000/';
 
 /**
  * Configure the AI API client.
@@ -21,9 +21,12 @@ export function configureAiApi(options: { baseUrl?: string }) {
 }
 
 // ─── Request / Response Types ───────────────────────────────
-/** Sent to the AI endpoint: { "question": "..." } */
+/** Sent to the AI endpoint: { "question": "...", "mode"?: "...", "topic"?: "...", "session_id"?: "..." } */
 export interface AiChatRequest {
   question: string;
+  mode?: string;
+  topic?: string;
+  session_id?: string;
 }
 
 /** Received from the AI endpoint: { "question": "...", "answer": "..." } */

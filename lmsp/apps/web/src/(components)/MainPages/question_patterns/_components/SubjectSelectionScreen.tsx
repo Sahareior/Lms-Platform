@@ -171,9 +171,7 @@ export default function SubjectSelectionScreen({
               <BookOpen size={18} className="text-[#00E5B3]" />
               <span>Available Subjects ({filteredSubjects.length})</span>
             </h2>
-            <span className="text-xs text-[#6B7280]">
-              Click any subject to view detailed year & board analysis
-            </span>
+         
           </div>
 
           {filteredSubjects.length === 0 ? (
