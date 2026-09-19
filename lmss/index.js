@@ -13,6 +13,7 @@ import module from './routes/module.js';
 import questions from './routes/questions.js';
 import examVer from './routes/examVersion.js';
 import subjectRoutes from './routes/subject.js';
+import collegeRoutes from './routes/colleges.js';
 import topicRoutes from './routes/topic.js';
 import scheduleExamRoutes from './routes/scheduleExam.js';
 import noteRoutes from './routes/note.js';
@@ -31,6 +32,7 @@ import favoriteRoutes from './routes/favorites.js';
 import statsRoutes from './routes/stats.js';
 import gamificationRoutes from './routes/gamification.js';
 import mistakeNotebookRoutes from './routes/mistakeNotebook.js';
+import studySectionRoutes from './routes/studySection.js';
 import { generalRateLimit } from './middleware/rateLimit.js';
 
 const app = express();
@@ -92,6 +94,7 @@ app.use('/module', module);
 app.use('/questions', questions)
 app.use('/exam-version',examVer)
 app.use('/subjects', subjectRoutes)
+app.use('/colleges', collegeRoutes)
 app.use('/topics', topicRoutes)
 app.use('/schedule-exams', scheduleExamRoutes)
 app.use('/notes', noteRoutes)
@@ -110,6 +113,7 @@ app.use('/favorites', favoriteRoutes);
 app.use('/stats', statsRoutes);
 app.use('/gamification', gamificationRoutes);
 app.use('/mistake-notebook', mistakeNotebookRoutes);
+app.use('/study-section', studySectionRoutes);
 
 // ─── 404 for unknown routes ─────────────────────────────────
 app.use((req, res) => {

@@ -52,10 +52,32 @@ const questionSchema = new mongoose.Schema(
             ref: "Exam",
             required: true,
         },
+        // Source of the questions: board questions (HSC board papers),
+        // testpaper questions (institution test papers) or mockexam questions.
+        questionType: {
+            type: String,
+            enum: ['board', 'testpaper', 'mockexam'],
+            default: null,
+        },
+        // questionType === 'board' → board name; 'testpaper' → College ref.
+        // Applicability is validated per type in saveQuestionsInDb.
+        college: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "College",
+            default: null,
+        },
+        // Admission/test year for testpaper sets (e.g. 2024).
+        year: {
+            type: Number,
+            default: null,
+        },
         examVersion: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "ExamVersion",
-            required: true,
+            // Optional: board sets use versions (e.g. HSC years), while
+            // testpaper sets use College+year and mockexam sets use neither.
+            required: false,
+            default: null,
         },
         subject: {
             type: mongoose.Schema.Types.ObjectId,
@@ -93,6 +115,19 @@ questionSchema.index({
     examVersion: 1,
     subject: 1,
     board: 1,
+});
+
+questionSchema.index({
+    exam: 1,
+    subject: 1,
+    questionType: 1,
+});
+
+questionSchema.index({
+    exam: 1,
+    subject: 1,
+    college: 1,
+    year: 1,
 });
 
 questionSchema.index({

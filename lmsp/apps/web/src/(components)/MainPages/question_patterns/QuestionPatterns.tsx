@@ -28,11 +28,13 @@ import {
 } from "./_components/AnalysisCharts";
 import { processAnalysis } from "./_components/patternUtils";
 import type { AnalysisData } from "./_components/patternUtils";
+import { useTheme } from "../../../theme/ThemeContext";
 
 /* ==================================================================
    MAIN QuestionPatterns COMPONENT
    ================================================================== */
 const QuestionPatterns = () => {
+  const { isDark } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const examId = searchParams.get("examId");
   const selectedSubjectId = searchParams.get("subjectId");
@@ -285,10 +287,10 @@ const QuestionPatterns = () => {
   if (!hasSubjectSelected) {
     if (isSubjectsLoading && subjectOptions.length === 0) {
       return (
-        <div className="flex-1 min-h-screen font-sans flex items-center justify-center bg-[#0B0D12]">
+        <div className={`flex-1 min-h-screen font-sans flex items-center justify-center ${isDark ? "bg-[#0B0D12]" : "bg-[#e8e4db]"}`}>
           <div className="text-center space-y-4">
-            <Loader2 size={32} className="animate-spin text-[#9B51E0] mx-auto" />
-            <p className="text-[#A1A8B3] font-medium">Loading subjects...</p>
+            <Loader2 size={32} className={`animate-spin mx-auto ${isDark ? "text-[#9B51E0]" : "text-[#b91c1c]"}`} />
+            <p className={isDark ? "text-[#A1A8B3] font-medium" : "text-[#4a4a4a] font-serif italic"}>Loading subjects...</p>
           </div>
         </div>
       );
@@ -309,10 +311,10 @@ const QuestionPatterns = () => {
   // ═══════════════════ STEP 3: PATTERN ANALYSIS LOADING ═══════════════════
   if ((isAnalysisLoading || isVersionsLoading) && !visibleAnalysis && !cachedAnalysis) {
     return (
-      <div className="flex-1 min-h-screen font-sans flex items-center justify-center bg-[#0B0D12]">
+      <div className={`flex-1 min-h-screen font-sans flex items-center justify-center ${isDark ? "bg-[#0B0D12]" : "bg-[#e8e4db]"}`}>
         <div className="text-center space-y-4">
-          <Loader2 size={32} className="animate-spin text-[#9B51E0] mx-auto" />
-          <p className="text-[#A1A8B3] font-medium">Analyzing question patterns...</p>
+          <Loader2 size={32} className={`animate-spin mx-auto ${isDark ? "text-[#9B51E0]" : "text-[#b91c1c]"}`} />
+          <p className={isDark ? "text-[#A1A8B3] font-medium" : "text-[#4a4a4a] font-serif italic"}>Analyzing question patterns...</p>
         </div>
       </div>
     );
@@ -321,23 +323,23 @@ const QuestionPatterns = () => {
   // ═══════════════════ ERROR / NO DATA ═══════════════════
   if (isAnalysisError && !visibleAnalysis && !processedData) {
     return (
-      <div className="flex-1 min-h-screen font-sans flex items-center justify-center bg-[#0B0D12]">
-        <div className="text-center max-w-md p-8 bg-[#111318] rounded-2xl border border-[#23262D]">
+      <div className={`flex-1 min-h-screen font-sans flex items-center justify-center ${isDark ? "bg-[#0B0D12]" : "bg-[#e8e4db]"}`}>
+        <div className={`text-center max-w-md p-8 rounded-2xl border ${isDark ? "bg-[#111318] border-[#23262D]" : "bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]"}`}>
           <div className="text-4xl mb-4">⚠️</div>
-          <h3 className="text-lg font-bold text-[#EB5757] mb-2">Unable to load analysis</h3>
-          <p className="text-[#A1A8B3] text-sm mb-4">
+          <h3 className={isDark ? "text-lg font-bold text-[#EB5757] mb-2" : "text-lg font-black text-[#b91c1c] mb-2 font-serif"}>Unable to load analysis</h3>
+          <p className={isDark ? "text-[#A1A8B3] text-sm mb-4" : "text-[#4a4a4a] text-sm mb-4 font-serif italic"}>
             No question patterns found for this selection. Try uploading a question paper or selecting another subject.
           </p>
           <div className="flex justify-center gap-3">
             <button
               onClick={handleBackToSubjectSelection}
-              className="inline-flex items-center gap-2 bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#1C1F26] transition-all"
+              className={isDark ? "inline-flex items-center gap-2 bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#1C1F26] transition-all" : "inline-flex items-center gap-2 bg-[#e8e4db] text-[#1a1a1a] border border-[#d8d4cb] px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#f7f3ec] transition-all font-serif"}
             >
               Choose Another Subject
             </button>
             <button
               onClick={handleClearExam}
-              className="inline-flex items-center gap-2 bg-[#9B51E0] text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#8A40CE] transition-all"
+              className={isDark ? "inline-flex items-center gap-2 bg-[#9B51E0] text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#8A40CE] transition-all" : "inline-flex items-center gap-2 bg-[#1a1a1a] text-[#f2efe9] px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#2a2a2a] transition-all shadow-[3px_3px_0px_0px_#b91c1c] font-serif"}
             >
               Change Exam
             </button>
@@ -359,22 +361,21 @@ const QuestionPatterns = () => {
 
   /* ═══════════════════ STEP 3: SUBJECT QUESTION PATTERN ANALYSIS ═══════════════════ */
   return (
-    <div className="flex-1 min-h-screen font-sans text-[#F5F7FA] bg-[#0B0D12]">
+    <div className={`flex-1 min-h-screen font-sans ${isDark ? "text-[#F5F7FA] bg-[#0B0D12]" : "text-[#1a1a1a] bg-[#e8e4db]"}`}>
       <div className="max-w-8xl mx-auto py-6 sm:px-3 space-y-7">
-        {/* ── TOP NAV: BREADCRUMBS & ACTIONS ── */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#23262D]/60 pb-4">
+        <div className={`flex flex-wrap items-center justify-between gap-3 border-b pb-4 ${isDark ? "border-[#23262D]/60" : "border-[#d8d4cb]"}`}>
           <div className="flex items-center gap-3">
             <button
               onClick={handleBackToSubjectSelection}
-              className="inline-flex items-center gap-2 text-xs font-bold text-[#A1A8B3] hover:text-[#F5F7FA] bg-[#161920] px-3.5 py-2 rounded-xl border border-[#23262D] hover:border-[#323742] transition-all group"
+              className={isDark ? "inline-flex items-center gap-2 text-xs font-bold text-[#A1A8B3] hover:text-[#F5F7FA] bg-[#161920] px-3.5 py-2 rounded-xl border border-[#23262D] hover:border-[#323742] transition-all group" : "inline-flex items-center gap-2 text-xs font-bold text-[#1a1a1a] hover:text-[#b91c1c] bg-[#f2efe9] px-3.5 py-2 rounded-xl border border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a] transition-all group font-serif"}
             >
-              <LayoutGrid size={14} className="text-[#00E5B3]" />
+              <LayoutGrid size={14} className={isDark ? "text-[#00E5B3]" : "text-[#1a1a1a]"} />
               <span>All Subjects</span>
             </button>
 
             <button
               onClick={handleClearExam}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#A1A8B3] transition-colors"
+              className={isDark ? "inline-flex items-center gap-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#A1A8B3] transition-colors" : "inline-flex items-center gap-1.5 text-xs font-semibold text-[#4a4a4a] hover:text-[#1a1a1a] transition-colors font-serif"}
             >
               <ArrowRight size={13} className="rotate-180" />
               <span>Change Exam</span>
@@ -383,21 +384,20 @@ const QuestionPatterns = () => {
 
           <div className="flex items-center gap-2">
             {currentExam && (
-              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#A1A8B3] bg-[#111318] px-3 py-1.5 rounded-xl border border-[#23262D]">
+              <div className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border ${isDark ? "text-[#A1A8B3] bg-[#111318] border-[#23262D]" : "text-[#1a1a1a] bg-[#f2efe9] border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a] font-serif"}`}>
                 <GraduationCap size={13} className="text-[#9B51E0]" />
                 <span>{currentExam.name}</span>
               </div>
             )}
 
             {selectedSubjectName && (
-              <div className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#00C8FF] bg-[#00C8FF]/10 px-3 py-1.5 rounded-xl border border-[#00C8FF]/30">
+              <div className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl border ${isDark ? "text-[#00C8FF] bg-[#00C8FF]/10 border-[#00C8FF]/30" : "text-[#1a1a1a] bg-[#e8e4db] border-[#d8d4cb] font-serif"}`}>
                 <span>{selectedSubjectName}</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* ═══════════ HERO HEADER ═══════════ */}
         <AnalysisHero
           examName={currentExam?.name || null}
           subjectName={selectedSubjectName}
@@ -407,14 +407,12 @@ const QuestionPatterns = () => {
           totalQuestions={totalQuestions}
         />
 
-        {/* ═══════════ STATS ═══════════ */}
         <AnalysisStats
           totalQuestions={totalQuestions}
           topicCount={topicCount}
           subjectCount={selectedSubjectName ? 1 : subjectCount}
         />
 
-        {/* ═══════════ HIERARCHICAL FILTERS (SUBJECT SWITCHER + YEAR & BOARD) ═══════════ */}
         <AnalysisFilters
           subjectOptions={subjectOptions}
           rawSubjects={broadProcessed?.raw?.subjects || raw.subjects}
@@ -430,7 +428,6 @@ const QuestionPatterns = () => {
           examName={currentExam?.name}
         />
 
-        {/* ═══════════ CHARTS ROW ═══════════ */}
         {totalQuestions > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <TopSubjectsChart topSubjects={topSubjects} totalQuestions={totalQuestions} />
@@ -442,36 +439,33 @@ const QuestionPatterns = () => {
             <FrequentTopicsChart topTopics={topTopics} raw={raw} />
           </div>
         ) : (
-          <div className="p-10 text-center bg-[#111318] rounded-2xl border border-[#23262D] space-y-4 max-w-xl mx-auto shadow-lg shadow-black/20">
-           
+          <div className={`p-10 text-center rounded-2xl border space-y-4 max-w-xl mx-auto ${isDark ? "bg-[#111318] border-[#23262D] shadow-lg shadow-black/20" : "bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]"}`}>
             <div className="space-y-1.5">
-              <h4 className="text-lg font-extrabold text-[#F5F7FA] tracking-tight">
+              <h4 className={isDark ? "text-lg font-extrabold text-[#F5F7FA] tracking-tight" : "text-lg font-black text-[#1a1a1a] tracking-tight font-serif"}>
                 Not Analyzed Yet
               </h4>
-              <p className="text-xs text-[#A1A8B3] max-w-md mx-auto leading-relaxed">
+              <p className={isDark ? "text-xs text-[#A1A8B3] max-w-md mx-auto leading-relaxed" : "text-xs text-[#4a4a4a] max-w-md mx-auto leading-relaxed font-serif italic"}>
                 No question paper patterns have been analyzed yet for{" "}
                 {selectedSubjectName ? (
-                  <span className="text-[#00C8FF] font-semibold">{selectedSubjectName}</span>
+                  <span className={isDark ? "text-[#00C8FF] font-semibold" : "text-[#1a1a1a] font-semibold"}>{selectedSubjectName}</span>
                 ) : (
                   "this subject"
                 )}
                 {currentVersion?.examVersion ? (
-                  <> in <span className="text-[#2F80ED] font-semibold">{currentVersion.examVersion}</span></>
+                  <> in <span className={isDark ? "text-[#2F80ED] font-semibold" : "text-[#1a1a1a] font-semibold"}>{currentVersion.examVersion}</span></>
                 ) : null}
                 {selectedBoard ? (
-                  <> (<span className="text-[#F2C94C] font-semibold">{selectedBoard} Board</span>)</>
+                  <> (<span className={isDark ? "text-[#F2C94C] font-semibold" : "text-[#b91c1c] font-semibold"}>{selectedBoard} Board</span>)</>
                 ) : null}.
               </p>
             </div>
-            <p className="text-[11px] text-[#6B7280]">
+            <p className={isDark ? "text-[11px] text-[#6B7280]" : "text-[11px] text-[#4a4a4a] font-serif italic"}>
               Upload and analyze question papers for this Year and Board to see topic breakdowns and frequent patterns.
             </p>
           </div>
         )}
 
-        {/* ═══════════ AI PREDICTED TOPICS ═══════════ */}
         <AiPredictTopic examId={examId} />
-
       </div>
     </div>
   );

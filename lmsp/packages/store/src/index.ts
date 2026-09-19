@@ -216,6 +216,15 @@ export type {
   SubjectByExam
 } from "./redux/api/examApi"
 
+// ─── RTK Query College API ────────────────────────────────
+export {
+  useGetCollegesQuery,
+  useCreateCollegeMutation,
+  useUpdateCollegeMutation,
+  useDeleteCollegeMutation,
+} from './redux/api/collegeApi';
+export type { College } from './redux/api/collegeApi';
+
 // ─── RTK Query AI Chat History API ─────────────────────────
 export {
   useGetAiChatHistoryQuery,
@@ -418,6 +427,34 @@ export type {
   QuizAttemptSummary,
 } from './redux/api/adminApi';
 
+// ─── RTK Query Study Section API (PDFs / Blog / Study Groups) ──
+export {
+  useGetStudyPdfsQuery,
+  useGetStudyPdfByIdQuery,
+  useCreateStudyPdfMutation,
+  useUpdateStudyPdfMutation,
+  useDeleteStudyPdfMutation,
+  useIncrementPdfDownloadMutation,
+  useGetBlogPostsQuery,
+  useGetBlogPostByIdQuery,
+  useCreateBlogPostMutation,
+  useUpdateBlogPostMutation,
+  useDeleteBlogPostMutation,
+  useGetStudyGroupLinksQuery,
+  useCreateStudyGroupLinkMutation,
+  useUpdateStudyGroupLinkMutation,
+  useDeleteStudyGroupLinkMutation,
+} from './redux/api/studyApi';
+export type {
+  StudyPdf,
+  BlogPost,
+  StudyGroupLink,
+  StudyGroupPlatform,
+  StudyPdfsResponse,
+  BlogPostsResponse,
+  StudyGroupLinksResponse,
+} from './redux/api/studyApi';
+
 // ─── Context Providers ──────────────────────────────────────
 export { SharedProviders } from './providers';
 export { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -432,6 +469,7 @@ export type {
   UIState,
   ExamCategory,
   BangladeshBoard,
+  QuestionType,
   RootState as AppRootState,
 } from './types';
-export { BANGLADESH_BOARDS } from './types';
+export { BANGLADESH_BOARDS, QUESTION_TYPES, getQuestionTypeLabel } from './types';

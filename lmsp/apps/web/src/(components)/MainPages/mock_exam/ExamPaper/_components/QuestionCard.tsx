@@ -3,6 +3,8 @@ import { CheckCircle, X, BarChart3 } from "lucide-react";
 import { getBengaliLetter } from "./quizTypes";
 import type { QuestionItem } from "./quizTypes";
 import FormattedQuestion from "./FormattedQuestion";
+import { useTheme } from "../../../../../theme/ThemeContext";
+
 
 interface QuestionCardProps {
   index: number;
@@ -12,13 +14,6 @@ interface QuestionCardProps {
   onSelect: (qIndex: number, oIndex: number) => void;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// QuestionCard: extracted + memoized so that selecting an answer on one
-// question does NOT re-render every other question on the page. This only
-// works because the parent passes a referentially-stable `onSelect`
-// callback (see handleAnswerSelect in QuizPreatise, which no longer depends
-// on `selectedAnswers`).
-// ─────────────────────────────────────────────────────────────────────────
 const QuestionCard = React.memo(function QuestionCard({
   index,
   item: q,
@@ -26,6 +21,8 @@ const QuestionCard = React.memo(function QuestionCard({
   isSubmitted,
   onSelect,
 }: QuestionCardProps) {
+  const { isDark } = useTheme();
+
   const isCorrect =
     isSubmitted && q.correctAnswer !== undefined && selected === q.correctAnswer;
   const isWrong =
@@ -35,6 +32,156 @@ const QuestionCard = React.memo(function QuestionCard({
     selected !== q.correctAnswer;
   const showCorrect = isSubmitted && q.correctAnswer !== undefined;
 
+  // ─── LIGHT MODE (Vintage Paper Style) ───────────────────────
+  if (!isDark) {
+    return (
+      <div
+        className={`bg-[#f2efe9] border rounded-lg p-6 transition-all duration-300 shadow-[3px_3px_0px_0px_#1a1a1a] ${
+          isSubmitted
+            ? isCorrect
+              ? "border-[#1a1a1a]"
+              : isWrong
+              ? "border-[#b91c1c]"
+              : "border-[#d8d4cb]"
+            : "border-[#d8d4cb] hover:shadow-[4px_4px_0px_0px_#1a1a1a] hover:-translate-y-0.5"
+        }`}
+        style={{
+          backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        {/* Question number and status */}
+        <div className="flex items-center gap-2 mb-5 relative z-10">
+          <span
+            className={`flex-shrink-0 w-7 h-7 rounded-full text-xs font-black flex items-center justify-center border-2 font-serif ${
+              isSubmitted && isCorrect
+                ? "bg-[#1a1a1a] text-[#f2efe9] border-[#1a1a1a]"
+                : isSubmitted && isWrong
+                ? "bg-[#b91c1c] text-[#f2efe9] border-[#b91c1c]"
+                : "bg-[#e0dcd5] text-[#1a1a1a] border-[#d8d4cb]"
+            }`}
+          >
+            {index + 1}
+          </span>
+          <span className="text-[10px] font-bold text-[#4a4a4a] uppercase tracking-widest bg-[#e0dcd5] px-2 py-0.5 rounded border border-[#d8d4cb] font-serif">
+            MCQ
+          </span>
+          {q.stats && q.stats.attempts > 0 && !isSubmitted && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border border-[#1a1a1a] bg-[#f2efe9] text-[#1a1a1a] font-serif">
+              <BarChart3 size={10} />
+              {q.stats.attempts}x &middot; {q.stats.successRate}%
+            </span>
+          )}
+          {showCorrect && (
+            <span
+              className={`text-[15px] font-black px-2 py-0.5 rounded border font-serif ${
+                isCorrect
+                  ? "text-[#1a1a1a] bg-[#f2efe9] border-[#1a1a1a]"
+                  : "text-[#b91c1c] bg-[#f2efe9] border-[#b91c1c]"
+              }`}
+            >
+              {isCorrect ? "✓ Correct" : `✗ Correct: ${getBengaliLetter(q.correctAnswer!)}`}
+            </span>
+          )}
+        </div>
+
+        <div className="text-[19px] font-medium leading-relaxed text-[#1a1a1a] mb-6 font-serif relative z-10">
+          <FormattedQuestion text={q.question} />
+        </div>
+
+        {/* Scenario / passage text */}
+        {q.scenarioText && (
+          <div className="mb-5 rounded-md border border-[#d8d4cb] bg-[#e0dcd5] p-4 shadow-[1px_1px_0px_0px_#1a1a1a] relative z-10">
+            <p className="text-xs font-black uppercase tracking-widest text-[#b91c1c] mb-2 font-serif">
+              Scenario / Passage
+            </p>
+            <p className="text-sm leading-relaxed text-[#1a1a1a] whitespace-pre-line font-serif">
+              {q.scenarioText}
+            </p>
+          </div>
+        )}
+
+        {/* Question image */}
+        {q.imageUrl && (
+          <div className="mb-5 relative z-10">
+            <img
+              src={q.imageUrl}
+              alt="Question diagram"
+              className="max-w-full max-h-72 object-contain rounded-md border border-[#d8d4cb] bg-[#e0dcd5] shadow-[2px_2px_0px_0px_#1a1a1a]"
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
+          {q.options.map((opt, optIndex) => {
+            const isSelected = selected === optIndex;
+            const isRightAnswer = showCorrect && q.correctAnswer === optIndex;
+            let optionStyle = "border-[#d8d4cb] bg-[#f2efe9] hover:shadow-[2px_2px_0px_0px_#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]";
+
+            if (isSubmitted) {
+              if (isRightAnswer) optionStyle = "border-[#1a1a1a] bg-[#f2efe9] shadow-[2px_2px_0px_0px_#1a1a1a]";
+              else if (isSelected && !isRightAnswer) optionStyle = "border-[#b91c1c] bg-[#f2efe9] shadow-[2px_2px_0px_0px_#b91c1c]";
+              else optionStyle = "border-[#d8d4cb] bg-[#f2efe9] opacity-60 shadow-[1px_1px_0px_0px_#d8d4cb]";
+            } else if (isSelected) {
+              optionStyle = "border-[#1a1a1a] bg-[#f2efe9] shadow-[2px_2px_0px_0px_#b91c1c]";
+            }
+
+            return (
+              <button
+                key={optIndex}
+                onClick={() => onSelect(index, optIndex)}
+                disabled={isSubmitted}
+                className={`group flex items-center gap-4 p-4 rounded-md border-2 transition-all duration-200 text-left ${optionStyle}`}
+              >
+                <div
+                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black border-2 transition-all font-serif ${
+                    isSubmitted && isRightAnswer
+                      ? "bg-[#1a1a1a] text-[#f2efe9] border-[#1a1a1a]"
+                      : isSubmitted && isSelected && !isRightAnswer
+                      ? "bg-[#b91c1c] text-[#f2efe9] border-[#b91c1c]"
+                      : isSelected
+                      ? "bg-[#1a1a1a] text-[#f2efe9] border-[#1a1a1a]"
+                      : "bg-[#e0dcd5] text-[#1a1a1a] border-[#d8d4cb] group-hover:border-[#1a1a1a]"
+                  }`}
+                >
+                  {getBengaliLetter(optIndex)}
+                </div>
+                <span
+                  className={`text-[15px] font-serif ${
+                    isSubmitted && isRightAnswer
+                      ? "text-[#1a1a1a] font-bold"
+                      : isSubmitted && isSelected && !isRightAnswer
+                      ? "text-[#b91c1c] font-bold"
+                      : isSelected
+                      ? "text-[#1a1a1a] font-bold"
+                      : "text-[#4a4a4a]"
+                  }`}
+                >
+                  {opt}
+                </span>
+                {isSubmitted && isRightAnswer && (
+                  <CheckCircle className="ml-auto text-[#1a1a1a] flex-shrink-0" size={20} />
+                )}
+                {isSubmitted && isSelected && !isRightAnswer && (
+                  <X className="ml-auto text-[#b91c1c] flex-shrink-0" size={20} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {selected !== undefined && !isSubmitted && (
+          <div className="mt-4 pt-3 border-t border-[#d8d4cb] flex justify-end relative z-10">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1a1a1a] bg-[#e0dcd5] px-3 py-1 rounded-full border border-[#1a1a1a] font-serif">
+              <CheckCircle size={12} /> উত্তর সংরক্ষিত
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div
       className={`bg-[#111318] border rounded-2xl p-6 transition-shadow duration-300 ${
@@ -47,7 +194,6 @@ const QuestionCard = React.memo(function QuestionCard({
           : "border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_15px_-5px_rgba(155,81,224,0.2)]"
       }`}
     >
-      {/* Question number and status */}
       <div className="flex items-center gap-2 mb-5">
         <span
           className={`flex-shrink-0 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center border ${
@@ -86,7 +232,6 @@ const QuestionCard = React.memo(function QuestionCard({
         <FormattedQuestion text={q.question} />
       </div>
 
-      {/* Scenario / passage text */}
       {q.scenarioText && (
         <div className="mb-5 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
           <p className="text-xs font-bold uppercase tracking-wider text-[#9B51E0] mb-2">
@@ -98,7 +243,6 @@ const QuestionCard = React.memo(function QuestionCard({
         </div>
       )}
 
-      {/* Question image */}
       {q.imageUrl && (
         <div className="mb-5">
           <img
@@ -108,8 +252,6 @@ const QuestionCard = React.memo(function QuestionCard({
           />
         </div>
       )}
-
-
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {q.options.map((opt, optIndex) => {

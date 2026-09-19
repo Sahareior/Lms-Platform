@@ -6,12 +6,103 @@ export default function DashboardHeader({
   greeting,
   dateStr,
   onAdminPanel,
+  isDark
 }: {
   user: any;
   greeting: string;
   dateStr: string;
   onAdminPanel: () => void;
+  isDark: boolean;
 }) {
+  // ─── LIGHT MODE (Exact Image Style) ────────────────────────
+  if (!isDark) {
+    return (
+      <div className="relative w-full overflow-hidden rounded-2xl bg-[#f2efe9] border border-[#e0dcd5] shadow-sm font-sans">
+        <div className="flex flex-col md:flex-row">
+          
+          {/* LEFT SIDE: Greeting & Quote */}
+          <div className="flex-1 p-6 md:p-10 flex flex-col justify-center">
+            {/* Greeting Line */}
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl md:text-5xl font-black text-[#1a1a1a] leading-tight font-serif">
+                {greeting},
+              </h1>
+              <span className="text-3xl md:text-4xl">👋</span>
+            </div>
+
+            {/* Name */}
+            <h2 className="text-3xl md:text-5xl font-black text-[#b91c1c] leading-tight mb-6 font-serif">
+              {user?.name || "Student"}!
+            </h2>
+
+            {/* Keep pushing forward */}
+            <p className="text-sm md:text-base font-bold text-[#1a1a1a] mb-1">
+              Keep pushing forward!
+            </p>
+
+            {/* Quote */}
+            <p className="text-xs md:text-sm text-[#4a4a4a] italic font-serif border-l-2 border-[#b91c1c] pl-3 max-w-md">
+              "A little progress each day adds up to big results."
+            </p>
+          </div>
+
+          {/* RIGHT SIDE: Illustration & Admin Panel */}
+          <div className="relative md:w-[48%] min-h-[220px] md:min-h-full bg-[#e8e4db] p-6 md:p-8 flex flex-col justify-between">
+            {/* Dotted Texture */}
+            <div 
+              className="absolute inset-0 opacity-20 pointer-events-none"
+              style={{ 
+                backgroundImage: 'radial-gradient(#1a1a1a 1px, transparent 1px)', 
+                backgroundSize: '10px 10px' 
+              }}
+            />
+
+            {/* Admin Panel Button (Top Right) */}
+            {user?.role === 'admin' && (
+              <div className="relative z-20 flex justify-end">
+                <button
+                  onClick={onAdminPanel}
+                  className="group inline-flex items-center gap-2 px-3 py-1.5 bg-[#f2efe9] border-2 border-[#1a1a1a] rounded-lg shadow-[4px_4px_0px_0px_#1a1a1a] hover:shadow-[2px_2px_0px_0px_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] transition-all duration-200"
+                >
+                  <Shield className="w-3.5 h-3.5 text-[#b91c1c]" />
+                  <div className="flex flex-col items-start text-left">
+                    <span className="text-[11px] font-bold text-[#1a1a1a] leading-none">Admin Panel</span>
+                    <span className="text-[9px] text-[#4a4a4a] font-medium uppercase tracking-wider leading-none mt-0.5">Manage Everything</span>
+                  </div>
+                  <ArrowRight className="w-3 h-3 text-[#b91c1c] group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
+            )}
+
+            {/* Center Illustration Text (Some Students Bigger Dreams) */}
+            <div className="relative z-10 flex-1 -ml-16 flex items-center justify-center">
+              <div className="text-start">
+                <p className="text-2xl md:text-3xl font-bold text-[#1a1a1a] font-serif leading-tight rotate-[-6deg]">
+                  Some<br/>
+                  Students<br/>
+                  Have <br />
+                  <span className="text-[#b91c1c]">Bigger</span><br/>
+                  Dreams.
+                </p>
+                {/* Red Underline */}
+                <div className="w-24 h-1 bg-[#b91c1c] mt-2 rotate-[-6deg] mx-auto rounded-full" />
+              </div>
+            </div>
+
+            {/* Date (Bottom Right) */}
+            <div className="relative z-20 flex justify-end mt-4">
+              <p className="text-[11px] text-[#000000] font-medium uppercase tracking-widest flex items-center gap-1.5">
+                <Calendar size={10} /> {dateStr}
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6 border-b border-[#23262D]">
       <div>

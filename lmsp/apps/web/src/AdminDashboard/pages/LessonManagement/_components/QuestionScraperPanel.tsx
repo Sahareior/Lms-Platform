@@ -1,6 +1,11 @@
-import { BookOpen, CheckCircle, FileSearch, Loader2, X, Zap } from 'lucide-react';
+import { BookOpen, CheckCircle, FileSearch, GraduationCap, Loader2, Plus, X, Zap } from 'lucide-react';
+import { useState } from 'react';
 import type { AdminExamVersion, AdminSubject } from '@my-monorepo/store';
 import { BANGLADESH_BOARDS, type BangladeshBoard } from '@my-monorepo/store';
+import { QUESTION_TYPES } from '@my-monorepo/store';
+import {
+  useCreateCollegeMutation,
+} from '@my-monorepo/store';
 import FileDropzone from './FileDropzone';
 import SectionCard from './SectionCard';
 
@@ -11,21 +16,37 @@ interface QuestionScraperPanelProps {
   selectVersion: string;
   selectSubject: string;
   selectBoard: string;
+  selectQuestionType: string;
+  selectCollege: string;
+  yearInput: string;
   scrapedQuestions: any[] | null;
   exams: Array<{ _id: string; name: string; category?: string }>;
   examVersions: AdminExamVersion[];
   subjects: AdminSubject[];
+  colleges: Array<{ _id: string; name: string }>;
   onFileSelect: (file: File) => void;
   onClearFile: () => void;
   onExamChange: (examId: string) => void;
   onVersionChange: (versionId: string) => void;
   onSubjectChange: (subjectId: string) => void;
   onBoardChange: (board: string) => void;
+  onQuestionTypeChange: (questionType: string) => void;
+  onCollegeChange: (collegeId: string) => void;
+  onYearChange: (year: string) => void;
   onScrape: () => void;
   onClearScraped: () => void;
 }
 
+const inputClasses = "w-full px-4 py-3 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64] font-medium";
+const disabledClasses = " disabled:opacity-50 disabled:cursor-not-allowed";
+const labelClasses = "block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5";
+
 // ─── Question Paper Scraper tab ─────────────────────────────
+// The form adapts to the selected question type:
+//   board     → Exam, Board, Exam Version, Subject
+//   testpaper → Exam, College (+ inline add), Year, Subject
+//   mockexam  → Exam, Subject                (no board / college / year / version)
+// Exam Version is only relevant to board sets (e.g. HSC year papers).
 export default function QuestionScraperPanel({
   scraperFile,
   isScraping,
@@ -33,16 +54,23 @@ export default function QuestionScraperPanel({
   selectVersion,
   selectSubject,
   selectBoard,
+  selectQuestionType,
+  selectCollege,
+  yearInput,
   scrapedQuestions,
   exams,
   examVersions,
   subjects,
+  colleges,
   onFileSelect,
   onClearFile,
   onExamChange,
   onVersionChange,
   onSubjectChange,
   onBoardChange,
+  onQuestionTypeChange,
+  onCollegeChange,
+  onYearChange,
   onScrape,
   onClearScraped,
 }: QuestionScraperPanelProps) {
@@ -54,6 +82,41 @@ export default function QuestionScraperPanel({
   // Check if the selected exam is academic (HSC)
   const selectedExam = exams?.find((e) => e._id === selectOptions);
   const isAcademicExam = selectedExam?.category === 'academic';
+
+  // Inline "add college" form (visible for testpaper type)
+  const [showCollegeForm, setShowCollegeForm] = useState(false);
+  const [newCollegeName, setNewCollegeName] = useState('');
+  const [createCollege, { isLoading: isCreatingCollege }] = useCreateCollegeMutation();
+
+  const handleAddCollege = async () => {
+    const name = newCollegeName.trim();
+    if (!name) return;
+    try {
+      const created = await createCollege({ name }).unwrap();
+      onCollegeChange(created._id);
+      setNewCollegeName('');
+      setShowCollegeForm(false);
+      // Surface success via the section hint
+      setCollegeAdded(true);
+      setTimeout(() => setCollegeAdded(false), 3000);
+    } catch {
+      // Duplicate name etc. — the select keeps its previous value; the admin
+      // can rename and retry. (Parent shows a toast for scrape errors.)
+      setCollegeError('Could not add college — it may already exist.');
+      setTimeout(() => setCollegeError(''), 4000);
+    }
+  };
+
+  const [collegeAdded, setCollegeAdded] = useState(false);
+  const [collegeError, setCollegeError] = useState('');
+
+  // Field visibility per question type
+  const isBoardType = selectQuestionType === 'board';
+  const isTestpaperType = selectQuestionType === 'testpaper';
+  const showBoard = isBoardType && isAcademicExam;
+  const showCollege = isTestpaperType;
+  const showYear = isTestpaperType;
+  const showVersion = isBoardType;
 
   return (
     <SectionCard
@@ -71,15 +134,34 @@ export default function QuestionScraperPanel({
           onClear={onClearFile}
         />
 
-        <div className={isAcademicExam ? 'grid grid-cols-1 sm:grid-cols-4 gap-4' : 'grid grid-cols-1 sm:grid-cols-3 gap-4'}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Question Type — drives which other fields appear */}
           <div>
-            <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
+            <label className={labelClasses}>
+              Question Type
+            </label>
+            <select
+              value={selectQuestionType}
+              onChange={(e) => onQuestionTypeChange(e.target.value)}
+              className={inputClasses}
+            >
+              <option value="">Select a type</option>
+              {QUESTION_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={labelClasses}>
               Exam
             </label>
             <select
               value={selectOptions}
               onChange={(e) => onExamChange(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64] font-medium"
+              className={inputClasses}
             >
               <option value="">Select an exam</option>
               {exams?.map(item => (
@@ -90,22 +172,22 @@ export default function QuestionScraperPanel({
             </select>
           </div>
 
-          {/* Board dropdown - only for academic (HSC) exams */}
-          {isAcademicExam && (
+          {/* Board dropdown — only for board-type academic (HSC) papers */}
+          {showBoard && (
             <div>
-              <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
+              <label className={labelClasses}>
                 Board
               </label>
               <select
                 value={selectBoard}
                 onChange={(e) => onBoardChange(e.target.value)}
                 disabled={!selectOptions}
-                className="w-full px-4 py-3 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className={inputClasses + disabledClasses}
               >
                 <option value="">
                   {selectOptions ? 'Select a board' : 'Select an exam first'}
                 </option>
-                {BANGLADESH_BOARDS.map((board) => (
+                {BANGLADESH_BOARDS.map((board: BangladeshBoard) => (
                   <option key={board} value={board}>
                     {board}
                   </option>
@@ -114,38 +196,143 @@ export default function QuestionScraperPanel({
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
-              Exam Version
-            </label>
-            <select
-              value={selectVersion}
-              onChange={(e) => onVersionChange(e.target.value)}
-              disabled={!selectOptions}
-              className="w-full px-4 py-3 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option value="">
-                {selectOptions ? 'Select a version' : 'Select an exam first'}
-              </option>
-              {examVersions
-                ?.filter((v: AdminExamVersion) => v.exam === selectOptions)
-                .map((v: AdminExamVersion) => (
-                  <option key={v._id} value={v._id}>
-                    {v.examVersion}
+          {/* College dropdown + inline add — only for testpaper papers */}
+          {showCollege && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-[#9BA8A0] uppercase tracking-wider">
+                  College
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowCollegeForm((v) => !v)}
+                  className="flex items-center gap-1 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  <Plus size={12} />
+                  Add
+                </button>
+              </div>
+              <select
+                value={selectCollege}
+                onChange={(e) => onCollegeChange(e.target.value)}
+                className={inputClasses}
+              >
+                <option value="">
+                  {colleges.length ? 'Select a college' : 'No colleges yet — use Add'}
+                </option>
+                {colleges.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name}
                   </option>
                 ))}
-            </select>
-          </div>
+              </select>
+
+              {showCollegeForm && (
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newCollegeName}
+                    onChange={(e) => setNewCollegeName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCollege();
+                      }
+                    }}
+                    placeholder="College name (e.g. Dhaka College)"
+                    className="flex-1 px-3 py-2 rounded-lg border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCollege}
+                    disabled={isCreatingCollege || !newCollegeName.trim()}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-[#04150B] text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCreatingCollege ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <GraduationCap size={14} />
+                    )}
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCollegeForm(false);
+                      setNewCollegeName('');
+                    }}
+                    className="p-2 rounded-lg text-[#9BA8A0] hover:text-[#E8F5EC] hover:bg-[#1A1A1A] transition-colors"
+                    title="Cancel"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
+              {collegeAdded && (
+                <p className="mt-1.5 text-xs font-semibold text-emerald-400">
+                  College added and selected ✓
+                </p>
+              )}
+              {collegeError && (
+                <p className="mt-1.5 text-xs font-semibold text-red-400">{collegeError}</p>
+              )}
+            </div>
+          )}
+
+          {/* Year input — only for testpaper papers */}
+          {showYear && (
+            <div>
+              <label className={labelClasses}>
+                Year
+              </label>
+              <input
+                type="number"
+                min={1990}
+                max={2100}
+                value={yearInput}
+                onChange={(e) => onYearChange(e.target.value)}
+                placeholder="e.g. 2024"
+                className={inputClasses}
+              />
+            </div>
+          )}
+
+          {/* Exam Version — board sets only (e.g. HSC year papers) */}
+          {showVersion && (
+            <div>
+              <label className={labelClasses}>
+                Exam Version
+              </label>
+              <select
+                value={selectVersion}
+                onChange={(e) => onVersionChange(e.target.value)}
+                disabled={!selectOptions}
+                className={inputClasses + disabledClasses}
+              >
+                <option value="">
+                  {selectOptions ? 'Select a version' : 'Select an exam first'}
+                </option>
+                {examVersions
+                  ?.filter((v: AdminExamVersion) => v.exam === selectOptions)
+                  .map((v: AdminExamVersion) => (
+                    <option key={v._id} value={v._id}>
+                      {v.examVersion}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           <div>
-            <label className="block text-xs font-bold text-[#9BA8A0] uppercase tracking-wider mb-1.5">
+            <label className={labelClasses}>
               Subject <span className="text-[#5F6B64] font-normal normal-case">(optional)</span>
             </label>
             <select
               value={selectSubject}
               onChange={(e) => onSubjectChange(e.target.value)}
               disabled={!selectOptions}
-              className="w-full px-4 py-3 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] text-sm text-[#E8F5EC] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all placeholder:text-[#5F6B64] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className={inputClasses + disabledClasses}
             >
               <option value="">
                 {selectOptions
@@ -178,9 +365,19 @@ export default function QuestionScraperPanel({
               The system will parse the uploaded question paper PDF, extract individual
               questions with their options, and store them in the question bank. Run the
               AI pattern analysis from the Question Bank (Analyze &amp; Save) on each set.
-              {isAcademicExam && (
+              {isBoardType && (
                 <span className="block mt-1 text-emerald-300/80 font-medium">
-                  📋 Academic exam detected — Board selection is required for HSC question papers.
+                  📋 Board questions — select the board and exam version for this HSC paper.
+                </span>
+              )}
+              {isTestpaperType && (
+                <span className="block mt-1 text-emerald-300/80 font-medium">
+                  🎓 Testpaper questions — pick (or add) the college and set the year.
+                </span>
+              )}
+              {selectQuestionType === 'mockexam' && (
+                <span className="block mt-1 text-emerald-300/80 font-medium">
+                  🧪 Mockexam questions — just exam and subject.
                 </span>
               )}
             </p>

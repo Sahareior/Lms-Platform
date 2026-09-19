@@ -6,6 +6,7 @@ import {
   Space,
   Typography,
   ConfigProvider,
+  theme as antdTheme,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -21,14 +22,19 @@ import {
   CalendarOutlined,
   BarChartOutlined,
   StarOutlined,
+  SunOutlined,
+  MoonOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { adminTheme } from './theme';
+import { ADMIN_COLORS } from './theme';
+import { AdminThemeProvider, useAdminTheme } from './ThemeContext';
 
 const { Header, Content, Sider } = Layout;
 const { Text } = Typography;
 
-const AdminDashboard: React.FC = () => {
+const AdminDashboardInner: React.FC = () => {
+  const { isDark, setTheme, toggleTheme } = useAdminTheme();
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,6 +50,10 @@ const AdminDashboard: React.FC = () => {
     if (path.includes('/admin/subjects')) return 'subjects';
     if (path.includes('/admin/exam-control')) return 'exam-control';
     if (path.includes('/admin/featured-exam')) return 'featured-exam';
+    if (path.includes('/admin/study-section')) {
+      const child = path.split('/').pop();
+      return ['study-section', child === 'new' || child === 'edit' ? 'blog-posts' : child];
+    }
     if (path.includes('/admin/user-performance')) return 'user-performance';
     return 'dashboard';
   };
@@ -104,6 +114,16 @@ const AdminDashboard: React.FC = () => {
       onClick: () => navigate('/admin/featured-exam'),
     },
     {
+      key: 'study-section',
+      icon: <AppstoreOutlined />,
+      label: 'Study Section',
+      children: [
+        { key: 'study-pdfs', label: 'Study PDFs', onClick: () => navigate('/admin/study-section/pdf') },
+        { key: 'blog-posts', label: 'Blog Posts', onClick: () => navigate('/admin/study-section/blog') },
+        { key: 'study-groups', label: 'Study Groups', onClick: () => navigate('/admin/study-section/groups') },
+      ],
+    },
+    {
       key: 'user-performance',
       icon: <BarChartOutlined />,
       label: 'User Performance',
@@ -117,9 +137,101 @@ const AdminDashboard: React.FC = () => {
 
   const selectedKey = getSelectedKey();
 
+  const sidebarBg = isDark ? '#000000' : '#f2efe9';
+  const sidebarBorder = isDark ? '#171717' : '#e0dcd5';
+  const layoutBg = isDark ? '#000000' : '#f2efe9';
+  const headerBg = isDark ? '#000000' : '#f2efe9';
+  const headerBorder = isDark ? '#171717' : '#e0dcd5';
+  const contentBg = isDark ? '#000000' : '#f2efe9';
+  const contentBorder = isDark ? '#171717' : '#e0dcd5';
+  const textPrimary = isDark ? '#E8F5EC' : '#1a1a1a';
+  const textSecondary = isDark ? '#9BA8A0' : '#4a4a4a';
+  const textMuted = isDark ? '#5F6B64' : '#7a7a7a';
+  const accentGreen = '#22C55E';
+  const accentGreenDim = '#14532D';
+  const accentRed = '#b91c1c';
+
+  const dynamicTheme = {
+    algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+    token: {
+      colorPrimary: accentGreen,
+      colorInfo: accentGreen,
+      colorSuccess: '#4ADE80',
+      colorBgBase: layoutBg,
+      colorBgContainer: isDark ? ADMIN_COLORS.bgContainer : '#f2efe9',
+      colorBgElevated: isDark ? ADMIN_COLORS.bgElevated : '#ffffff',
+      colorBorder: isDark ? ADMIN_COLORS.border : '#d8d4cb',
+      colorBorderSecondary: isDark ? ADMIN_COLORS.borderSubtle : '#e0dcd5',
+      colorText: textPrimary,
+      colorTextSecondary: textSecondary,
+      colorTextDescription: textSecondary,
+      colorTextDisabled: textMuted,
+      colorSplit: isDark ? ADMIN_COLORS.borderSubtle : '#e0dcd5',
+      borderRadius: 12,
+      fontFamily: "'Space Grotesk', 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    },
+    components: {
+      Layout: {
+        bodyBg: layoutBg,
+        headerBg: headerBg,
+        siderBg: sidebarBg,
+      },
+      Menu: {
+        darkItemBg: sidebarBg,
+        darkSubMenuItemBg: isDark ? ADMIN_COLORS.bgContainer : '#e8e4db',
+        darkItemColor: textSecondary,
+        darkItemHoverBg: isDark ? ADMIN_COLORS.bgHover : '#e8e4db',
+        darkItemHoverColor: textPrimary,
+        darkItemSelectedBg: accentGreenDim,
+        darkItemSelectedColor: '#4ADE80',
+        itemBorderRadius: 10,
+        itemMarginInline: 8,
+      },
+      Table: {
+        headerBg: isDark ? '#0F0F0F' : '#f2efe9',
+        headerColor: isDark ? '#4ADE80' : accentRed,
+        headerSplitColor: isDark ? ADMIN_COLORS.borderSubtle : '#d8d4cb',
+        rowHoverBg: isDark ? 'rgba(34, 197, 94, 0.06)' : 'rgba(185, 28, 28, 0.06)',
+        borderColor: isDark ? ADMIN_COLORS.borderSubtle : '#d8d4cb',
+        cellPaddingBlock: 12,
+      },
+      Button: {
+        primaryColor: isDark ? '#04150B' : '#f2efe9',
+        primaryShadow: isDark ? '0 6px 16px -4px rgba(34, 197, 94, 0.35)' : '0 6px 16px -4px rgba(185, 28, 28, 0.35)',
+        defaultBg: isDark ? ADMIN_COLORS.bgElevated : '#ffffff',
+        defaultBorderColor: isDark ? '#2A2A2A' : '#d8d4cb',
+        defaultColor: textPrimary,
+        defaultHoverBg: isDark ? ADMIN_COLORS.bgHover : '#e8e4db',
+        fontWeight: 500,
+      },
+      Modal: {
+        contentBg: isDark ? ADMIN_COLORS.bgElevated : '#ffffff',
+        headerBg: isDark ? ADMIN_COLORS.bgElevated : '#f2efe9',
+        titleColor: textPrimary,
+        titleFontSize: 17,
+      },
+      Card: { colorBgContainer: isDark ? ADMIN_COLORS.bgContainer : '#f2efe9' },
+      Select: {
+        optionSelectedBg: isDark ? 'rgba(34, 197, 94, 0.18)' : 'rgba(185, 28, 28, 0.18)',
+        optionSelectedColor: isDark ? '#4ADE80' : accentRed,
+      },
+      Input: { colorBgContainer: isDark ? '#0F0F0F' : '#ffffff' },
+      InputNumber: { colorBgContainer: isDark ? '#0F0F0F' : '#ffffff' },
+      DatePicker: { colorBgContainer: isDark ? '#0F0F0F' : '#ffffff' },
+      Tag: { defaultBg: isDark ? ADMIN_COLORS.bgElevated : '#e8e4db', defaultColor: textSecondary },
+      Spin: { colorPrimary: accentGreen },
+      Progress: { defaultColor: accentGreen },
+      Statistic: { contentFontSize: 30 },
+      Descriptions: {
+        labelBg: isDark ? '#0F0F0F' : '#f2efe9',
+      },
+      Popconfirm: { colorBgElevated: isDark ? ADMIN_COLORS.bgElevated : '#ffffff' },
+    },
+  };
+
   return (
-    <ConfigProvider theme={adminTheme}>
-      <Layout className="h-screen bg-black">
+    <ConfigProvider theme={dynamicTheme}>
+      <Layout className="h-screen" style={{ background: layoutBg }}>
         {/* Fixed sidebar */}
         <Sider
           trigger={null}
@@ -134,8 +246,8 @@ const AdminDashboard: React.FC = () => {
             top: 0,
             bottom: 0,
             zIndex: 100,
-            background: '#000000',
-            borderRight: '1px solid #171717',
+            background: sidebarBg,
+            borderRight: `1px solid ${sidebarBorder}`,
           }}
         >
           {/* Logo area */}
@@ -145,7 +257,7 @@ const AdminDashboard: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderBottom: '1px solid #171717',
+              borderBottom: `1px solid ${sidebarBorder}`,
               padding: '0 16px',
             }}
           >
@@ -155,7 +267,7 @@ const AdminDashboard: React.FC = () => {
                   width: 36,
                   height: 36,
                   borderRadius: 10,
-                  background: 'linear-gradient(135deg, #22C55E 0%, #14532D 100%)',
+                  background: `linear-gradient(135deg, ${accentGreen} 0%, ${accentGreenDim} 100%)`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -163,17 +275,17 @@ const AdminDashboard: React.FC = () => {
                   fontWeight: 700,
                   fontSize: 18,
                   flexShrink: 0,
-                  boxShadow: '0 0 18px -2px rgba(34, 197, 94, 0.45)',
+                  boxShadow: `0 0 18px -2px rgba(34, 197, 94, 0.45)`,
                 }}
               >
                 <SafetyOutlined />
               </div>
               {!collapsed && (
                 <div>
-                  <Text strong style={{ color: '#E8F5EC', fontSize: 16, display: 'block', lineHeight: 1.2 }}>
+                  <Text strong style={{ color: textPrimary, fontSize: 16, display: 'block', lineHeight: 1.2 }}>
                     Admin Panel
                   </Text>
-                  <Text style={{ color: '#5F6B64', fontSize: 11 }}>
+                  <Text style={{ color: textMuted, fontSize: 11 }}>
                     Management Dashboard
                   </Text>
                 </div>
@@ -201,7 +313,7 @@ const AdminDashboard: React.FC = () => {
               left: 0,
               right: 0,
               padding: '16px',
-              borderTop: '1px solid #171717',
+              borderTop: `1px solid ${sidebarBorder}`,
             }}
           >
             <Button
@@ -209,7 +321,7 @@ const AdminDashboard: React.FC = () => {
               icon={<ArrowLeftOutlined />}
               onClick={handleBackToApp}
               style={{
-                color: '#9BA8A0',
+                color: textSecondary,
                 width: '100%',
                 textAlign: 'left',
                 padding: '8px 16px',
@@ -226,19 +338,20 @@ const AdminDashboard: React.FC = () => {
           style={{
             marginLeft: collapsed ? 80 : 240,
             transition: 'margin-left 0.2s',
-            background: '#000000',
+            background: layoutBg,
             minHeight: '100vh',
           }}
         >
           {/* Header with menu toggle button */}
           <Header
             style={{
-              background: '#000000',
-              borderBottom: '1px solid #171717',
+              background: headerBg,
+              borderBottom: `1px solid ${headerBorder}`,
               padding: '0 16px',
               display: 'flex',
               alignItems: 'center',
               height: 64,
+              justifyContent: 'space-between',
             }}
           >
             <Button
@@ -246,7 +359,7 @@ const AdminDashboard: React.FC = () => {
               icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
               onClick={() => setCollapsed(!collapsed)}
               style={{
-                color: '#9BA8A0',
+                color: textSecondary,
                 fontSize: 16,
                 width: 40,
                 height: 40,
@@ -254,6 +367,21 @@ const AdminDashboard: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
+            />
+            <Button
+              type="text"
+              icon={isDark ? <SunOutlined /> : <MoonOutlined />}
+              onClick={toggleTheme}
+              style={{
+                color: textSecondary,
+                fontSize: 16,
+                width: 40,
+                height: 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             />
           </Header>
 
@@ -263,8 +391,8 @@ const AdminDashboard: React.FC = () => {
               data-scroll-container
               className="h-full overflow-y-auto border rounded-2xl p-1"
               style={{
-                background: '#000000',
-                borderColor: '#171717',
+                background: contentBg,
+                borderColor: contentBorder,
               }}
             >
               <Outlet />
@@ -273,6 +401,14 @@ const AdminDashboard: React.FC = () => {
         </Layout>
       </Layout>
     </ConfigProvider>
+  );
+};
+
+const AdminDashboard: React.FC = () => {
+  return (
+    <AdminThemeProvider>
+      <AdminDashboardInner />
+    </AdminThemeProvider>
   );
 };
 

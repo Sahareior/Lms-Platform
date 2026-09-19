@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { useCompleteLessonMutation, useGetCourseLessonsWithProgressQuery } from '@my-monorepo/store';
+
 import VideoPlayer from './VideoPlayer';
 import OverviewTab from './OverviewTab';
 import NotesTab from './NotesTab';
@@ -12,6 +13,7 @@ import ResourcesTab from './ResourcesTab';
 import CourseCurriculum from './CourseCurriculum';
 import ProgressCard from './ProgressCard';
 import CertificateModal from './CertificateModal';
+import { useTheme } from '../../../../theme/ThemeContext';
 
 interface CourseInfo {
   _id?: string;
@@ -32,6 +34,7 @@ interface LessonPlayerScreenProps {
 }
 
 export default function LessonPlayerScreen({ courseId, course, userId, onBack }: LessonPlayerScreenProps) {
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('overview');
   const [certificateOpen, setCertificateOpen] = useState(false);
 
@@ -105,38 +108,34 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
   ];
 
   return (
-    <div className="w-full text-[#F5F7FA] min-h-screen">
+    <div className={isDark ? 'w-full text-[#F5F7FA] min-h-screen' : 'w-full text-[#1a1a1a] min-h-screen'} style={isDark ? {} : { backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)', backgroundSize: '16px 16px' }}>
       {/* ────── TOP HEADER ────── */}
-      <header className="flex items-center justify-between w-full bg-[#111318] px-6 py-4 border-b border-[#23262D]">
+      <header className={isDark ? 'flex items-center justify-between w-full bg-[#111318] px-6 py-4 border-b border-[#23262D]' : 'flex items-center justify-between w-full bg-[#f2efe9] px-6 py-4 border-b border-[#d8d4cb]'}>
         <div className="flex items-center gap-3">
           <button 
             onClick={onBack} 
-            className="p-2 hover:bg-[#161920] rounded-xl transition-colors text-[#A1A8B3] hover:text-[#F5F7FA] border border-transparent hover:border-[#23262D]"
+            className={isDark ? 'p-2 hover:bg-[#161920] rounded-xl transition-colors text-[#A1A8B3] hover:text-[#F5F7FA] border border-transparent hover:border-[#23262D]' : 'p-2 hover:bg-[#e0dcd5] rounded-lg transition-colors text-[#4a4a4a] hover:text-[#1a1a1a] border border-[#d8d4cb]'}
           >
             <ArrowLeft size={18} />
           </button>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[#2F80ED]/10 border border-[#2F80ED]/30">
-              <BookOpen size={18} className="text-[#2F80ED]" />
+            <div className={isDark ? 'p-2 rounded-xl bg-[#2F80ED]/10 border border-[#2F80ED]/30' : 'p-2 rounded-lg bg-[#1a1a1a] border border-[#1a1a1a]'}>
+              <BookOpen size={18} className={isDark ? 'text-[#2F80ED]' : 'text-[#f2efe9]'} />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="font-bold text-sm text-[#F5F7FA]">{course?.title || 'Course'}</span>
-              <span className="text-[10px] text-[#A1A8B3]">Lesson {currentLessonIndex + 1} of {lessonsData.length}</span>
+              <span className={isDark ? 'font-bold text-sm text-[#F5F7FA]' : 'font-black text-sm text-[#1a1a1a] font-serif'}>{course?.title || 'Course'}</span>
+              <span className={isDark ? 'text-[10px] text-[#A1A8B3]' : 'text-[10px] text-[#4a4a4a] font-serif italic'}>Lesson {currentLessonIndex + 1} of {lessonsData.length}</span>
             </div>
           </div>
         </div>
         
-        {/* Breadcrumb Navigation */}
         <nav className="hidden md:flex items-center gap-2 text-xs">
-          <span className="text-[#A1A8B3]">{course?.category || course?.exam?.name || 'Course'}</span>
-          <ChevronRight size={12} className="text-[#6B7280]" />
-          <span className="text-[#2F80ED] font-semibold">Lesson {currentLessonIndex + 1}</span>
+          <span className={isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif'}>{course?.category || course?.exam?.name || 'Course'}</span>
+          <ChevronRight size={12} className={isDark ? 'text-[#6B7280]' : 'text-[#4a4a4a]'} />
+          <span className={isDark ? 'text-[#2F80ED] font-semibold' : 'text-[#b91c1c] font-black font-serif'}>Lesson {currentLessonIndex + 1}</span>
         </nav>
-
-
       </header>
 
-      {/* ────── MAIN CONTENT ────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-8xl p-2 mx-auto">
         {/* Left column: Video + Tabs + Tab Content */}
         <div className="lg:col-span-2 flex flex-col gap-6">
@@ -155,22 +154,20 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
           />
 
           {/* Lesson navigation + Tabs */}
-          <div className="flex flex-col gap-4 bg-[#111318] rounded-2xl p-5 border border-[#23262D]">
-            {/* Previous / Next Navigation */}
+          <div className={isDark ? 'flex flex-col gap-4 bg-[#111318] rounded-2xl p-5 border border-[#23262D]' : 'flex flex-col gap-4 bg-[#f2efe9] rounded-lg p-5 border border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a]'}>
             <div className="flex items-center justify-between">
               <button
                 onClick={() => currentLessonIndex > 0 && setCurrentLessonIndex(currentLessonIndex - 1)}
                 disabled={currentLessonIndex === 0}
-                className="flex items-center gap-1.5 text-xs font-semibold text-[#A1A8B3] hover:text-[#F5F7FA] disabled:opacity-40 transition px-3 py-1.5 rounded-lg hover:bg-[#161920] border border-transparent hover:border-[#23262D]"
+                className={isDark ? 'flex items-center gap-1.5 text-xs font-semibold text-[#A1A8B3] hover:text-[#F5F7FA] disabled:opacity-40 transition px-3 py-1.5 rounded-lg hover:bg-[#161920] border border-transparent hover:border-[#23262D]' : 'flex items-center gap-1.5 text-xs font-bold text-[#4a4a4a] disabled:opacity-40 transition px-3 py-1.5 rounded-md hover:bg-[#e0dcd5] border border-[#d8d4cb]'}
               >
                 <ChevronLeft size={14} />
                 <span>Previous</span>
               </button>
               
-              {/* Lesson Progress Dots */}
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[#F5F7FA]">
-                  {currentLessonIndex + 1} <span className="text-[#6B7280] font-medium">/ {lessonsData.length}</span>
+                <span className={isDark ? 'text-xs font-bold text-[#F5F7FA]' : 'text-xs font-black text-[#1a1a1a] font-serif'}>
+                  {currentLessonIndex + 1} <span className={isDark ? 'text-[#6B7280] font-medium' : 'text-[#4a4a4a] font-serif'}>/ {lessonsData.length}</span>
                 </span>
                 <div className="flex gap-1">
                   {lessonsData.map((_: any, idx: number) => (
@@ -178,10 +175,10 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
                       key={idx}
                       className={`w-5 h-1.5 rounded-full transition-all duration-300 ${
                         idx === currentLessonIndex
-                          ? 'bg-[#2F80ED] w-7'
+                          ? (isDark ? 'bg-[#2F80ED] w-7' : 'bg-[#b91c1c] w-7')
                           : idx < currentLessonIndex
-                            ? 'bg-[#00E5B3]/60'
-                            : 'bg-[#23262D]'
+                            ? (isDark ? 'bg-[#00E5B3]/60' : 'bg-[#1a1a1a]/60')
+                            : (isDark ? 'bg-[#23262D]' : 'bg-[#d8d4cb]')
                       }`}
                     />
                   ))}
@@ -191,15 +188,14 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
               <button
                 onClick={advanceToNextLesson}
                 disabled={currentLessonIndex === lessonsData.length - 1}
-                className="flex items-center gap-1.5 text-xs font-semibold bg-[#2F80ED] text-white px-4 py-1.5 rounded-lg hover:bg-[#256BCE] disabled:opacity-50 transition active:scale-[0.98]"
+                className={isDark ? 'flex items-center gap-1.5 text-xs font-semibold bg-[#2F80ED] text-white px-4 py-1.5 rounded-lg hover:bg-[#256BCE] disabled:opacity-50 transition active:scale-[0.98]' : 'flex items-center gap-1.5 text-xs font-black bg-[#1a1a1a] text-[#f2efe9] px-4 py-1.5 rounded-md hover:bg-[#2b2b2b] disabled:opacity-50 transition active:scale-[0.98] font-serif'}
               >
                 <span>Next</span>
                 <ChevronRight size={14} />
               </button>
             </div>
 
-            {/* Tabs */}
-            <div className="flex items-center gap-1 bg-[#161920] rounded-xl p-1 border border-[#23262D]">
+            <div className={isDark ? 'flex items-center gap-1 bg-[#161920] rounded-xl p-1 border border-[#23262D]' : 'flex items-center gap-1 bg-[#e0dcd5] rounded-md p-1 border border-[#d8d4cb]'}>
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.key;
@@ -209,8 +205,8 @@ export default function LessonPlayerScreen({ courseId, course, userId, onBack }:
                     onClick={() => setActiveTab(tab.key)}
                     className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
                       isActive
-                        ? 'bg-[#2F80ED] text-white shadow-sm'
-                        : 'text-[#A1A8B3] hover:text-[#F5F7FA] hover:bg-[#111318]'
+                        ? (isDark ? 'bg-[#2F80ED] text-white shadow-sm' : 'bg-[#1a1a1a] text-[#f2efe9] shadow-[2px_2px_0px_0px_#b91c1c]')
+                        : (isDark ? 'text-[#A1A8B3] hover:text-[#F5F7FA] hover:bg-[#111318]' : 'text-[#4a4a4a] hover:text-[#1a1a1a] hover:bg-[#d8d4cb]')
                     }`}
                   >
                     <Icon size={13} />

@@ -10,6 +10,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { chatSessionManager } from './chatSessionManager';
+import { useTheme } from '../../../theme/ThemeContext';
 
 type ChatMessage = {
    id: string;
@@ -25,13 +26,8 @@ type StreamingState = {
    isComplete: boolean;
 };
 
-// Number of history messages loaded per scroll-pagination page.
 const HISTORY_PAGE_SIZE = 30;
 
-// ── Cross-mount history cache ─────────────────────────────────────
-// Module-level so it survives route changes without refetching. It holds
-// only the newest page (the same one the mount effect would load), which is
-// exactly what the user sees when returning to this route.
 interface CachedChatHistory {
    userId: string | null;
    messages: ChatMessage[];
@@ -40,7 +36,6 @@ interface CachedChatHistory {
 }
 let chatHistoryCache: CachedChatHistory | null = null;
 
-/** Append an AI reply to the cache (used when a reply lands while the chat is unmounted). */
 function appendAiToCache(text: string) {
    if (!chatHistoryCache) return;
    chatHistoryCache.messages = [
@@ -67,40 +62,24 @@ const AIChatInterface = () => {
    const [streaming, setStreaming] = useState<StreamingState | null>(null);
    const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
    const wordsQueueRef = useRef<string[]>([]);
-   // Ref attached to the streaming bubble so we can scroll it into view on start
    const streamingBubbleRef = useRef<HTMLDivElement | null>(null);
-
-   // In-flight AI response state (synced with cross-route chatSessionManager)
+   const { theme, isDark, setTheme, toggleTheme } = useTheme();
    const [isAiThinking, setIsAiThinking] = useState(() => chatSessionManager.isActive());
    const handledInFlightIdRef = useRef<string | null>(null);
 
-   // ── Chat history (persisted per user on the backend) ────────────
    const userId = useAppSelector((state) => state.user.user?._id);
    const [hasMore, setHasMore] = useState(false);
    const [nextCursor, setNextCursor] = useState<string | null>(null);
-   // Guard so history is only fetched once per mount (not twice in StrictMode).
    const historyLoadedRef = useRef(false);
-   // When false, the auto-scroll effect leaves the position alone (used while
-   // prepending older messages so the user doesn't get yanked around).
    const autoScrollRef = useRef(true);
    const scrollAnchorRef = useRef(0);
    const scrollHeightBeforeRef = useRef(0);
 
-   // ── Mobile keyboard handling ──────────────────────────────────────────────
-   // iOS Safari overlays the virtual keyboard on top of the page and ignores
-   // `100dvh`, so an absolutely-positioned composer gets hidden behind it.
-   // The VisualViewport API is the only signal that reports the keyboard on
-   // every mobile browser, so we lift the composer by the keyboard height.
-   // (On Android, `interactive-widget=resizes-content` + `100dvh` already
-   // resize the layout, so this offset stays at 0 there.)
    useEffect(() => {
       const vv = window.visualViewport;
       if (!vv) return;
       const updateKbOffset = () => {
          const diff = Math.max(0, window.innerHeight - vv.height);
-         // Only lift the composer while the input is focused AND the visual
-         // viewport shrank by a keyboard-sized amount (ignore the address
-         // bar / browser chrome, which is ~<100px).
          const keyboardOpen = document.activeElement === inputRef.current && diff > 100;
          setKbOffset(keyboardOpen ? diff : 0);
       };
@@ -129,8 +108,6 @@ const AIChatInterface = () => {
       time: formatTime(m.createdAt),
    });
 
-   // Merge the active in-flight user message into a loaded page if the DB
-   // hasn't returned it yet (shared by cache-restore and fresh-fetch paths).
    const withInFlightUserMessage = (loaded: ChatMessage[]): ChatMessage[] => {
       const active = chatSessionManager.getActiveState();
       if (active && (active.status === 'pending' || active.status === 'success')) {
@@ -154,7 +131,6 @@ const AIChatInterface = () => {
       return loaded;
    };
 
-   // ── Resume pending question (e.g. if page reloaded on an unanswered query) ──
    const resumePendingQuestion = async (question: string) => {
       if (chatSessionManager.isActive()) return;
       setIsAiThinking(true);
@@ -165,8 +141,6 @@ const AIChatInterface = () => {
             userMessageTime: createTimestamp(),
             sendChat: () => sendChatMessage({ question }).unwrap(),
             saveAiMessage: async (aiText) => {
-               // Mirror into the cross-mount cache in case the reply lands
-               // after this component has unmounted.
                appendAiToCache(aiText);
                await saveMessages({
                   messages: [{ sender: 'ai', text: aiText }],
@@ -178,7 +152,6 @@ const AIChatInterface = () => {
       }
    };
 
-   // ── Subscribe to cross-route in-flight AI manager ────────────────
    useEffect(() => {
       const unsubscribe = chatSessionManager.subscribe((state) => {
          if (!state) {
@@ -195,9 +168,6 @@ const AIChatInterface = () => {
                         m.id === state.userMessageId ||
                         (m.sender === 'user' && m.text === state.question)
                   ) ||
-                  // Mid-restore on remount: component state is still empty but
-                  // the cache holds the history; the restore effect merges the
-                  // pending message via withInFlightUserMessage — skip here.
                   (prev.length === 0 && !!chatHistoryCache?.messages.length)
                ) {
                   return prev;
@@ -214,9 +184,6 @@ const AIChatInterface = () => {
             });
          } else if (state.status === 'success' || state.status === 'error') {
             setIsAiThinking(false);
-            // If the reply was persisted into the cross-mount cache while the
-            // chat was unmounted, the restored history already shows it —
-            // don't stream (and double-commit) it again.
             const alreadyRestored =
                !!state.aiText &&
                !!chatHistoryCache?.messages.some((m) => m.sender === 'ai' && m.text === state.aiText);
@@ -238,16 +205,13 @@ const AIChatInterface = () => {
       };
    }, []);
 
-   // ── Load the most recent page of history on mount ────────────────
    useEffect(() => {
       if (!userId) return;
 
-      // New login/session → drop any cache from a previous user.
       if (chatHistoryCache && chatHistoryCache.userId !== userId) {
          chatHistoryCache = null;
       }
 
-      // Returning visit → restore instantly, no network round-trip.
       if (chatHistoryCache) {
          setMessages(withInFlightUserMessage(chatHistoryCache.messages));
          setHasMore(chatHistoryCache.hasMore);
@@ -255,7 +219,6 @@ const AIChatInterface = () => {
          return;
       }
 
-      // First visit (or after user switch) → fetch the newest page.
       if (historyLoadedRef.current) return;
       historyLoadedRef.current = true;
       fetchHistory({ limit: HISTORY_PAGE_SIZE })
@@ -267,7 +230,6 @@ const AIChatInterface = () => {
 
             loaded = withInFlightUserMessage(loaded);
 
-            // Populate the cross-mount cache so revisits skip the fetch.
             chatHistoryCache = {
                userId,
                messages: loaded,
@@ -277,20 +239,16 @@ const AIChatInterface = () => {
 
             setMessages(loaded);
 
-            // If history loaded and the last message is an unanswered user query, resume it
             const lastMsg = loaded[loaded.length - 1];
             if (lastMsg && lastMsg.sender === 'user' && !chatSessionManager.isActive()) {
                resumePendingQuestion(lastMsg.text);
             }
          })
          .catch(() => {
-            // History failed to load – start with an empty chat; the user
-            // can still send messages and history reloads on next visit.
             historyLoadedRef.current = false;
          });
    }, [userId, fetchHistory]);
 
-   // Auto-scroll when AI thinking starts
    useEffect(() => {
       if (isAiThinking) {
          requestAnimationFrame(() => {
@@ -302,8 +260,6 @@ const AIChatInterface = () => {
       }
    }, [isAiThinking]);
 
-   // Auto-scroll to the bottom when new messages arrive (but NOT while
-   // prepending older history pages – see handleScroll).
    useEffect(() => {
       const container = chatContainerRef.current;
       if (container && autoScrollRef.current) {
@@ -311,16 +267,11 @@ const AIChatInterface = () => {
       }
    }, [messages]);
 
-   // setMessages wrapper that keeps the cross-mount cache in lockstep with
-   // component state, so a remount can restore exactly what was on screen.
    const setMessagesSynced = (
       updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])
    ) => {
       setMessages((prev) => {
          const next = typeof updater === 'function' ? updater(prev) : updater;
-         // Guard: if component state is empty but the cache holds a fuller
-         // history (mid-restore on remount), a write here would clobber the
-         // cache with an incomplete list — leave the cache alone instead.
          if (
             chatHistoryCache &&
             prev.length === 0 &&
@@ -337,9 +288,7 @@ const AIChatInterface = () => {
       setMessagesSynced((prev) => [...prev, message]);
    };
 
-   // ── Typewriter streaming effect ───────────────────────────────────
    const startStreaming = (id: string, fullText: string, time: string) => {
-      // Clear any in-progress stream
       if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
 
       const words = fullText.split(' ');
@@ -347,17 +296,14 @@ const AIChatInterface = () => {
       let wordIndex = 0;
 
       setStreaming({ id, displayText: '', fullText, isComplete: false });
-      // Don't auto-scroll during streaming — we'll scroll to the bubble top instead
       autoScrollRef.current = false;
 
-      // Scroll the new AI bubble into view (top of bubble) after React renders it
       requestAnimationFrame(() => {
          requestAnimationFrame(() => {
             streamingBubbleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
          });
       });
 
-      // Reveal 1 word at a time at a comfortable reading pace
       const WORDS_PER_TICK = 1;
       const INTERVAL_MS = 40;
 
@@ -368,12 +314,9 @@ const AIChatInterface = () => {
 
          setStreaming({ id, displayText: done ? fullText : slice, fullText, isComplete: done });
 
-         // No forced scroll — user is free to read at their own pace
-
          if (done) {
             if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
             streamIntervalRef.current = null;
-            // Commit the finished message into the permanent list
             setMessagesSynced((prev) => [
                ...prev,
                { id, sender: 'ai', text: fullText, time },
@@ -383,14 +326,11 @@ const AIChatInterface = () => {
       }, INTERVAL_MS);
    };
 
-   // ── Scroll to the top → load an older page of history ────────────
    const handleScroll = () => {
       const container = chatContainerRef.current;
       if (!container || isHistoryLoading || !hasMore || !nextCursor) return;
       if (container.scrollTop > 60) return;
 
-      // Remember the anchor so the viewport stays put when older messages
-      // are prepended above the current content.
       scrollAnchorRef.current = container.scrollTop;
       scrollHeightBeforeRef.current = container.scrollHeight;
       autoScrollRef.current = false;
@@ -413,9 +353,7 @@ const AIChatInterface = () => {
                }
             });
          })
-         .catch(() => {
-            // Ignore – the user can scroll up again to retry.
-         });
+         .catch(() => {});
    };
 
    const handleSend = async () => {
@@ -435,15 +373,12 @@ const AIChatInterface = () => {
       setInputText('');
       autoScrollRef.current = true;
 
-      // 1. Immediately persist the user message so it survives route navigation
       saveMessages({
          messages: [{ sender: 'user', text: question }],
       }).catch((err) => {
          console.error('Failed to immediately save user message:', err);
       });
 
-      // 2. Launch through chatSessionManager so if user navigates away,
-      // the request completes in the background and saves the AI response.
       try {
          await chatSessionManager.start({
             question,
@@ -451,8 +386,6 @@ const AIChatInterface = () => {
             userMessageTime: userTime,
             sendChat: () => sendChatMessage({ question }).unwrap(),
             saveAiMessage: async (aiText) => {
-               // Mirror into the cross-mount cache in case the reply lands
-               // after this component has unmounted.
                appendAiToCache(aiText);
                await saveMessages({
                   messages: [{ sender: 'ai', text: aiText }],
@@ -464,72 +397,133 @@ const AIChatInterface = () => {
       }
    };
 
-   return (
-      <div className="w-full md:h-[calc(100dvh-40px)] h-full bg-[#0B0D12] text-[#F5F7FA] font-sans overflow-hidden">
-         {/* ================= MAIN CARD =======z========== */}
-         <main className="w-full min-h-0 flex flex-col h-full bg-[#111318] rounded-2xl border border-[#23262D] shadow-[0_0_20px_-5px_rgba(0,229,179,0.15)] relative overflow-hidden">
+   // ─── LIGHT MODE THEME TOKENS ────────────────────────────────
+   const lightClasses = {
+      outerBg: "bg-[#e8e4db]",
+      mainCard: "bg-[#f2efe9] border-[#d8d4cb] shadow-[4px_4px_0px_0px_#1a1a1a]",
+      header: "border-[#d8d4cb] bg-[#f2efe9]",
+      headerIcon: "bg-[#1a1a1a] border-[#1a1a1a]",
+      headerIconInner: "text-[#f2efe9]",
+      headerTitle: "text-[#1a1a1a] font-serif font-black",
+      headerStatus: "text-[#4a4a4a] font-serif italic",
+      statusDot: "bg-[#b91c1c]",
+      chatArea: "bg-[#ede9e1]",
+      dateLabel: "text-[#4a4a4a] font-serif",
+      emptyState: "border-[#d8d4cb] bg-[#f2efe9] text-[#4a4a4a] font-serif italic",
+      userBubble: "bg-[#1a1a1a] text-[#f2efe9] border-[#1a1a1a] shadow-[2px_2px_0px_0px_#b91c1c]",
+      aiBubble: "bg-[#f2efe9] border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a]",
+      aiHeaderDivider: "border-[#d8d4cb]",
+      aiBadge: "bg-[#1a1a1a] border-[#1a1a1a] text-[#f2efe9]",
+      aiName: "text-[#1a1a1a] font-serif font-bold",
+      aiText: "text-[#1a1a1a] font-serif",
+      userText: "text-[#f2efe9] font-serif",
+      timestamp: "text-[#6B7280] font-serif italic",
+      timestampUser: "text-[#f2efe9]/60 font-serif",
+      thinkingBubble: "bg-[#f2efe9] border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a]",
+      thinkingDot: "bg-[#b91c1c]",
+      thinkingText: "text-[#4a4a4a] font-serif italic",
+      footer: "bg-[#f2efe9] border-[#d8d4cb]",
+      input: "bg-[#f2efe9] border-[#d8d4cb] focus:border-[#b91c1c] focus:ring-[#b91c1c]/30 text-[#1a1a1a] placeholder-[#6B7280] font-serif shadow-[2px_2px_0px_0px_#1a1a1a]",
+      moreBtn: "text-[#4a4a4a] hover:text-[#1a1a1a]",
+      sendBtn: "bg-[#1a1a1a] hover:bg-[#333] text-[#f2efe9] shadow-[2px_2px_0px_0px_#b91c1c] hover:shadow-[3px_3px_0px_0px_#b91c1c]",
+      sendBtnDisabled: "bg-[#e0dcd5] text-[#6B7280]",
+      loadingText: "text-[#4a4a4a] font-serif italic",
+   };
 
+   const darkClasses = {
+      outerBg: "bg-[#0B0D12] text-[#F5F7FA]",
+      mainCard: "bg-[#111318] border-[#23262D] shadow-[0_0_20px_-5px_rgba(0,229,179,0.15)]",
+      header: "border-[#23262D] bg-[#111318]",
+      headerIcon: "bg-[#00E5B3]/10 border-[#00E5B3]/30",
+      headerIconInner: "text-[#00E5B3]",
+      headerTitle: "text-[#F5F7FA]",
+      headerStatus: "text-[#A1A8B3]",
+      statusDot: "bg-[#00E5B3]",
+      chatArea: "bg-[#0E1016]",
+      dateLabel: "text-[#6B7280]",
+      emptyState: "border-[#323742] bg-[#161920] text-[#A1A8B3]",
+      userBubble: "bg-[#065f46] text-white",
+      aiBubble: "bg-[#161920] border-[#23262D]",
+      aiHeaderDivider: "border-[#23262D]",
+      aiBadge: "bg-[#00E5B3]/10 border-[#00E5B3]/30 text-[#00E5B3]",
+      aiName: "text-[#F5F7FA]",
+      aiText: "text-white",
+      userText: "text-white",
+      timestamp: "text-[#6B7280]",
+      timestampUser: "text-white/60",
+      thinkingBubble: "bg-[#161920] border-[#23262D]",
+      thinkingDot: "bg-[#00E5B3]",
+      thinkingText: "text-[#A1A8B3]",
+      footer: "bg-[#111318] border-[#23262D]",
+      input: "bg-[#161920] border-[#23262D] focus:border-[#00E5B3] focus:ring-[#00E5B3]/30 text-[#F5F7FA] placeholder-[#6B7280]",
+      moreBtn: "text-[#A1A8B3] hover:text-[#F5F7FA]",
+      sendBtn: "bg-[#00E5B3] hover:bg-[#00C298] text-black",
+      sendBtnDisabled: "bg-[#23262D] text-[#6B7280]",
+      loadingText: "text-[#6B7280]",
+   };
+
+   const c = isDark ? darkClasses : lightClasses;
+
+   // Markdown renderer — adapts colors based on theme
+   const markdownComponents = {
+      h1: ({node, ref, ...props}: any) => <h1 className={`text-2xl font-bold mb-4 ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif'}`} {...props} />,
+      h2: ({node, ref, ...props}: any) => <h2 className={`text-xl font-bold mt-6 mb-3 ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif'}`} {...props} />,
+      h3: ({node, ref, ...props}: any) => <h3 className={`text-lg font-bold mt-4 mb-2 ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif'}`} {...props} />,
+      p: ({node, ref, ...props}: any) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
+      ul: ({node, ref, ...props}: any) => <ul className="list-disc pl-5 mb-4 space-y-2" {...props} />,
+      ol: ({node, ref, ...props}: any) => <ol className="list-decimal pl-5 mb-4 space-y-2" {...props} />,
+      li: ({node, ref, ...props}: any) => <li className="leading-relaxed" {...props} />,
+      a: ({node, ref, ...props}: any) => <a className={isDark ? "text-[#00E5B3] hover:underline" : "text-[#b91c1c] hover:underline font-bold"} {...props} />,
+      strong: ({node, ref, ...props}: any) => <strong className={`font-bold ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a]'}`} {...props} />,
+      code: ({node, ref, className, children, ...props}: any) => {
+         return <code className={`${isDark ? 'bg-[#1C1F26] text-[#00E5B3]' : 'bg-[#e0dcd5] text-[#b91c1c] border border-[#d8d4cb]'} px-1.5 py-0.5 rounded text-sm font-mono ${className || ''}`} {...props}>{children}</code>;
+      },
+      pre: ({node, ref, children, ...props}: any) => {
+         return <pre className={`block ${isDark ? 'bg-[#0B0D12] border-[#23262D]' : 'bg-[#e0dcd5] border-[#d8d4cb]'} p-4 rounded-lg text-sm font-mono overflow-x-auto my-3 border`} {...props}>{children}</pre>;
+      },
+      table: ({node, ref, ...props}: any) => <div className="overflow-x-auto my-4"><table className="w-full text-left border-collapse" {...props} /></div>,
+      th: ({node, ref, ...props}: any) => <th className={`border-b ${isDark ? 'border-[#23262D] text-[#F5F7FA]' : 'border-[#d8d4cb] text-[#1a1a1a] font-serif'} pb-2 font-semibold`} {...props} />,
+      td: ({node, ref, ...props}: any) => <td className={`border-b ${isDark ? 'border-[#23262D]' : 'border-[#d8d4cb]'} py-2`} {...props} />,
+   };
+
+   return (
+      <div className={`w-full md:h-[calc(100dvh-40px)] h-full font-sans overflow-hidden ${c.outerBg}`}>
+         <main className={`w-full min-h-0 flex flex-col h-full rounded-2xl border relative overflow-hidden ${c.mainCard}`}>
             {/* --- Header --- */}
-            <header className="border-b border-[#23262D] p-5 bg-[#111318] flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-10">
+            <header className={`border-b md:p-4 p-1  flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-10 ${c.header}`}>
                <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-full bg-[#00E5B3]/10 border border-[#00E5B3]/30 flex items-center justify-center flex-shrink-0">
-                     <Bot size={20} className="text-[#00E5B3]" />
+                  <div className={`w-10 h-10 rounded-full border flex items-center justify-center flex-shrink-0 ${c.headerIcon}`}>
+                     <Bot size={20} className={c.headerIconInner} />
                   </div>
                   <div>
-                     <h2 className="text-base font-extrabold text-[#F5F7FA] tracking-tight">AI Assistant</h2>
-                     <div className="flex flex-wrap items-center gap-2 text-xs mt-0.5">
-                        <span className="w-2 h-2 rounded-full bg-[#00E5B3] animate-pulse"></span>
-                        <span className="text-[#A1A8B3] font-semibold">Online </span>
-                        {/* <span className="px-2 py-0.5 border border-[#00E5B3]/30 bg-[#00E5B3]/10 text-[#00E5B3] rounded-full font-bold text-[10px]">
-                           BCS Syllabus Trained
-                        </span> */}
+                     <h2 className={`text-base font-extrabold tracking-tight ${c.headerTitle}`}>AI Assistant</h2>
+                     <div className={`flex flex-wrap items-center gap-2 text-xs mt-0.5 ${c.headerStatus}`}>
+                        <span className={`w-2 h-2 rounded-full animate-pulse ${c.statusDot}`}></span>
+                        <span className="font-semibold">Online</span>
                      </div>
                   </div>
                </div>
-               <div className="flex items-center gap-2">
-                  {/* <button className="text-xs font-bold flex items-center gap-1.5 px-3.5 py-2 text-[#A1A8B3] border border-[#23262D] rounded-xl hover:bg-[#161920] hover:text-[#F5F7FA] transition active:scale-95">
-                     <Download size={14} /> Export Chat
-                  </button> */}
-                  {/* <button className="text-xs font-bold flex items-center gap-1.5 px-3.5 py-2 text-[#A1A8B3] border border-[#23262D] rounded-xl hover:bg-[#161920] hover:text-[#F5F7FA] transition active:scale-95">
-                     <Settings size={14} /> Settings
-                  </button> */}
-               </div>
             </header>
-
-            {/* --- Exam Context Bar --- */}
-            {/* <div className="bg-[#161920] border-b border-[#23262D] text-white px-5 py-3 flex justify-between items-center text-xs">
-               <div className="flex items-center gap-2 flex-wrap">
-                  <div className="w-2 h-2 rounded-full bg-[#00E5B3]"></div>
-                  <span className="text-[#A1A8B3] font-bold uppercase tracking-wider text-[9px]">Context:</span>
-                  <span className="font-bold text-[#F5F7FA]">BCS 45th Preliminary</span>
-                  <span className="text-[#6B7280] font-bold">•</span>
-                  <span className="text-[#A1A8B3] font-medium">Bangla Literature</span>
-               </div>
-               <button className="flex items-center gap-1 text-[#00E5B3] hover:text-[#00C298] font-bold transition text-[11px]">
-                  Change <ChevronRight size={13} />
-               </button>
-            </div> */}
 
             {/* --- Chat Area --- */}
             <div
                ref={chatContainerRef}
                onScroll={handleScroll}
-               className="flex-1 min-h-0 overflow-y-auto p-5 md:p-6 bg-[#0E1016] space-y-6"
+               className={`flex-1 min-h-0 overflow-y-auto p-1 space-y-6 ${c.chatArea}`}
                style={{ paddingBottom: `calc(10rem + ${kbOffset}px)` }}
             >
-               <div className="text-center text-[10px] text-[#6B7280] font-bold uppercase tracking-wider">{date.toDateString()}</div>
+               <div className={`text-center text-[10px] font-bold uppercase tracking-wider ${c.dateLabel}`}>{date.toDateString()}</div>
 
-               {/* Loading older messages (scroll pagination) */}
                {isHistoryLoading && messages.length > 0 && (
                   <div className="flex justify-center">
-                     <span className="text-[10px] text-[#6B7280] font-bold uppercase tracking-wider animate-pulse">
+                     <span className={`text-[10px] font-bold uppercase tracking-wider animate-pulse ${c.loadingText}`}>
                         Loading earlier messages...
                      </span>
                   </div>
                )}
 
                {messages.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-[#323742] bg-[#161920] p-10 text-center text-[#A1A8B3]">
+                  <div className={`rounded-3xl border border-dashed p-10 text-center ${c.emptyState}`}>
                      {isHistoryLoading ? 'Loading chat history...' : 'Ask a question to start the chat.'}
                   </div>
                ) : (
@@ -538,53 +532,31 @@ const AIChatInterface = () => {
                         <div
                            className={`max-w-[95%] ${
                               message.sender === 'user'
-                                 ? 'md:max-w-[70%] bg-[#065f46] text-white rounded-2xl rounded-tr-sm'
-                                 : 'md:max-w-[85%] bg-[#161920] border border-[#23262D] rounded-2xl'
+                                 ? `md:max-w-[70%] rounded-2xl rounded-tr-sm ${c.userBubble}`
+                                 : `md:max-w-[85%] rounded-2xl ${c.aiBubble}`
                            } p-4`}
                         >
                            {message.sender === 'ai' && (
-                              <div className="flex items-center gap-2 mb-2 pb-2.5 border-b border-[#23262D]">
-                                 <div className="w-6 h-6 bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-full flex items-center justify-center text-[10px] font-extrabold text-[#00E5B3]">
+                              <div className={`flex items-center gap-2 mb-2 pb-2.5 border-b ${c.aiHeaderDivider}`}>
+                                 <div className={`w-6 h-6 border rounded-full flex items-center justify-center text-[10px] font-extrabold ${c.aiBadge}`}>
                                     AI
                                  </div>
-                                 <span className="text-xs font-bold text-[#F5F7FA]">AI Assistant</span>
+                                 <span className={`text-xs font-bold ${c.aiName}`}>AI Assistant</span>
                               </div>
                            )}
                            {message.sender === 'user' && (
-                              <p className="md:text-[19px] text-[16px] text-white leading-relaxed font-medium">
+                              <p className={`md:text-[19px] text-[16px] leading-relaxed font-medium ${c.userText}`}>
                                  {message.text}
                               </p>
                            )}
                            {message.sender === 'ai' && (
-                              <div className="md:text-[19px] text-[16px] leading-relaxed text-white font-medium w-full break-words">
-                                 <ReactMarkdown
-                                    remarkPlugins={[remarkGfm]}
-                                    components={{
-                                       h1: ({node, ref, ...props}: any) => <h1 className="text-2xl font-bold mb-4 text-[#F5F7FA]" {...props} />,
-                                       h2: ({node, ref, ...props}: any) => <h2 className="text-xl font-bold mt-6 mb-3 text-[#F5F7FA]" {...props} />,
-                                       h3: ({node, ref, ...props}: any) => <h3 className="text-lg font-bold mt-4 mb-2 text-[#F5F7FA]" {...props} />,
-                                       p: ({node, ref, ...props}: any) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
-                                       ul: ({node, ref, ...props}: any) => <ul className="list-disc pl-5 mb-4 space-y-2" {...props} />,
-                                       ol: ({node, ref, ...props}: any) => <ol className="list-decimal pl-5 mb-4 space-y-2" {...props} />,
-                                       li: ({node, ref, ...props}: any) => <li className="leading-relaxed" {...props} />,
-                                       a: ({node, ref, ...props}: any) => <a className="text-[#00E5B3] hover:underline" {...props} />,
-                                       strong: ({node, ref, ...props}: any) => <strong className="font-bold text-[#F5F7FA]" {...props} />,
-                                       code: ({node, ref, className, children, ...props}: any) => {
-                                          return <code className={`bg-[#1C1F26] px-1.5 py-0.5 rounded text-sm text-[#00E5B3] font-mono ${className || ''}`} {...props}>{children}</code>;
-                                       },
-                                       pre: ({node, ref, children, ...props}: any) => {
-                                          return <pre className="block bg-[#0B0D12] p-4 rounded-lg text-sm font-mono overflow-x-auto my-3 border border-[#23262D]" {...props}>{children}</pre>;
-                                       },
-                                       table: ({node, ref, ...props}: any) => <div className="overflow-x-auto my-4"><table className="w-full text-left border-collapse" {...props} /></div>,
-                                       th: ({node, ref, ...props}: any) => <th className="border-b border-[#23262D] pb-2 font-semibold text-[#F5F7FA]" {...props} />,
-                                       td: ({node, ref, ...props}: any) => <td className="border-b border-[#23262D] py-2" {...props} />,
-                                    }}
-                                 >
+                              <div className={`md:text-[19px] text-[16px] leading-relaxed w-full break-words ${c.aiText}`}>
+                                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                                     {message.text}
                                  </ReactMarkdown>
                               </div>
                            )}
-                           <div className={`mt-2 text-[10px] ${message.sender === 'user' ? 'text-white/60 text-right' : 'text-[#6B7280] text-left'} font-medium`}>
+                           <div className={`mt-2 text-[10px] font-medium ${message.sender === 'user' ? `text-right ${c.timestampUser}` : `text-left ${c.timestamp}`}`}>
                               {message.time}
                            </div>
                         </div>
@@ -595,58 +567,35 @@ const AIChatInterface = () => {
                {/* Streaming (typewriter) AI bubble */}
                {streaming && (
                   <div ref={streamingBubbleRef} className="flex justify-start">
-                     <div className="max-w-[95%] md:max-w-[85%] bg-[#161920] border border-[#23262D] rounded-2xl p-4">
-                        <div className="flex items-center gap-2 mb-2 pb-2.5 border-b border-[#23262D]">
-                           <div className="w-6 h-6 bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-full flex items-center justify-center text-[10px] font-extrabold text-[#00E5B3]">
+                     <div className={`max-w-[95%] md:max-w-[85%] rounded-2xl p-4 ${c.aiBubble}`}>
+                        <div className={`flex items-center gap-2 mb-2 pb-2.5 border-b ${c.aiHeaderDivider}`}>
+                           <div className={`w-6 h-6 border rounded-full flex items-center justify-center text-[10px] font-extrabold ${c.aiBadge}`}>
                               AI
                            </div>
-                           <span className="text-xs font-bold text-[#F5F7FA]">AI Assistant</span>
+                           <span className={`text-xs font-bold ${c.aiName}`}>AI Assistant</span>
                         </div>
-                        <div className="md:text-[19px] text-[16px] leading-relaxed text-white font-medium w-full break-words">
-                           <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                 h1: ({node, ref, ...props}: any) => <h1 className="text-2xl font-bold mb-4 text-[#F5F7FA]" {...props} />,
-                                 h2: ({node, ref, ...props}: any) => <h2 className="text-xl font-bold mt-6 mb-3 text-[#F5F7FA]" {...props} />,
-                                 h3: ({node, ref, ...props}: any) => <h3 className="text-lg font-bold mt-4 mb-2 text-[#F5F7FA]" {...props} />,
-                                 p: ({node, ref, ...props}: any) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
-                                 ul: ({node, ref, ...props}: any) => <ul className="list-disc pl-5 mb-4 space-y-2" {...props} />,
-                                 ol: ({node, ref, ...props}: any) => <ol className="list-decimal pl-5 mb-4 space-y-2" {...props} />,
-                                 li: ({node, ref, ...props}: any) => <li className="leading-relaxed" {...props} />,
-                                 a: ({node, ref, ...props}: any) => <a className="text-[#00E5B3] hover:underline" {...props} />,
-                                 strong: ({node, ref, ...props}: any) => <strong className="font-bold text-[#F5F7FA]" {...props} />,
-                                 code: ({node, ref, className, children, ...props}: any) => {
-                                    return <code className={`bg-[#1C1F26] px-1.5 py-0.5 rounded text-sm text-[#00E5B3] font-mono ${className || ''}`} {...props}>{children}</code>;
-                                 },
-                                 pre: ({node, ref, children, ...props}: any) => {
-                                    return <pre className="block bg-[#0B0D12] p-4 rounded-lg text-sm font-mono overflow-x-auto my-3 border border-[#23262D]" {...props}>{children}</pre>;
-                                 },
-                                 table: ({node, ref, ...props}: any) => <div className="overflow-x-auto my-4"><table className="w-full text-left border-collapse" {...props} /></div>,
-                                 th: ({node, ref, ...props}: any) => <th className="border-b border-[#23262D] pb-2 font-semibold text-[#F5F7FA]" {...props} />,
-                                 td: ({node, ref, ...props}: any) => <td className="border-b border-[#23262D] py-2" {...props} />,
-                              }}
-                           >
+                        <div className={`md:text-[19px] text-[16px] leading-relaxed w-full break-words ${c.aiText}`}>
+                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                               {streaming.displayText}
                            </ReactMarkdown>
-                           {/* Blinking cursor while streaming */}
                            {!streaming.isComplete && (
-                              <span className="inline-block w-0.5 h-4 bg-[#00E5B3] ml-0.5 animate-pulse align-middle" />
+                              <span className={`inline-block w-0.5 h-4 ml-0.5 animate-pulse align-middle ${isDark ? 'bg-[#00E5B3]' : 'bg-[#b91c1c]'}`} />
                            )}
                         </div>
                      </div>
                   </div>
                )}
 
-               {/* Thinking dots — shown while waiting for the API, not during streaming */}
+               {/* Thinking dots */}
                {(isLoading || isAiThinking) && !streaming && (
                   <div className="flex justify-start">
-                     <div className="bg-[#161920] border border-[#23262D] rounded-2xl p-4 flex items-center gap-3">
+                     <div className={`rounded-2xl p-4 flex items-center gap-3 ${c.thinkingBubble}`}>
                         <div className="flex gap-1.5">
-                           <span className="w-1.5 h-1.5 bg-[#00E5B3] rounded-full animate-bounce"></span>
-                           <span className="w-1.5 h-1.5 bg-[#00E5B3] rounded-full animate-bounce delay-100"></span>
-                           <span className="w-1.5 h-1.5 bg-[#00E5B3] rounded-full animate-bounce delay-200"></span>
+                           <span className={`w-1.5 h-1.5 rounded-full animate-bounce ${c.thinkingDot}`}></span>
+                           <span className={`w-1.5 h-1.5 rounded-full animate-bounce delay-100 ${c.thinkingDot}`}></span>
+                           <span className={`w-1.5 h-1.5 rounded-full animate-bounce delay-200 ${c.thinkingDot}`}></span>
                         </div>
-                        <span className="text-xs text-[#A1A8B3] font-bold">AI is preparing an answer...</span>
+                        <span className={`text-xs font-bold ${c.thinkingText}`}>AI is preparing an answer...</span>
                      </div>
                   </div>
                )}
@@ -654,32 +603,9 @@ const AIChatInterface = () => {
 
             {/* --- Footer Input Area --- */}
             <div
-               className={`${kbOffset > 0 ? 'fixed' : 'absolute'} left-0 right-0 bg-[#111318] border-t border-[#23262D] p-4 pb-6 z-10 rounded-b-2xl`}
+               className={`${kbOffset > 0 ? 'fixed' : 'absolute'} left-0 right-0 border-t p-4 pb-6 z-10 rounded-b-2xl ${c.footer}`}
                style={{ bottom: 0 }}
             >
-               {/* Suggestion Chips */}
-               {/* <div
-                  onClick={() => setHidden((prev) => !prev)}
-                  className={`flex gap-2 overflow-x-auto pb-2 mb-3.5 hide-scrollbar ${hidden ? 'hidden' : ''}`}
-               >
-                  <button className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold border border-[#23262D] bg-[#161920] rounded-full px-3.5 py-2 hover:bg-[#1C1F26] hover:text-[#F5F7FA] text-[#A1A8B3] transition active:scale-95">
-                     <Lightbulb size={13} className="text-[#00E5B3]" /> Explain simply
-                  </button>
-                  <button className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold border border-[#23262D] bg-[#161920] rounded-full px-3.5 py-2 hover:bg-[#1C1F26] hover:text-[#F5F7FA] text-[#A1A8B3] transition active:scale-95">
-                     <FileText size={13} className="text-[#00E5B3]" /> 10 MCQs
-                  </button>
-                  <button className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold border border-[#23262D] bg-[#161920] rounded-full px-3.5 py-2 hover:bg-[#1C1F26] hover:text-[#F5F7FA] text-[#A1A8B3] transition active:scale-95">
-                     <Play size={13} className="text-[#00E5B3]" /> Most repeated
-                  </button>
-                  <button className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold border border-[#23262D] bg-[#161920] rounded-full px-3.5 py-2 hover:bg-[#1C1F26] hover:text-[#F5F7FA] text-[#A1A8B3] transition active:scale-95">
-                     <Calendar size={13} className="text-[#00E5B3]" /> Study plan
-                  </button>
-                  <button className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold border border-[#23262D] bg-[#161920] rounded-full px-3.5 py-2 hover:bg-[#1C1F26] hover:text-[#F5F7FA] text-[#A1A8B3] transition active:scale-95">
-                     <CheckCircle size={13} className="text-[#00E5B3]" /> Weak area
-                  </button>
-               </div> */}
-
-               {/* Input Field */}
                <div className="flex items-center gap-3 relative">
                   <input
                      ref={inputRef}
@@ -697,17 +623,21 @@ const AIChatInterface = () => {
                         }
                      }}
                      placeholder="Ask anything about your exam..."
-                     className="w-full pl-5 pr-20 py-3.5 bg-[#161920] border border-[#23262D] rounded-xl focus:outline-none focus:border-[#00E5B3] focus:ring-1 focus:ring-[#00E5B3]/30 text-sm text-[#F5F7FA] placeholder-[#6B7280] font-semibold"
+                     className={`w-full pl-5 pr-20 py-3.5 rounded-xl border focus:outline-none focus:ring-1 text-sm font-semibold ${c.input}`}
                   />
                   <div className="absolute right-2.5 flex items-center gap-1.5">
-                     <button className="p-1.5 text-[#A1A8B3] hover:text-[#F5F7FA] transition">
+                     <button className={`p-1.5 transition ${c.moreBtn}`}>
                         <MoreVertical size={18} />
                      </button>
                      <button
                         type="button"
                         onClick={handleSend}
                         disabled={isLoading || isAiThinking || !inputText.trim()}
-                        className="p-2.5 bg-[#00E5B3] hover:bg-[#00C298] rounded-full text-black transition shadow active:scale-95 disabled:cursor-not-allowed disabled:bg-[#23262D] disabled:text-[#6B7280]"
+                        className={`p-2.5 rounded-full transition active:scale-95 disabled:cursor-not-allowed ${
+                           isLoading || isAiThinking || !inputText.trim()
+                              ? c.sendBtnDisabled
+                              : c.sendBtn
+                        }`}
                      >
                         <Send size={16} />
                      </button>

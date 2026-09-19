@@ -43,11 +43,11 @@ import DashboardHeader from "./_components/DashboardHeader";
 import StatsRow from "./_components/StatsRow";
 import StreakCard from "./_components/StreakCard";
 import LeaderboardCard from "./_components/LeaderboardCard";
+import { useTheme } from "../../../theme/ThemeContext";
 
 // ─── Weekly Study Activity helpers ──────────────────────────
 const WEEK_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// Bucket completed attempts into the user's local Mon–Sun week.
 function buildWeeklyActivity(attempts: WeeklyAttempt[]): WeeklyDay[] {
   const now = new Date();
   const monday = new Date(now);
@@ -67,7 +67,7 @@ function buildWeeklyActivity(attempts: WeeklyAttempt[]): WeeklyDay[] {
       const start = new Date(monday);
       start.setDate(monday.getDate() + i);
       start.setHours(0, 0, 0, 0);
-      const end = start.getTime() + 86_399_999; // 23:59:59.999
+      const end = start.getTime() + 86_399_999;
       if (t >= start.getTime() && t <= end) {
         days[i].attempts += 1;
         days[i].questions += a.totalQuestions || 0;
@@ -85,16 +85,13 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("All");
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
-  const [stats, setStats] = useState<AiPerformanceStats | null>(null)
+  const [stats, setStats] = useState<AiPerformanceStats | null>(null);
   const user = useAppSelector((state) => state.user.user);
   const userId = user?._id || "";
   const dispatch = useAppDispatch();
   const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
+  const { theme, isDark, setTheme, toggleTheme } = useTheme();
 
-  // The Dashboard follows the active exam tab, so the AI panel and subject
-  // chart always show the report for the exam the user is currently viewing:
-  //   'all'  → combined report (loaded by the app shell into its own scope)
-  //   <examId> → that exam's report (same scope the Performance page uses)
   const scope = activeTab === "All" ? "all" : activeTab;
   const aiEntry = useAppSelector((state) => state.aiPerformance.reports[scope]);
   const aiReport = aiEntry?.report ?? null;
@@ -109,19 +106,13 @@ export default function Dashboard() {
   const { data: weeklyData, isLoading: isLoadingWeekly } = useGetWeeklyActivityQuery(
     userId ? { userId } : skipToken
   );
-  // Real performance overview computed from the user's completed quiz attempts,
-  // aggregated across ALL their exams – this is the source of truth for the
-  // at-a-glance sections below (the AI report is only a daily-cached enrichment).
   const { data: quizOverview } = useGetQuizOverviewQuery(userId ? { userId } : skipToken);
   const weeklyDays = weeklyData ? buildWeeklyActivity(weeklyData.attempts || []) : [];
   const weeklyTotalAttempts = weeklyDays.reduce((sum, d) => sum + d.attempts, 0);
-  const todayIndex = (new Date().getDay() + 6) % 7; // Mon=0 … Sun=6
+  const todayIndex = (new Date().getDay() + 6) % 7;
 
-  // Backend populates selectedExams with full exam objects (see Settings.tsx / Perfomence.tsx)
   const selectedExams = (userData?.selectedExams as any[]) || [];
 
-  // Set first exam as active tab if "All" is selected and exams exist (only
-  // once – the user can then switch back to the combined "All Exams" view).
   const initialTabSet = useRef(false);
   useEffect(() => {
     if (!initialTabSet.current && activeTab === "All" && selectedExams && selectedExams.length > 0) {
@@ -130,11 +121,9 @@ export default function Dashboard() {
     }
   }, [activeTab, selectedExams]);
 
-  // Load the per-exam AI report whenever the user switches exam tabs. The
-  // combined 'all' report is already loaded by the app shell on mount.
   useEffect(() => {
     if (!userId || scope === "all") return;
-    if (aiEntry?.report) return; // already loaded for this exam
+    if (aiEntry?.report) return;
     let cancelled = false;
     (async () => {
       try {
@@ -143,7 +132,7 @@ export default function Dashboard() {
           userId,
           examId: scope,
         }).unwrap();
-        if (res?.stats) setStats(res.stats)
+        if (res?.stats) setStats(res.stats);
         if (cancelled) return;
         if (res.empty || !res.stats || !res.ai_report) {
           dispatch(clearCurrentReport({ scope }));
@@ -201,21 +190,15 @@ export default function Dashboard() {
     (c: any) => activeTab === "All" || c.exam?._id === activeTab || c.category === activeTab
   );
 
-  // ─── Derived data (overview first, AI report as enrichment) ──
   const aiStats = aiReport?.stats;
   const aiInsights = aiReport?.ai_report;
   const overviewOverall = quizOverview?.overall;
   const examOverview = quizOverview?.byExam ?? [];
   const subjectOverview = quizOverview?.bySubject ?? [];
-  // When a specific exam tab is active, prefer that exam's real overview so
-  // the stats row reflects what the user is actually viewing.
   const activeExamOverview = examOverview.find((e) => e.examId === scope) ?? null;
   const activeOverall = activeExamOverview ?? overviewOverall;
   const hasQuizData = !!activeOverall && activeOverall.questions > 0;
 
-  // Per-subject accuracy: for a specific exam use the AI report's breakdown
-  // (it has the richest subject names); for 'all' use the real attempt-based
-  // overview.
   const aiSubjectData = aiInsights?.subject_breakdown ?? [];
   const subjectData =
     scope !== "all" && aiSubjectData.length > 0
@@ -224,7 +207,6 @@ export default function Dashboard() {
         ? subjectOverview
         : aiSubjectData;
 
-  // Verdict – prefer the AI report, otherwise derive it from real accuracy.
   const activeVerdict =
     aiInsights?.score_analysis?.verdict ??
     (hasQuizData
@@ -250,7 +232,6 @@ export default function Dashboard() {
       ? `You scored ${activeOverall!.accuracy}% across ${activeOverall!.questions} questions in ${activeOverall!.attempts} quiz attempt${activeOverall!.attempts !== 1 ? "s" : ""}.`
       : "");
 
-  // Weakest / strongest subjects (real data) for the recommendations card.
   const weakSubjects = subjectData
     .filter((s) => s.accuracy < 60 && s.attempted > 0)
     .sort((a, b) => a.accuracy - b.accuracy)
@@ -275,12 +256,12 @@ export default function Dashboard() {
   const overviewRecommendations = [
     ...weakSubjects.map((w) => ({
       title: w.subject,
-      desc: `সঠিকতার হার ${w.accuracy}% — কাঙ্ক্ষিত ৬০%-এর নিচে। ${w.subject} বিষয়ের মৌলিক বিষয়গুলোতে আরও একটু মনোযোগ দিন।`,
+      desc: `সঠিকতার হার ${w.accuracy}% — কাঙ্ক্ষিত ৬০%-এর নিচে। ${w.subject} বিষয়ের মৌলিক বিষয়গুলোতে আরও একটু মনোযোগ দিন।`,
       color: "border-l-[#EB5757]",
     })),
     ...strongSubjects.map((s) => ({
       title: s.subject,
-      desc: `${s.subject} বিষয়ে আপনার পারফরম্যান্স বেশ ভালো (${s.accuracy}% সঠিকতা অর্জন করেছেন)।`,
+      desc: `${s.subject} বিষয়ে আপনার পারফরম্যান্স বেশ ভালো (${s.accuracy}% সঠিকতা অর্জন করেছেন)।`,
       color: "border-l-[#00E5B3]",
     })),
   ].slice(0, 4);
@@ -328,27 +309,90 @@ export default function Dashboard() {
     year: "numeric",
   });
 
-  // Greeting based on time of day
   const hour = today.getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
 
-
+  // ─── Shared section heading block (theme-aware) ─────────────
+  const SectionHeading = ({
+    icon: Icon,
+    title,
+    subtitle,
+    ctaLabel,
+    ctaColor,
+    onCta,
+  }: {
+    icon: React.ElementType;
+    title: string;
+    subtitle: string;
+    ctaLabel: string;
+    ctaColor: string;
+    onCta: () => void;
+  }) => (
+    <div className="flex justify-between items-center">
+      <div className="flex items-center gap-3">
+        <div
+          className={
+            isDark
+              ? `p-2.5 rounded-xl border ${ctaColor}`
+              : `p-2.5 rounded-lg bg-[#1a1a1a] border border-[#1a1a1a]`
+          }
+        >
+          <Icon size={18} className={isDark ? "" : "text-[#f2efe9]"} />
+        </div>
+        <div>
+          <h2
+            className={`text-xl tracking-tight ${
+              isDark ? "font-bold text-[#F5F7FA]" : "font-black text-[#1a1a1a] font-serif"
+            }`}
+          >
+            {title}
+          </h2>
+          <p className={`text-xs ${isDark ? "text-[#A1A8B3]" : "text-[#4a4a4a] font-serif italic"}`}>
+            {subtitle}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={onCta}
+        className={`text-xs flex items-center gap-1 hover:underline ${
+          isDark ? "font-bold" : "font-black font-serif"
+        }`}
+        style={{ color: isDark ? undefined : "#b91c1c" }}
+      >
+        <span>{ctaLabel}</span>
+        <ChevronRight size={14} />
+      </button>
+    </div>
+  );
 
   return (
-    <div className="w-full text-[#F5F7FA] space-y-8 max-w-8xl p-4 mx-auto">
+    <div
+      className={`w-full space-y-8 max-w-8xl md:p-4 p-1 mx-auto ${
+        isDark ? "text-[#F5F7FA]" : "text-[#1a1a1a]"
+      }`}
+      style={
+        isDark
+          ? undefined
+          : {
+              backgroundImage: "radial-gradient(#d8d4cb 1px, transparent 1px)",
+              backgroundSize: "16px 16px",
+            }
+      }
+    >
       {/* ────── TOP HEADER ────── */}
       <DashboardHeader
+        isDark={isDark}
         user={user}
         greeting={greeting}
         dateStr={dateStr}
-        onAdminPanel={() => navigate('/admin')}
+        onAdminPanel={() => navigate("/admin")}
       />
 
       {/* ────── STATS ROW ────── */}
-      <StatsRow statsCards={statsCards} />
+      <StatsRow isDark={isDark} statsCards={statsCards} />
 
-      {/* ────── STREAK & XP CARD (hidden for brand-new users) ────── */}
-      <StreakCard />
+      {/* ────── STREAK & XP CARD ────── */}
+      <StreakCard isDark={isDark} />
 
       {/* ────── QUICK ACTIONS ────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -358,6 +402,7 @@ export default function Dashboard() {
           description="Start a practice test"
           onClick={() => navigate("/mock-exam")}
           color="text-[#9B51E0]"
+          isDark={isDark}
         />
         <QuickAction
           icon={Brain}
@@ -365,6 +410,7 @@ export default function Dashboard() {
           description="View performance analysis"
           onClick={() => navigate("/performance")}
           color="text-[#00E5B3]"
+          isDark={isDark}
         />
         <QuickAction
           icon={Layers}
@@ -372,6 +418,7 @@ export default function Dashboard() {
           description="Discover new topics"
           onClick={() => navigate("/available-courses")}
           color="text-[#2F80ED]"
+          isDark={isDark}
         />
         <QuickAction
           icon={TrendingUp}
@@ -379,44 +426,37 @@ export default function Dashboard() {
           description="Track your growth"
           onClick={() => navigate("/question-center")}
           color="text-[#F2C94C]"
+          isDark={isDark}
         />
       </div>
 
       {/* ────── CONTINUE LEARNING (ENROLLED) ────── */}
       <div className="space-y-4 mt-6">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[#2F80ED]/10 border border-[#2F80ED]/30">
-              <PlayCircle size={18} className="text-[#2F80ED]" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-[#F5F7FA] tracking-tight">
-                Continue Learning
-              </h2>
-              <p className="text-xs text-[#A1A8B3]">
-                {isLoadingEnrolledCourses
-                  ? "Loading..."
-                  : `${filteredEnrolled.length} active course${filteredEnrolled.length !== 1 ? "s" : ""}`}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate("/courses")}
-            className="text-xs font-bold text-[#2F80ED] hover:underline flex items-center gap-1"
-          >
-            <span>View All</span>
-            <ChevronRight size={14} />
-          </button>
-        </div>
+        <SectionHeading
+          icon={PlayCircle}
+          title="Continue Learning"
+          subtitle={
+            isLoadingEnrolledCourses
+              ? "Loading..."
+              : `${filteredEnrolled.length} active course${filteredEnrolled.length !== 1 ? "s" : ""}`
+          }
+          ctaLabel="View All"
+          ctaColor="bg-[#2F80ED]/10 border-[#2F80ED]/30 text-[#2F80ED]"
+          onCta={() => navigate("/courses")}
+        />
 
         {isLoadingEnrolledCourses ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 size={28} className="animate-spin text-[#2F80ED]" />
+            <Loader2
+              size={28}
+              className={`animate-spin ${isDark ? "text-[#2F80ED]" : "text-[#b91c1c]"}`}
+            />
           </div>
         ) : filteredEnrolled.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {filteredEnrolled.map((course) => (
               <EnrolledCard
+                isDark={isDark}
                 key={course._id}
                 course={course}
                 onResume={() => course._id && navigate(`/courses/${course._id}`)}
@@ -425,14 +465,29 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-10 text-center">
-            <PlayCircle size={28} className="text-[#6B7280] mx-auto mb-3" />
-            <p className="text-sm font-semibold text-[#A1A8B3]">
+          <div
+            className={`rounded-2xl p-10 text-center border ${
+              isDark
+                ? "bg-[#111318] border-[#23262D]"
+                : "bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]"
+            }`}
+          >
+            <PlayCircle
+              size={28}
+              className={`mx-auto mb-3 ${isDark ? "text-[#6B7280]" : "text-[#1a1a1a]"}`}
+            />
+            <p
+              className={`text-sm font-semibold ${
+                isDark ? "text-[#A1A8B3]" : "text-[#1a1a1a] font-serif"
+              }`}
+            >
               You haven't enrolled in any courses yet.
             </p>
             <button
               onClick={() => navigate("/available-courses")}
-              className="mt-4 text-xs font-bold text-[#00E5B3] hover:underline"
+              className={`mt-4 text-xs hover:underline ${
+                isDark ? "font-bold text-[#00E5B3]" : "font-black font-serif text-[#b91c1c]"
+              }`}
             >
               Browse available courses
             </button>
@@ -441,17 +496,26 @@ export default function Dashboard() {
       </div>
 
       {/* ────── CATEGORY/EXAM TABS ────── */}
-      <div className="flex flex-wrap gap-2 border-b border-[#23262D] pb-3 mt-6">
+      <div
+        className={`flex flex-wrap gap-2 pb-3 mt-6 border-b ${
+          isDark ? "border-[#23262D]" : "border-[#d8d4cb]"
+        }`}
+      >
         {selectedExams?.map((tab: any) => {
           const active = activeTab === tab._id;
           return (
             <button
               key={tab._id}
               onClick={() => setActiveTab(tab._id)}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all border ${active
-                ? "bg-[#2F80ED] text-white border-[#2F80ED] shadow-[0_4px_12px_rgba(47,128,237,0.3)]"
-                : "bg-[#111318] text-[#A1A8B3] border-[#23262D] hover:bg-[#161920] hover:text-[#F5F7FA]"
-                }`}
+              className={`px-4 py-2 rounded-xl text-xs transition-all border ${
+                isDark
+                  ? active
+                    ? "font-semibold bg-[#2F80ED] text-white border-[#2F80ED] shadow-[0_4px_12px_rgba(47,128,237,0.3)]"
+                    : "font-semibold bg-[#111318] text-[#A1A8B3] border-[#23262D] hover:bg-[#161920] hover:text-[#F5F7FA]"
+                  : active
+                    ? "bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] font-black font-serif shadow-[2px_2px_0px_0px_#b91c1c]"
+                    : "bg-[#f2efe9] text-[#4a4a4a] border border-[#d8d4cb] font-serif font-bold shadow-[1px_1px_0px_0px_#d8d4cb] hover:bg-[#e0dcd5] hover:text-[#1a1a1a]"
+              }`}
             >
               {tab.name}
             </button>
@@ -461,39 +525,31 @@ export default function Dashboard() {
 
       {/* ────── AVAILABLE COURSES ────── */}
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[#00E5B3]/10 border border-[#00E5B3]/30">
-              <Sparkles size={18} className="text-[#00E5B3]" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-[#F5F7FA] tracking-tight">
-                Available Courses
-              </h2>
-              <p className="text-xs text-[#A1A8B3]">
-                {isLoadingCourses
-                  ? "Loading..."
-                  : `${availableCoursesList.length} course${availableCoursesList.length !== 1 ? "s" : ""} to explore`}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate("/available-courses")}
-            className="text-xs font-bold text-[#00E5B3] hover:underline flex items-center gap-1"
-          >
-            <span>Browse All</span>
-            <ChevronRight size={14} />
-          </button>
-        </div>
+        <SectionHeading
+          icon={Sparkles}
+          title="Available Courses"
+          subtitle={
+            isLoadingCourses
+              ? "Loading..."
+              : `${availableCoursesList.length} course${availableCoursesList.length !== 1 ? "s" : ""} to explore`
+          }
+          ctaLabel="Browse All"
+          ctaColor="bg-[#00E5B3]/10 border-[#00E5B3]/30 text-[#00E5B3]"
+          onCta={() => navigate("/available-courses")}
+        />
 
         {isLoadingCourses ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 size={28} className="animate-spin text-[#00E5B3]" />
+            <Loader2
+              size={28}
+              className={`animate-spin ${isDark ? "text-[#00E5B3]" : "text-[#b91c1c]"}`}
+            />
           </div>
         ) : availableCoursesList.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {availableCoursesList.map((course: any) => (
               <AvailableCard
+                isDark={isDark}
                 key={course._id}
                 course={course}
                 enrolledCourse={enrolledCoursesList}
@@ -504,9 +560,22 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-10 text-center">
-            <BookOpen size={28} className="text-[#6B7280] mx-auto mb-3" />
-            <p className="text-sm font-semibold text-[#A1A8B3]">
+          <div
+            className={`rounded-2xl p-10 text-center border ${
+              isDark
+                ? "bg-[#111318] border-[#23262D]"
+                : "bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]"
+            }`}
+          >
+            <BookOpen
+              size={28}
+              className={`mx-auto mb-3 ${isDark ? "text-[#6B7280]" : "text-[#1a1a1a]"}`}
+            />
+            <p
+              className={`text-sm font-semibold ${
+                isDark ? "text-[#A1A8B3]" : "text-[#1a1a1a] font-serif"
+              }`}
+            >
               No courses available in this category
             </p>
           </div>
@@ -515,15 +584,15 @@ export default function Dashboard() {
 
       {/* ────── MOCK EXAM BANNER & AI RECOMMENDATIONS ────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        {/* Left: Featured Mock Exam (driven by admin control panel) */}
         <FeaturedMockExamCard
           featured={featuredExam}
           isLoading={isFeaturedLoading}
           userId={userId}
+          isDark={isDark}
         />
 
-        {/* Right: AI Recommended */}
         <AiRecommendationsCard
+          isDark={isDark}
           scope={scope}
           aiStats={aiStats}
           aiReportLoading={aiReportLoading}
@@ -540,24 +609,23 @@ export default function Dashboard() {
 
       {/* ────── BOTTOM CHARTS ROW ────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        {/* Weekly Study Activity */}
         <WeeklyActivityChart
           weeklyDays={weeklyDays}
           todayIndex={todayIndex}
           weeklyTotalAttempts={weeklyTotalAttempts}
           isLoading={isLoadingWeekly}
+          isDark={isDark}
         />
 
-        {/* Subject Strength */}
         <SubjectAccuracyList
           subjectData={subjectData}
           scope={scope}
           selectedExams={selectedExams}
           aiStats={aiStats}
+          isDark={isDark}
         />
 
-        {/* XP Leaderboard (week / all-time) */}
-        <LeaderboardCard />
+        <LeaderboardCard isDark={isDark} />
       </div>
 
       <div className="h-4" />

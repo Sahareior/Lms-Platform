@@ -11,6 +11,7 @@ import {
   useGetAdminExamsQuery,
   useGetAdminExamVersionsQuery,
   useGetAdminSubjectsQuery,
+  useGetCollegesQuery,
   type RagJobStatus,
 } from '@my-monorepo/store';
 import { usePostScrapQuestionsMutation } from '@my-monorepo/store/src/redux/api/examApi';
@@ -61,12 +62,16 @@ export default function QuestionManagement() {
   const [selectVersion, setSelectVersion] = useState('');
   const [selectSubject, setSelectSubject] = useState('');
   const [selectBoard, setSelectBoard] = useState('');
+  const [selectQuestionType, setSelectQuestionType] = useState('');
+  const [selectCollege, setSelectCollege] = useState('');
+  const [yearInput, setYearInput] = useState('');
   const [scrapedQuestions, setScrapedQuestions] = useState<any[] | null>(null);
   const [questionPaperScraper, { isLoading: isScraping }] = useQuestionPaperScraperMutation();
   const [postScrapQuestions] = usePostScrapQuestionsMutation();
   const { data: exams } = useGetAdminExamsQuery();
   const { data: examVersions } = useGetAdminExamVersionsQuery();
   const { data: subjects } = useGetAdminSubjectsQuery();
+  const { data: colleges } = useGetCollegesQuery();
 
   // ── Toast State ────────────────────────────────────────────
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -151,15 +156,41 @@ export default function QuestionManagement() {
       showToast('error', 'Please select an exam.');
       return;
     }
-    if (!selectVersion) {
-      showToast('error', 'Please select an exam version.');
+
+    // Type-aware validation & payload rules:
+    //   board     → exam version required; board required for academic (HSC) exams
+    //   testpaper → college + year required; no board / exam version
+    //   mockexam  → exam + subject only; no board / college / year / version
+    const selectedExamData = (exams as any[])?.find((e: any) => e._id === selectOptions);
+
+    if (selectQuestionType === 'board' && !selectVersion) {
+      showToast('error', 'Please select an exam version for board questions.');
       return;
     }
 
-    // Check if the selected exam is academic and requires a board
-    const selectedExamData = (exams as any[])?.find((e: any) => e._id === selectOptions);
-    if (selectedExamData?.category === 'academic' && !selectBoard) {
+    if (selectQuestionType === 'board' && selectedExamData?.category === 'academic' && !selectBoard) {
       showToast('error', 'Please select a board for this academic (HSC) exam.');
+      return;
+    }
+
+    if (selectQuestionType === 'testpaper') {
+      if (!selectCollege) {
+        showToast('error', 'Please select or add a college for testpaper questions.');
+        return;
+      }
+      const yr = Number(yearInput);
+      if (!yearInput || !Number.isInteger(yr) || yr < 1990 || yr > 2100) {
+        showToast('error', 'Please enter a valid year (1990-2100) for testpaper questions.');
+        return;
+      }
+      if (selectBoard) {
+        showToast('error', 'Board is not applicable to testpaper questions.');
+        return;
+      }
+    }
+
+    if (selectQuestionType === 'mockexam' && selectBoard) {
+      showToast('error', 'Board is not applicable to mockexam questions.');
       return;
     }
 
@@ -179,8 +210,9 @@ export default function QuestionManagement() {
         exam: selectOptions,
         data: extracted,
       };
-      // Include exam version if selected
-      if (selectVersion) {
+      // Exam version only applies to board sets (testpaper uses college+year,
+      // mockexam uses neither)
+      if (selectVersion && selectQuestionType !== 'testpaper' && selectQuestionType !== 'mockexam') {
         payloadData.examVersion = selectVersion;
       }
       // Include subject if selected
@@ -191,6 +223,17 @@ export default function QuestionManagement() {
       if (selectBoard) {
         payloadData.board = selectBoard;
         payloadData.division = selectBoard;
+      }
+      // Include question type (board / testpaper / mockexam) if selected
+      if (selectQuestionType) {
+        payloadData.questionType = selectQuestionType;
+      }
+      // Testpaper sets carry the college ref + admission year
+      if (selectQuestionType === 'testpaper' && selectCollege) {
+        payloadData.college = selectCollege;
+      }
+      if (selectQuestionType === 'testpaper' && yearInput) {
+        payloadData.year = Number(yearInput);
       }
       await postScrapQuestions(payloadData).unwrap();
 
@@ -203,6 +246,9 @@ export default function QuestionManagement() {
       setSelectVersion('');
       setSelectSubject('');
       setSelectBoard('');
+      setSelectQuestionType('');
+      setSelectCollege('');
+      setYearInput('');
     } catch {
       showToast('error', 'Failed to scrape questions. Please try again.');
     }
@@ -281,10 +327,14 @@ export default function QuestionManagement() {
               selectVersion={selectVersion}
               selectSubject={selectSubject}
               selectBoard={selectBoard}
+              selectQuestionType={selectQuestionType}
+              selectCollege={selectCollege}
+              yearInput={yearInput}
               scrapedQuestions={scrapedQuestions}
               exams={exams || []}
               examVersions={examVersions || []}
               subjects={subjects || []}
+              colleges={colleges || []}
               onFileSelect={setScraperFile}
               onClearFile={() => setScraperFile(null)}
               onExamChange={(examId) => {
@@ -292,10 +342,15 @@ export default function QuestionManagement() {
                 setSelectVersion('');
                 setSelectSubject('');
                 setSelectBoard('');
+                setSelectCollege('');
+                setYearInput('');
               }}
+              onCollegeChange={setSelectCollege}
+              onYearChange={setYearInput}
               onVersionChange={setSelectVersion}
               onSubjectChange={setSelectSubject}
               onBoardChange={setSelectBoard}
+              onQuestionTypeChange={setSelectQuestionType}
               onScrape={handleScrapeQuestions}
               onClearScraped={() => setScrapedQuestions(null)}
             />

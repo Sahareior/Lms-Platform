@@ -1,5 +1,5 @@
 import { api } from "./baseApi";
-import type { Exam } from '../../types';
+import type { Exam, QuestionType } from '../../types';
 
 export interface courseResponse {
     data: Exam[];
@@ -20,7 +20,17 @@ const examApi = api.injectEndpoints({
         }),
 
         postScrapQuestions: builder.mutation({
-            query:(data) =>({
+            query:(data: {
+                exam: string;
+                data: any[];
+                examVersion?: string;
+                subject?: string;
+                board?: string;
+                division?: string;
+                questionType?: string;
+                college?: string;
+                year?: number;
+            }) =>({
                 method:'POST',
                 url:'/questions/save',
                 body:data
@@ -77,13 +87,17 @@ const examApi = api.injectEndpoints({
             query:(examId) => ({ url: `/important-topics?exam=${examId}` })
         }),
 
-        getQuestionsByExam: builder.query<any[], { examId: string; versionId?: string; board?: string; subjectId?: string }>({
-            query: ({ examId, versionId, board, subjectId }) => {
+        getQuestionsByExam: builder.query<any[], { examId: string; versionId?: string; board?: string; subjectId?: string; questionType?: QuestionType | ''; college?: string; year?: number }>({
+            query: ({ examId, versionId, board, subjectId, questionType, college, year }) => {
                 let url = `/questions/exam/${examId}`;
                 const params = new URLSearchParams();
                 if (versionId) params.append("versionId", versionId);
                 if (board) params.append("board", board);
                 if (subjectId) params.append("subject", subjectId);
+                if (questionType) params.append("questionType", questionType);
+                if (college) params.append("college", college);
+                if (year) params.append("year", String(year));
+                // (params appended below via toString)
                 
                 const queryString = params.toString();
                 if (queryString) {

@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import { useTheme } from '../../../../../theme/ThemeContext';
+
 
 export interface ParsedQuestion {
   intro: string;
@@ -83,11 +85,52 @@ export const FormattedQuestion: React.FC<FormattedQuestionProps> = ({
   conclusionClassName = '',
 }) => {
   const parsed = useMemo(() => parseQuestionText(text), [text]);
+  const { isDark } = useTheme();
 
   if (!parsed) {
-    return <span className={`whitespace-pre-line ${className}`}>{text}</span>;
+    return (
+      <span className={`whitespace-pre-line ${isDark ? className : `font-serif ${className}`}`}>
+        {text}
+      </span>
+    );
   }
 
+  // ─── LIGHT MODE (Vintage Paper Style) ───────────────────────
+  if (!isDark) {
+    return (
+      <div className={`space-y-2.5 font-serif ${className}`}>
+        {parsed.codeBlock && (
+          <pre className="overflow-x-auto rounded-md border border-[#d8d4cb] bg-[#e0dcd5] p-3 text-sm leading-relaxed text-[#1a1a1a] whitespace-pre-wrap font-mono shadow-[2px_2px_0px_0px_#1a1a1a]">
+            <code>{parsed.codeBlock}</code>
+          </pre>
+        )}
+        {parsed.intro && (
+          <div className="leading-relaxed text-[#1a1a1a]">{parsed.intro}</div>
+        )}
+        {parsed.statements.length > 0 && (
+          <div className="space-y-1.5 pl-3 border-l-2 border-[#b91c1c] my-2">
+            {parsed.statements.map((stmt, idx) => (
+              <div
+                key={idx}
+                className={`leading-relaxed text-[#1a1a1a] font-normal ${statementClassName}`}
+              >
+                {stmt}
+              </div>
+            ))}
+          </div>
+        )}
+        {parsed.conclusion && (
+          <div
+            className={`leading-relaxed font-bold text-[#1a1a1a] pt-1 ${conclusionClassName}`}
+          >
+            {parsed.conclusion}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className={`space-y-2.5 ${className}`}>
       {parsed.codeBlock && (

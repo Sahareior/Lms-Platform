@@ -28,11 +28,13 @@ import StudyPlanCard from './_components/StudyPlanCard';
 import StrengthsWeakAreas from './_components/StrengthsWeakAreas';
 import MistakeBreakdown from './_components/MistakeBreakdown';
 import SavedReportsModal from './_components/SavedReportsModal';
+import { useTheme } from '../../../theme/ThemeContext';
 
 const Performance = () => {
   // ─── AI Performance Report from store ──────────────────────
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.user);
+  const { isDark } = useTheme();
 
   // ─── Exam selection (per-exam AI report) ──────────────────
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
@@ -236,8 +238,8 @@ const Performance = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
-      <div className="w-full mx-auto space-y-6 p-2">
+    <div className={`min-h-screen ${isDark ? 'bg-[#0B0D12] text-[#F5F7FA]' : 'bg-[#e8e4db] text-[#1a1a1a]'}`}>
+      <div className="w-full mx-auto space-y-6 md:p-4 p-1 ">
 
         {/* ─── ERROR BANNER ─── */}
         {aiError && (
@@ -264,28 +266,33 @@ const Performance = () => {
           reportCount={reportCount}
           onRegenerate={handleRegenerate}
           onOpenSavedReports={() => setSavedReportsOpen(true)}
+          isDark={isDark}
         />
 
         {/* ─── STATS CARDS ─── */}
-        <PerfStatsCards stats={statsCards} />
+        <PerfStatsCards stats={statsCards} isDark={isDark} />
 
         {/* ─── EXAM FILTERS ─── */}
-        <div className="bg-[#111318] p-3 rounded-2xl border border-[#23262D] flex flex-wrap items-center gap-3">
+        <div className={`${isDark ? 'bg-[#111318] border-[#23262D]' : 'bg-[#f2efe9] border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a]'} p-3 rounded-2xl border flex flex-wrap items-center gap-3`}>
           {selectedExams?.map((exam: any) => (
             <button
               key={exam._id}
               onClick={() => setSelectedExamId(exam._id)}
               className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-all ${
                 selectedExamId === exam._id
-                  ? 'bg-[#2F80ED] text-white shadow-lg shadow-[#2F80ED]/20'
-                  : 'bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:text-[#F5F7FA] hover:border-[#323742]'
+                  ? isDark
+                    ? 'bg-[#2F80ED] text-white shadow-lg shadow-[#2F80ED]/20'
+                    : 'bg-[#1a1a1a] text-[#f2efe9] shadow-[3px_3px_0px_0px_#b91c1c]'
+                  : isDark
+                    ? 'bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:text-[#F5F7FA] hover:border-[#323742]'
+                    : 'bg-[#e8e4db] text-[#4a4a4a] border border-[#d8d4cb] hover:text-[#1a1a1a] hover:border-[#1a1a1a]'
               }`}
             >
               {exam.name}
             </button>
           ))}
-          <div className="ml-auto flex items-center gap-1 text-[10px] text-[#00E5B3]">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#00E5B3] animate-pulse"></div>
+          <div className={`ml-auto flex items-center gap-1 text-[10px] ${isDark ? 'text-[#00E5B3]' : 'text-[#b91c1c]'}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-[#00E5B3]' : 'bg-[#b91c1c]'} animate-pulse`}></div>
           </div>
         </div>
 
@@ -296,6 +303,7 @@ const Performance = () => {
             primaryColor={primaryColor}
             strongest={strongest}
             weakest={weakest}
+            isDark={isDark}
           />
           <AccuracyTrendCard
             trendData={trendData}
@@ -303,16 +311,18 @@ const Performance = () => {
             overallAccuracy={overallAccuracy}
             verdict={aiInsights?.score_analysis.verdict}
             successColor={successColor}
+            isDark={isDark}
           />
         </div>
 
         {/* ─── SUBJECT PERFORMANCE TABLE ─── */}
-        <SubjectPerformanceTable subjectData={subjectData} />
+        <SubjectPerformanceTable subjectData={subjectData} isDark={isDark} />
 
         {/* ─── AI STUDY PLAN ─── */}
         <StudyPlanCard
           studyPlan={aiInsights?.study_plan ?? []}
           verdictColor={verdictColor}
+          isDark={isDark}
         />
 
         {/* ─── STRENGTHS & WEAK AREAS ─── */}
@@ -320,27 +330,28 @@ const Performance = () => {
           <StrengthsWeakAreas
             strengths={aiInsights.strengths}
             weakAreas={aiInsights.weak_areas}
+            isDark={isDark}
           />
         )}
 
         {/* ─── MISTAKE BREAKDOWN ─── */}
         {aiInsights && (
-          <MistakeBreakdown mistakes={aiInsights.mistake_breakdown} />
+          <MistakeBreakdown mistakes={aiInsights.mistake_breakdown} isDark={isDark} />
         )}
 
         {/* ─── BOTTOM BANNER ─── */}
-        <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-5 flex flex-col md:flex-row justify-between items-center gap-3">
+        <div className={`${isDark ? 'bg-[#111318] border-[#23262D]' : 'bg-[#f2efe9] border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a]'} border rounded-2xl p-5 flex flex-col md:flex-row justify-between items-center gap-3`}>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-lg">
               <Target size={20} className="text-[#00E5B3]" />
             </div>
             <div>
-              <h4 className="font-bold text-sm text-[#F5F7FA]">
+              <h4 className={`font-bold text-sm ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif'}`}>
                 {aiInsights?.score_analysis
                   ? `${aiInsights.score_analysis.message}`
                   : 'No AI report yet — attempt a mock exam to unlock your personalized analysis.'}
               </h4>
-              <p className="text-xs text-[#A1A8B3]">
+              <p className={`text-xs ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif italic'}`}>
                 {aiInsights?.score_analysis
                   ? 'Follow the study plan above to turn weak areas into strengths.'
                   : 'Complete a mock exam to generate your AI performance report.'}
@@ -358,6 +369,7 @@ const Performance = () => {
           avgScore={avgScore}
           latestScore={latestScore}
           improving={improving}
+          isDark={isDark}
         />
       </div>
     </div>

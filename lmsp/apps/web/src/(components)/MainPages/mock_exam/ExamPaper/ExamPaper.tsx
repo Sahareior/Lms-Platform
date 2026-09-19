@@ -38,6 +38,8 @@ import {
 import type { QuestionItem, QuizResultData } from "./_components/quizTypes.ts";
 import { useExamSecurity } from "./examSecurity/useExamSecurity.ts";
 import Watermark from "./examSecurity/Watermark.tsx";
+import { useTheme } from "../../../../theme/ThemeContext.tsx";
+
 
 export interface ExamPaperProps {
   examId?: string;
@@ -57,6 +59,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const rawBoard = propBoard || searchParams.get("board") || "";
   const board = rawBoard === "undefined" || rawBoard === "null" ? "" : rawBoard;
   const scheduleId = searchParams.get("scheduleId") || "";
+  const { isDark } = useTheme();
 
   const userId = useAppSelector((state) => state.user.user?._id) || "";
 
@@ -65,9 +68,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     { skip: !userId }
   );
 
-  // Pre-check: has this user already completed a mock_exam attempt for this exam?
-  // Query by source (not type) because mock-exam attempts are stored with
-  // type:'practice' and source:'mock_exam'.
   const { data: userAttempts, isLoading: attemptsLoading } = useGetUserAttemptsQuery(
     { userId, source: 'mock_exam', limit: 50 },
     { skip: !userId || !examId }
@@ -80,25 +80,20 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
       const attemptScheduleId = String(a.scheduleExam?._id || a.scheduleExam || '');
 
-      // If viewing a scheduled exam, only match attempts for this specific schedule
       if (scheduleId) {
         return attemptScheduleId === String(scheduleId);
       }
 
-      // If viewing a standard mock exam, do not match attempts that belonged to a scheduled exam
       if (attemptScheduleId) return false;
 
-      // Must match exam
       const attemptExamId = String(a.exam?._id || a.exam || '');
       if (attemptExamId !== String(examId)) return false;
 
-      // If versionId is specified, the attempt must match this version
       if (versionId) {
         const attemptVersionId = String(a.examVersion?._id || a.examVersion || '');
         if (attemptVersionId && attemptVersionId !== String(versionId)) return false;
       }
 
-      // If board is specified, the attempt must match this board
       if (board) {
         const attemptBoard = String(a.board || '');
         if (attemptBoard && attemptBoard !== String(board)) return false;
@@ -157,14 +152,10 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
   const currentExam = exams?.find((e: any) => e._id === examId);
   const currentVersion = examVersions?.find((v: any) => v._id === versionId);
-  // Prefer the scheduleId from the URL; if it's missing (e.g. a direct
-  // link to the exam page) fall back to the exam's only schedule.
   const schedule =
     scheduleExams?.find((s: any) => s._id === scheduleId) ??
     (scheduleExams?.length === 1 ? scheduleExams[0] : undefined);
 
-  // Scheduled-exam duration is in minutes; regular practice quizzes get a
-  // 2-hour default.
   const durationSeconds = (schedule?.duration ?? 120) * 60;
 
   const effectiveVersionId =
@@ -174,10 +165,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       : (schedule?.examVersion as string)) ||
     undefined;
 
-  // Map correct_answer string value from backend to option index. The
-  // question bank stores correct_answer as the option KEY (e.g. "L"), so we
-  // match the key against Object.keys(options). Falls back to text matching
-  // for legacy banks that stored the option text instead.
   const getCorrectAnswerIndex = useCallback((q: any): number | undefined => {
     if (!q.correct_answer) return undefined;
     const entries = q.options
@@ -240,7 +227,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     return flattened;
   }, [questionsData, getCorrectAnswerIndex, userPerformance]);
 
-  // ─── Restore timer from localStorage on mount ───
   const timerStorageKey = `examTimer:${examId}:${versionId}:${scheduleId}`;
   const restoredTimeLeft = useMemo(() => {
     try {
@@ -262,8 +248,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch the active attempt to restore saved answers (answers are saved
-  // separately via saveAnswer, so startAttempt's response has empty questions)
   const { data: activeAttempt } = useGetActiveAttemptQuery(
     {
       userId,
@@ -278,7 +262,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const answeredCount = Object.keys(selectedAnswers).length;
   const progressPercentage = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
 
-  // ─── Timer ───
   useEffect(() => {
     if (isSubmitted) return;
     timerRef.current = setInterval(() => {
@@ -298,9 +281,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     };
   }, [isSubmitted]);
 
-  // ─── Sync the countdown with the scheduled exam duration ───
-  // Only set from schedule when no timer was restored from localStorage
-  // (i.e. first visit — not a refresh).
   useEffect(() => {
     if (isSubmitted || scheduleExams === undefined) return;
     if (restoredTimeLeft === null) {
@@ -308,7 +288,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [durationSeconds, isSubmitted, scheduleExams, restoredTimeLeft]);
 
-  // ─── Redirect when exam is already completed ───
   useEffect(() => {
     if (isSubmitted || isSubmitting || submitInFlightRef.current || attemptsLoading) return;
 
@@ -317,16 +296,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [hasCompletedAttempt, attemptsLoading, navigate, isSubmitted, isSubmitting]);
 
-  // ─── Start attempt when exam loads ───
   useEffect(() => {
-    // Don't fire check or startAttempt until the pre-check query has loaded
     if (attemptsLoading) return;
-
-    // Pre-check: if already completed, skip starting attempt
-    if (hasCompletedAttempt) {
-      return;
-    }
-
+    if (hasCompletedAttempt) return;
     if (!examId || !userId || allQuestions.length === 0) return;
 
     const initAttempt = async () => {
@@ -345,7 +317,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         startTimeRef.current = Date.now();
         setError(null);
 
-        // ── Save initial timer snapshot so refresh can restore it ──
         try {
           localStorage.setItem(timerStorageKey, JSON.stringify({
             savedAt: Date.now(),
@@ -353,7 +324,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           }));
         } catch { /* ignore */ }
       } catch (err: any) {
-        // 409 = already completed this specific mock exam → redirect
         if (err?.status === 409 || err?.data?.message?.includes('already completed')) {
           navigate('/mock-exam', { replace: true });
         } else {
@@ -367,7 +337,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     initAttempt();
   }, [examId, versionId, board, userId, allQuestions.length, startAttempt, navigate, hasCompletedAttempt, attemptsLoading]);
 
-  // ─── Restore answers and timer from temporary exam submission ───
   useEffect(() => {
     if (!tempSubmission || isSubmitted) return;
 
@@ -394,7 +363,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [tempSubmission, isSubmitted, restoredTimeLeft]);
 
-  // ─── Restore saved answers from active attempt ───
   useEffect(() => {
     if (!activeAttempt || isSubmitted) return;
     if (Object.keys(selectedAnswers).length > 0) return;
@@ -417,7 +385,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     }
   }, [activeAttempt, allQuestions, selectedAnswers, isSubmitted]);
 
-  // ─── Reset state on exam change ───
   useEffect(() => {
     setSelectedAnswers({});
     setIsSubmitted(false);
@@ -431,12 +398,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId, versionId]);
 
-  // ─── Answer selection ───
-  // Uses a functional state update so this callback's identity only
-  // depends on [isSubmitted, userId, allQuestions, saveAnswer] — NOT on
-  // selectedAnswers. That keeps it stable across every answer selection,
-  // which lets the memoized QuestionCard below skip re-rendering unrelated
-  // questions.
   const handleAnswerSelect = useCallback(
     (qIndex: number, oIndex: number) => {
       if (isSubmitted || isSubmitting) return;
@@ -451,16 +412,11 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       }
 
       setSelectedAnswers((prev) => {
-        // Once an answer is selected it cannot be withdrawn — ignore clicks
-        // on the already-selected option.
         if (prev[qIndex] !== undefined) return prev;
         const updated = { ...prev, [qIndex]: oIndex };
 
         const optionKey = qItem.optionKeys?.[oIndex] ?? qItem.options[oIndex] ?? "";
 
-        // Auto-save to backend (fire-and-forget). The backend matches
-        // against correct_answer, which is the option KEY ("K"/"L"/…), so
-        // we send the key — or null when the answer is cleared.
         const attemptId = attemptIdRef.current;
         if (attemptId && userId) {
           const qNumber = qItem.questionNumber || qIndex + 1;
@@ -477,7 +433,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           });
         }
 
-        // Save to temporary exam submission in the background
         if (userId && examId) {
           saveTempExamSubmission({
             userId,
@@ -493,7 +448,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           });
         }
 
-        // Dual-write to user performance for analytics (fire-and-forget)
         if (qId && userId && examId) {
           postUserQuizs({
             user: userId,
@@ -513,10 +467,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
             });
         }
 
-        // Record question statistics (fire-and-forget)
         if (qItem.id) {
-          // QuestionItem exposes the correct index as `correctAnswer`
-          // (`correctIndex` doesn't exist, so isCorr was always false).
           const isCorr = oIndex === qItem.correctAnswer;
           recordQuestionStats({
             questionId: String(qItem.id),
@@ -541,9 +492,21 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
       const unanswered = totalQuestions - answeredCount;
       if (!auto && unanswered > 0) {
-        if (
-          !window.confirm(`আপনি ${unanswered} টি প্রশ্নের উত্তর দেননি। তবুও সাবমিট করবেন?`)
-        ) {
+        const result = await Swal.fire({
+          title: isDark ? 'Submit Exam?' : 'পরীক্ষা জমা দিবেন?',
+          text: isDark 
+            ? `You have ${unanswered} unanswered question(s). Submit anyway?`
+            : `আপনি ${unanswered} টি প্রশ্নের উত্তর দেননি। তবুও সাবমিট করবেন?`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: isDark ? '#9B51E0' : '#1a1a1a',
+          cancelButtonColor: isDark ? '#6b7280' : '#4a4a4a',
+          confirmButtonText: isDark ? 'Submit' : 'জমা দিন',
+          cancelButtonText: isDark ? 'Cancel' : 'বাতিল',
+          background: isDark ? '#1C1F26' : '#f2efe9',
+          color: isDark ? '#F5F7FA' : '#1a1a1a',
+        });
+        if (!result.isConfirmed) {
           submitInFlightRef.current = false;
           return;
         }
@@ -551,11 +514,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
 
       setIsSubmitting(true);
 
-      // ── Locally-verified score (this is the single source of truth) ──
       const localCorrect = computeLocalScore(allQuestions, selectedAnswers);
       setIsSubmitted(true);
 
-      // Clear saved paper-type selection, timer, and violations so state is clean next time
       try {
         localStorage.removeItem('selectedPaperType');
         localStorage.removeItem(timerStorageKey);
@@ -600,7 +561,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           }).unwrap();
 
           await completeAttempt({ attemptId }).unwrap().then((res) => {
-            // XP toast + level-up celebration from the complete-attempt response
             const gm = res?.gamification;
             if (gm && gm.xpAwarded > 0) {
               emitXpGained({
@@ -623,10 +583,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           });
         }
 
-        // Bulk-save all answered questions to QuizPerformance on submit.
-        // This is the authoritative write – the per-answer fire-and-forgets
-        // above are best-effort; this guarantees the AI performance controller
-        // always finds data for this user.
         if (userId && examId) {
           const answeredSubmissions = allQuestions
             .map((q, idx) => {
@@ -653,8 +609,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
               });
           }
 
-          // ── Mistake Notebook: add every wrongly-answered question to the
-          // spaced-repetition review queue (fire-and-forget) ──
           const wrongMistakes = allQuestions
             .map((q, idx) => {
               const selIdx = selectedAnswers[idx];
@@ -681,7 +635,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           }
         }
 
-        // Delete temporary exam submission upon completion
         if (userId && examId) {
           await deleteTempExamSubmission({
             userId,
@@ -738,10 +691,10 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       currentVersion,
       schedule,
       navigate,
+      isDark,
     ]
   );
 
-  // ─── Auto-submit when the timer reaches zero ───
   useEffect(() => {
     if (timeLeft === 0 && !isSubmitted && totalQuestions > 0) {
       handleSubmit(true);
@@ -756,9 +709,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     onViolationLimitReached: () => handleSubmit(true),
   });
 
-
-
-  // ─── Save progress & timer snapshot when user leaves/switches tab ───
   useEffect(() => {
     if (isSubmitted) return;
 
@@ -793,12 +743,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     };
   }, [isSubmitted, timeLeft, timerStorageKey]);
 
-  // ─── Block navigation when exam is in progress ───
   const shouldBlock = useCallback(
     ({ nextLocation }: { currentLocation: any; nextLocation: any }) => {
-      // Don't block if exam is already submitted
       if (isSubmitted) return false;
-      // Don't block if navigating to the result page (submit already handled it)
       if (nextLocation.pathname === '/mock-exam/result') return false;
       return true;
     },
@@ -806,20 +753,28 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   );
 
   const blocker = useBlocker(shouldBlock);
+  const leaveExamPromptShownRef = useRef(false);
 
   useEffect(() => {
-    if (blocker.state !== 'blocked') return;
+    if (blocker.state !== 'blocked' || leaveExamPromptShownRef.current) return;
+
+    leaveExamPromptShownRef.current = true;
 
     Swal.fire({
-      title: 'Leave Exam?',
-      text: 'Leaving will submit your current answers and finish the exam.',
+      title: isDark ? 'Leave Exam?' : 'পরীক্ষা ছেড়ে যাবেন?',
+      text: isDark 
+        ? 'Leaving will submit your current answers and finish the exam.'
+        : 'চলে গেলে আপনার বর্তমান উত্তর জমা হয়ে পরীক্ষা শেষ হয়ে যাবে।',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#9B51E0',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Submit & finish now',
-      cancelButtonText: 'Stay in exam',
+      confirmButtonColor: isDark ? '#9B51E0' : '#1a1a1a',
+      cancelButtonColor: isDark ? '#6b7280' : '#4a4a4a',
+      confirmButtonText: isDark ? 'Submit & finish now' : 'জমা দিন ও শেষ করুন',
+      cancelButtonText: isDark ? 'Stay in exam' : 'পরীক্ষায় থাকুন',
+      background: isDark ? '#1C1F26' : '#f2efe9',
+      color: isDark ? '#F5F7FA' : '#1a1a1a',
     }).then((result) => {
+      leaveExamPromptShownRef.current = false;
       if (result.isConfirmed) {
         blocker.reset();
         handleSubmit(false);
@@ -827,9 +782,8 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         blocker.reset();
       }
     });
-  }, [blocker, handleSubmit]);
+  }, [blocker.state, handleSubmit, isDark]);
 
-  // Show loading while checking if exam is already attempted
   if (attemptsLoading || questionsLoading || isStarting) {
     return <QuizLoading loadingQuestions={questionsLoading || attemptsLoading} />;
   }
@@ -848,9 +802,62 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     );
   }
 
+  // ─── LIGHT MODE (Vintage Paper Style) ───────────────────────
+  if (!isDark) {
+    return (
+      <div 
+        className="min-h-screen bg-[#e8e4db] w-full text-[#1a1a1a] pb-12 relative"
+        style={{
+          backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        {/* Submitting Overlay */}
+        {(isSubmitting || isCompleting) && (
+          <div className="fixed inset-0 z-50 bg-[#e8e4db]/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+            <Loader2 className="w-10 h-10 text-[#b91c1c] animate-spin" />
+            <p className="text-base sm:text-lg font-black text-[#1a1a1a] font-serif tracking-wide">
+              Submitting exam and finalizing results...
+            </p>
+          </div>
+        )}
+        
+        <QuizHeader
+          examName={currentExam?.name || ""}
+          versionName={currentVersion?.examVersion || ""}
+          totalQuestions={totalQuestions}
+          timeLeft={timeLeft}
+          isSubmitted={isSubmitted}
+          onBack={() => navigate(-1)}
+          onSubmit={() => handleSubmit()}
+        />
+
+        <QuizProgressBar
+          answeredCount={answeredCount}
+          totalQuestions={totalQuestions}
+          progressPercentage={progressPercentage}
+          error={error}
+        />
+
+        <main className="w-full mx-auto px-3 sm:px-4 md:px-6 mt-6 sm:mt-8 space-y-4 sm:space-y-6 pb-16">
+          {allQuestions.map((q, index) => (
+            <QuestionCard
+              key={q.questionNumber ?? index}
+              index={index}
+              item={q}
+              selectedIndex={selectedAnswers[index]}
+              isSubmitted={isSubmitted}
+              onSelect={handleAnswerSelect}
+            />
+          ))}
+        </main>
+      </div>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className="min-h-screen bg-[#0B0D12] w-full text-[#F5F7FA] pb-12 relative">
-      {/* Submitting Overlay */}
       {(isSubmitting || isCompleting) && (
         <div className="fixed inset-0 z-50 bg-[#0B0D12]/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
           <Loader2 className="w-10 h-10 text-[#9B51E0] animate-spin" />
@@ -859,7 +866,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           </p>
         </div>
       )}
-      {/* {!isSubmitted && <Watermark userId={userId} examId={examId} />} */}
+
       <QuizHeader
         examName={currentExam?.name || ""}
         versionName={currentVersion?.examVersion || ""}
@@ -877,7 +884,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         error={error}
       />
 
-      {/* ────── QUESTIONS ────── */}
       <main className="w-full mx-auto px-3 sm:px-4 md:px-6 mt-6 sm:mt-8 space-y-4 sm:space-y-6 pb-16">
         {allQuestions.map((q, index) => (
           <QuestionCard
