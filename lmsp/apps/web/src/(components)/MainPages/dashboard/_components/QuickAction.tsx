@@ -7,13 +7,47 @@ export default function QuickAction({
   description,
   onClick,
   color,
+  isDark,
 }: {
   icon: any;
   label: string;
   description: string;
   onClick: () => void;
   color: string;
+  isDark: boolean;
 }) {
+  // ─── LIGHT MODE (Vintage/Editorial Style) ──────────────────
+  if (!isDark) {
+    return (
+      <button
+        onClick={onClick}
+        className="group flex items-center gap-4 w-full bg-[#f2efe9] border border-[#d8d4cb] rounded-xl p-4 text-left shadow-[2px_2px_0px_0px_#1a1a1a] hover:shadow-[3px_3px_0px_0px_#1a1a1a] hover:-translate-y-0.5 transition-all duration-200"
+      >
+        {/* Icon Box */}
+        <div className="p-2.5 rounded-lg bg-[#1a1a1a] flex items-center justify-center shrink-0">
+          <Icon size={20} className="text-[#f2efe9]" />
+        </div>
+
+        {/* Text Content */}
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-sm text-[#1a1a1a] font-serif leading-tight">
+            {label}
+          </h4>
+          <p className="text-[11px] text-[#4a4a4a] font-serif mt-0.5">
+            {description}
+          </p>
+        </div>
+
+        {/* Arrow */}
+        <ArrowRight 
+          size={16} 
+          className="ml-2 text-[#1a1a1a] group-hover:translate-x-1 transition-transform shrink-0" 
+        />
+      </button>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <button
       onClick={onClick}

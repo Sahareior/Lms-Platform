@@ -23,6 +23,7 @@ import {
   useGetBatchQuestionStatsMutation,
   useGetQuestionsByExamQuery,
 } from "@my-monorepo/store";
+import { useTheme } from "../../../../theme/ThemeContext";
 
 // ── Types ─────────────────────────────────────────────────────
 interface ApiQuestion {
@@ -60,7 +61,6 @@ interface ModalState {
   questionIndex: number;
 }
 
-// ── Transform API → component shape ──────────────────────────
 function transformQuestions(
   apiQuestions: ApiQuestion[],
   statsMap: Record<string, any> = {},
@@ -118,7 +118,6 @@ const DIFFICULTY_FILTERS = [
   { key: "Hard", label: "কঠিন" },
 ];
 
-// ─────────────────────────────────────────────────────────────
 export default function QuestionView() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -135,10 +134,10 @@ export default function QuestionView() {
     examVersionId?: string;
   } | null;
 
+  const { isDark } = useTheme();
   const setId = searchParams.get("setId") || stateData?.questionSetId;
   const examIdParam = stateData?.examId || examType;
 
-  // Live query which refetches automatically when any question explanation is saved
   const { data: liveQuestionSets } = useGetQuestionsByExamQuery(
     { examId: examIdParam! },
     { skip: !examIdParam }
@@ -148,13 +147,11 @@ export default function QuestionView() {
   const apiQuestions: ApiQuestion[] = activeSet?.data || stateData?.questions || [];
   const examTitle = stateData?.examTitle || activeSet?.exam?.name || "প্রশ্নপত্র";
 
-  // ── Favorite & Stats API hooks ───────────────────────────
   const [toggleFavoriteMutation] = useToggleFavoriteMutation();
   const { data: favoriteIdsData } = useGetFavoriteQuestionIdsQuery();
   const [getBatchStats] = useGetBatchQuestionStatsMutation();
   const [statsMap, setStatsMap] = useState<Record<string, any>>({});
 
-  // Fetch stats for all questions in this view on mount
   useEffect(() => {
     if (apiQuestions.length > 0) {
       const qIds = apiQuestions.map((q) => q._id);
@@ -179,10 +176,8 @@ export default function QuestionView() {
   );
   const totalQuestions = questions.length;
 
-  // ── UI state ─────────────────────────────────────────────
   const [bookmarked, setBookmarked] = useState<Record<string, boolean>>({});
 
-  // Sync initial favorite state from backend
   useEffect(() => {
     if (favoriteIdsData?.questionIds) {
       const map: Record<string, boolean> = {};
@@ -203,7 +198,6 @@ export default function QuestionView() {
   const [difficultyFilter, setDifficultyFilter] = useState("All");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
-  // ── Derived ───────────────────────────────────────────────
   const bookmarkedCount = Object.values(bookmarked).filter(Boolean).length;
   const revealedCount = Object.values(answerRevealed).filter(Boolean).length;
 
@@ -221,7 +215,6 @@ export default function QuestionView() {
     });
   }, [questions, searchQuery, difficultyFilter]);
 
-  // ── Handlers ─────────────────────────────────────────────
   const openModal = useCallback(
     (type: ModalState["type"], questionIndex: number) => {
       setModalState({ isOpen: true, type, questionIndex });
@@ -280,18 +273,22 @@ export default function QuestionView() {
   // ── Empty state ───────────────────────────────────────────
   if (totalQuestions === 0) {
     return (
-      <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center">
-        <div className="text-center max-w-md p-8">
-          <AlertCircle size={40} className="text-[#6B7280] mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-[#F5F7FA] mb-2">
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-[#0B0D12]' : 'bg-[#e8e4db]'}`}>
+        <div className={`text-center max-w-md p-8 rounded-2xl border ${isDark ? 'border-[#23262D] bg-[#111318]' : 'border-[#d8d4cb] bg-[#f2efe9] shadow-[3px_3px_0px_0px_#1a1a1a]'}`}>
+          <AlertCircle size={40} className={isDark ? 'text-[#6B7280]' : 'text-[#b91c1c]'} />
+          <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif font-black'}`}>
             কোনো প্রশ্ন পাওয়া যায়নি
           </h2>
-          <p className="text-sm text-[#A1A8B3] mb-6">
+          <p className={`text-sm mb-6 ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif italic'}`}>
             এই প্রশ্নপত্রে এখনো কোনো প্রশ্ন যুক্ত করা হয়নি।
           </p>
           <button
             onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#9B51E0] text-white rounded-xl font-bold text-sm hover:bg-[#7E3CC4] transition active:scale-95"
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition active:scale-95 ${
+              isDark 
+                ? 'bg-[#9B51E0] text-white hover:bg-[#7E3CC4]' 
+                : 'bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] font-serif shadow-[2px_2px_0px_0px_#b91c1c] hover:shadow-[3px_3px_0px_0px_#b91c1c]'
+            }`}
           >
             <ArrowLeft size={16} />
             ফিরে যান
@@ -301,35 +298,268 @@ export default function QuestionView() {
     );
   }
 
+  // ─── LIGHT MODE (Vintage Paper Style — WIDER LAYOUT) ───────
+  if (!isDark) {
+    return (
+      <div 
+        className="min-h-screen bg-[#e8e4db] text-[#1a1a1a]"
+        style={{
+          backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        {/* ── Sticky Header ── */}
+        <div className="sticky -top-1 z-30 border-b border-[#d8d4cb] bg-[#f2efe9]/95 backdrop-blur-md shadow-[0_3px_0px_0px_#1a1a1a]">
+          <div className="max-w-6xl mx-auto px-2 sm:px-4 py-3 space-y-3">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate(-1)}
+                className="flex items-center justify-center w-9 h-9 shrink-0 rounded-lg border border-[#d8d4cb] bg-[#f2efe9] text-[#4a4a4a] hover:text-[#1a1a1a] hover:shadow-[2px_2px_0px_0px_#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a] transition"
+                aria-label="ফিরে যান"
+              >
+                <ArrowLeft size={18} />
+              </button>
+
+              <div className="flex-1 min-w-0">
+                <h1 className="text-lg md:text-xl font-black truncate leading-tight text-[#1a1a1a] font-serif">
+                  {examTitle}
+                </h1>
+                <p className="text-sm mt-0.5 text-[#4a4a4a] font-serif italic">
+                  {filteredQuestions.length === totalQuestions
+                    ? `${totalQuestions} টি প্রশ্ন`
+                    : `${filteredQuestions.length} / ${totalQuestions} টি প্রশ্ন`}
+                </p>
+              </div>
+
+              {bookmarkedCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[#f2efe9] border border-[#1a1a1a] shrink-0 font-serif shadow-[1px_1px_0px_0px_#1a1a1a]">
+                  <BookMarked size={12} className="text-[#b91c1c]" />
+                  <span className="text-xs font-black text-[#1a1a1a]">
+                    {bookmarkedCount}
+                  </span>
+                </div>
+              )}
+
+              <button
+                onClick={allRevealed ? hideAll : revealAll}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold border transition shrink-0 font-serif ${
+                  allRevealed
+                    ? "bg-[#f2efe9] border-[#1a1a1a] text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]"
+                    : "bg-[#f2efe9] border-[#d8d4cb] text-[#4a4a4a] hover:border-[#1a1a1a] hover:text-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]"
+                }`}
+                title={allRevealed ? "সব উত্তর লুকান" : "সব উত্তর দেখুন"}
+              >
+                {allRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
+                <span className="hidden sm:inline text-xs">
+                  {allRevealed ? "সব লুকান" : "সব দেখুন"}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Question List (WIDER container) ── */}
+        <div className="max-w-6xl mx-auto px-2 sm:px-4 py-6 space-y-5 pb-28">
+          {filteredQuestions.length === 0 ? (
+            <div className="text-center py-20 rounded-lg border bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]">
+              <Search size={32} className="text-[#1a1a1a] mx-auto mb-3" />
+              <p className="font-black text-[#1a1a1a] font-serif">কোনো প্রশ্ন পাওয়া যায়নি</p>
+              <p className="text-sm mt-1 text-[#4a4a4a] font-serif italic">অনুসন্ধান পরিবর্তন করুন</p>
+            </div>
+          ) : (
+            filteredQuestions.map((q, filteredIdx) => {
+              const isBookmarked = bookmarked[q._id];
+              const isRevealed = answerRevealed[q._id];
+              const originalIdx = questions.findIndex((oq) => oq._id === q._id);
+
+              return (
+                <div
+                  key={q._id}
+                  className={`border rounded-lg transition-all duration-300 ${
+                    isBookmarked
+                      ? "bg-[#f2efe9] border-[#1a1a1a] shadow-[4px_4px_0px_0px_#b91c1c]"
+                      : "bg-[#f2efe9] border-[#d8d4cb] hover:border-[#1a1a1a] shadow-[3px_3px_0px_0px_#1a1a1a]"
+                  }`}
+                >
+                  <div className="p-5 sm:p-7">
+                    <div className="flex items-start gap-3 mb-5">
+                      <span className="shrink-0 mt-0.5 min-w-[28px] h-7 px-1.5 rounded-md bg-[#1a1a1a] border border-[#1a1a1a] flex items-center justify-center text-sm font-black text-[#f2efe9] font-serif">
+                        {q.id}
+                      </span>
+                      
+                      <div className="text-base leading-relaxed font-medium flex-1 text-[#1a1a1a]">
+                        <FormattedQuestion text={q.question} />
+                      </div>
+                    </div>
+
+                    {q.scenarioText && (
+                      <div className="mb-4 rounded-md border p-4 border-[#d8d4cb] bg-[#e0dcd5] shadow-[1px_1px_0px_0px_#1a1a1a]">
+                        <p className="text-sm leading-relaxed whitespace-pre-line text-[#4a4a4a] font-serif">
+                          {q.scenarioText}
+                        </p>
+                      </div>
+                    )}
+
+                    {q.imageUrl && (
+                      <div className="mb-4">
+                        <img
+                          src={q.imageUrl}
+                          alt={`Question ${q.id}`}
+                          className="max-w-full max-h-72 object-contain rounded-md border border-[#d8d4cb] bg-[#e0dcd5] shadow-[2px_2px_0px_0px_#1a1a1a]"
+                        />
+                      </div>
+                    )}
+
+                    {/* Options — 2-column grid on wider screens for a roomier feel */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 mb-5">
+                      {q.options.map((option, i) => {
+                        const isCorrect = q.correctAnswer === i;
+                        const showAsCorrect = isRevealed && isCorrect;
+
+                        return (
+                          <div
+                            key={i}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-md border-2 transition-all duration-200 ${
+                              showAsCorrect
+                                ? "bg-[#f2efe9] border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]"
+                                : "bg-[#f7f3ec] border-[#d8d4cb] shadow-[1px_1px_0px_0px_#d8d4cb]"
+                            }`}
+                          >
+                            <div
+                              className={`w-9 h-9 rounded-full border-2 flex items-center justify-center font-black text-base shrink-0 transition-all duration-200 font-serif ${
+                                showAsCorrect
+                                  ? "bg-[#1a1a1a] border-[#1a1a1a] text-[#f2efe9]"
+                                  : "bg-[#e8e4db] border-[#d8d4cb] text-[#4a4a4a]"
+                              }`}
+                            >
+                              {letters[i]}
+                            </div>
+
+                            <span
+                              className={`flex-1 text-[15px] font-medium leading-snug transition-colors duration-200 font-serif ${
+                                showAsCorrect ? "text-[#1a1a1a] font-bold" : "text-[#4a4a4a]"
+                              }`}
+                            >
+                              {option}
+                            </span>
+
+                            {showAsCorrect && (
+                              <CheckCircle size={16} className="text-[#1a1a1a] shrink-0" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-[#d8d4cb]">
+                      <button
+                        onClick={() => toggleAnswer(q._id)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-[15px] font-bold border transition-all duration-200 active:scale-[0.97] font-serif ${
+                          isRevealed
+                            ? "bg-[#1a1a1a] border-[#1a1a1a] text-[#f2efe9] shadow-[2px_2px_0px_0px_#b91c1c]"
+                            : "bg-[#f5f2eb] border-[#d8d4cb] text-[#4a4a4a] hover:bg-[#efeae0] hover:border-[#1a1a1a] hover:text-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]"
+                        }`}
+                      >
+                        {isRevealed ? (
+                          <><EyeOff size={16} /> উত্তর লুকান</>
+                        ) : (
+                          <><Eye size={16} /> উত্তর দেখুন</>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => toggleBookmark(q._id)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-[15px] font-bold border transition-all duration-200 active:scale-[0.97] font-serif ${
+                          isBookmarked
+                            ? "bg-[#f2efe9] border-[#b91c1c] text-[#b91c1c] shadow-[2px_2px_0px_0px_#b91c1c]"
+                            : "bg-transparent border-[#d8d4cb] text-[#4a4a4a] hover:bg-[#efeae0] hover:border-[#1a1a1a] hover:text-[#1a1a1a]"
+                        }`}
+                        aria-label={isBookmarked ? "বুকমার্ক সরান" : "বুকমার্ক করুন"}
+                      >
+                        <Heart size={16} fill={isBookmarked ? "currentColor" : "none"} />
+                        <span className="hidden xs:inline">
+                          {isBookmarked ? "সংরক্ষিত" : "ফেভারিট"}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => openModal("statistics", originalIdx)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-md text-[15px] font-bold border border-[#d8d4cb] text-[#4a4a4a] bg-transparent hover:bg-[#efeae0] hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition active:scale-[0.97] font-serif"
+                      >
+                        <BarChart3 size={16} />
+                        <span className="hidden sm:inline">পরিসংখ্যান</span>
+                      </button>
+
+                      <button
+                        onClick={() => openModal("explanation", originalIdx)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-md text-[15px] font-bold border border-[#d8d4cb] text-[#4a4a4a] bg-transparent hover:bg-[#efeae0] hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition active:scale-[0.97] font-serif"
+                      >
+                        <BookOpen size={16} />
+                        <span className="hidden sm:inline">ব্যাখ্যা</span>
+                      </button>
+
+                      {isRevealed && (
+                        <div className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f2efe9] border border-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]">
+                          <CheckCircle size={11} className="text-[#1a1a1a]" />
+                          <span className="text-[11px] font-black text-[#1a1a1a] font-serif">
+                            সঠিক উত্তর: {letters[q.correctAnswer]}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <CustomModal
+          setIsModalOpen={closeModal}
+          isModalOpen={modalState.isOpen}
+          modalType={modalState.type}
+          questionData={
+            questions[modalState.questionIndex]
+              ? {
+                  ...questions[modalState.questionIndex],
+                  questionSetId: stateData?.questionSetId,
+                }
+              : undefined
+          }
+          letterLabels={letters}
+          onExplanationSaved={(qId, exp) => {
+            setDynamicExplanations((prev) => ({ ...prev, [qId]: exp }));
+          }}
+        />
+      </div>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
-
-      {/* ── Sticky Header ──────────────────────────────────── */}
-      <div className="sticky -top-1 z-30 bg-[#111318]/95 backdrop-blur-md border-b border-[#23262D]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 space-y-3">
-
-          {/* Row 1: back + title + badges */}
+      <div className="sticky -top-1 z-30 border-b backdrop-blur-md bg-[#111318]/95 border-[#23262D]">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-4 space-y-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center justify-center w-9 h-9 shrink-0 rounded-xl border border-[#23262D] bg-[#161920] hover:bg-[#1C1F26] hover:border-[#323742] text-[#A1A8B3] hover:text-[#F5F7FA] transition"
+              className="flex items-center justify-center w-9 h-9 shrink-0 rounded-xl border transition border-[#23262D] bg-[#161920] hover:bg-[#1C1F26] hover:border-[#323742] text-[#A1A8B3] hover:text-[#F5F7FA]"
               aria-label="ফিরে যান"
             >
               <ArrowLeft size={18} />
             </button>
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg md:text-xl font-bold text-[#F5F7FA] truncate leading-tight">
+              <h1 className="text-lg md:text-xl font-bold truncate leading-tight text-[#F5F7FA]">
                 {examTitle}
               </h1>
-              <p className="text-sm text-[#6B7280] mt-0.5">
+              <p className="text-sm mt-0.5 text-[#6B7280]">
                 {filteredQuestions.length === totalQuestions
                   ? `${totalQuestions} টি প্রশ্ন`
                   : `${filteredQuestions.length} / ${totalQuestions} টি প্রশ্ন`}
               </p>
             </div>
 
-            {/* Bookmark badge */}
             {bookmarkedCount > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[#9B51E0]/10 border border-[#9B51E0]/30 shrink-0">
                 <BookMarked size={12} className="text-[#9B51E0]" />
@@ -338,12 +568,14 @@ export default function QuestionView() {
                 </span>
               </div>
             )}
-                      <button
+
+            <button
               onClick={allRevealed ? hideAll : revealAll}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition shrink-0 ${allRevealed
-                ? "bg-[#00E5B3]/10 border-[#00E5B3]/40 text-[#00E5B3]"
-                : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:border-[#323742] hover:text-[#F5F7FA]"
-                }`}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition shrink-0 ${
+                allRevealed
+                  ? "bg-[#00E5B3]/10 border-[#00E5B3]/40 text-[#00E5B3]"
+                  : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:border-[#323742] hover:text-[#F5F7FA]"
+              }`}
               title={allRevealed ? "সব উত্তর লুকান" : "সব উত্তর দেখুন"}
             >
               {allRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -352,85 +584,15 @@ export default function QuestionView() {
               </span>
             </button>
           </div>
-
-          {/* Row 2: Search + filter + reveal-all */}
-          {/* <div className="flex items-center gap-2">
-           
-            <div className="relative flex-1">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280] pointer-events-none"
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="প্রশ্ন বা উত্তর খুঁজুন..."
-                className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#161920] border border-[#23262D] text-sm text-[#F5F7FA] placeholder:text-[#6B7280] focus:outline-none focus:border-[#9B51E0]/50 transition"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#A1A8B3]"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-
-         
-            <div className="relative shrink-0">
-              <button
-                onClick={() => setShowFilterDropdown((p) => !p)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#161920] border border-[#23262D] hover:border-[#323742] text-sm text-[#A1A8B3] hover:text-[#F5F7FA] transition"
-              >
-                <SlidersHorizontal size={14} />
-                <ChevronDown
-                  size={12}
-                  className={`transition-transform ${showFilterDropdown ? "rotate-180" : ""}`}
-                />
-              </button>
-              {showFilterDropdown && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setShowFilterDropdown(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-2 w-36 rounded-xl border border-[#23262D] bg-[#111318] shadow-xl z-20 overflow-hidden">
-                    {DIFFICULTY_FILTERS.map(({ key, label }) => (
-                      <button
-                        key={key}
-                        onClick={() => {
-                          setDifficultyFilter(key);
-                          setShowFilterDropdown(false);
-                        }}
-                        className={`w-full text-left px-4 py-2.5 text-sm transition ${difficultyFilter === key
-                          ? "bg-[#9B51E0]/10 text-[#9B51E0] font-semibold border-l-2 border-[#9B51E0]"
-                          : "text-[#A1A8B3] hover:bg-[#161920] hover:text-[#F5F7FA]"
-                          }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            
-  
-          </div> */}
-
         </div>
       </div>
 
-      {/* ── Question List ───────────────────────────────────── */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-5 pb-28">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 py-6 space-y-5 pb-28">
         {filteredQuestions.length === 0 ? (
-          <div className="text-center py-20 bg-[#111318] rounded-2xl border border-[#23262D]">
-            <Search size={32} className="text-[#6B7280] mx-auto mb-3" />
-            <p className="text-[#A1A8B3] font-semibold">কোনো প্রশ্ন পাওয়া যায়নি</p>
-            <p className="text-sm text-[#6B7280] mt-1">অনুসন্ধান পরিবর্তন করুন</p>
+          <div className="text-center py-20 rounded-2xl border bg-[#111318] border-[#23262D]">
+            <Search size={32} className="text-[#6B7280]" />
+            <p className="font-semibold text-[#A1A8B3]">কোনো প্রশ্ন পাওয়া যায়নি</p>
+            <p className="text-sm mt-1 text-[#6B7280]">অনুসন্ধান পরিবর্তন করুন</p>
           </div>
         ) : (
           filteredQuestions.map((q, filteredIdx) => {
@@ -441,34 +603,31 @@ export default function QuestionView() {
             return (
               <div
                 key={q._id}
-                className={`bg-[#111318] border rounded-2xl transition-all duration-300 ${isBookmarked
-                  ? "border-[#9B51E0]/40 shadow-[0_0_24px_-8px_rgba(155,81,224,0.3)]"
-                  : "border-[#23262D] hover:border-[#2D3038]"
-                  }`}
+                className={`border rounded-2xl transition-all duration-300 ${
+                  isBookmarked
+                    ? "bg-[#111318] border-[#9B51E0]/40 shadow-[0_0_24px_-8px_rgba(155,81,224,0.3)]"
+                    : "bg-[#111318] border-[#23262D] hover:border-[#2D3038]"
+                }`}
               >
                 <div className="p-5 sm:p-6">
-
-                  {/* ── Question number + text ── */}
                   <div className="flex items-start gap-3 mb-5">
                     <span className="shrink-0 mt-0.5 min-w-[28px] h-7 px-1.5 rounded-lg bg-[#9B51E0]/10 border border-[#9B51E0]/25 flex items-center justify-center text-sm font-bold text-[#9B51E0]">
                       {q.id}
                     </span>
                     
-                    <div className="text-[#F5F7FA] text-base leading-relaxed font-medium flex-1">
+                    <div className="text-base leading-relaxed font-medium flex-1 text-[#F5F7FA]">
                       <FormattedQuestion text={q.question} />
                     </div>
                   </div>
 
-                  {/* Scenario block */}
                   {q.scenarioText && (
-                    <div className="mb-4 rounded-xl border border-[#9B51E0]/25 bg-[#9B51E0]/5 p-4">
-                      <p className="text-sm leading-relaxed text-[#C9D0DA] whitespace-pre-line">
+                    <div className="mb-4 rounded-xl border p-4 border-[#9B51E0]/25 bg-[#9B51E0]/5">
+                      <p className="text-sm leading-relaxed whitespace-pre-line text-[#C9D0DA]">
                         {q.scenarioText}
                       </p>
                     </div>
                   )}
 
-                  {/* Image */}
                   {q.imageUrl && (
                     <div className="mb-4">
                       <img
@@ -479,7 +638,6 @@ export default function QuestionView() {
                     </div>
                   )}
 
-                  {/* ── Options ── */}
                   <div className="space-y-2 mb-5">
                     {q.options.map((option, i) => {
                       const isCorrect = q.correctAnswer === i;
@@ -488,103 +646,87 @@ export default function QuestionView() {
                       return (
                         <div
                           key={i}
-                          className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-xl border-2 transition-all duration-200 ${showAsCorrect
-                            ? "bg-[#00E5B3]/8 border-[#00E5B3]/50"
-                            : "bg-[#161920] border-[#23262D]"
-                            }`}
+                          className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-xl border-2 transition-all duration-200 ${
+                            showAsCorrect
+                              ? "bg-[#00E5B3]/8 border-[#00E5B3]/50"
+                              : "bg-[#161920] border-[#23262D]"
+                          }`}
                         >
-                          {/* Letter badge */}
                           <div
-                            className={`w-9 h-9 rounded-full border-2 flex items-center justify-center font-bold text-base shrink-0 transition-all duration-200 ${showAsCorrect
-                              ? "bg-[#00E5B3] border-[#00E5B3] text-black"
-                              : "bg-[#0B0D12] border-[#2D3038] text-[#A1A8B3]"
-                              }`}
+                            className={`w-9 h-9 rounded-full border-2 flex items-center justify-center font-bold text-base shrink-0 transition-all duration-200 ${
+                              showAsCorrect
+                                ? "bg-[#00E5B3] border-[#00E5B3] text-black"
+                                : "bg-[#0B0D12] border-[#2D3038] text-[#A1A8B3]"
+                            }`}
                           >
                             {letters[i]}
                           </div>
 
-                          {/* Option text */}
                           <span
-                            className={`flex-1 text-base md:text-lg font-medium leading-snug transition-colors duration-200 ${showAsCorrect ? "text-[#00E5B3]" : "text-[#C5CDD8]"
-                              }`}
+                            className={`flex-1 text-base md:text-lg font-medium leading-snug transition-colors duration-200 ${
+                              showAsCorrect ? "text-[#00E5B3]" : "text-[#C5CDD8]"
+                            }`}
                           >
                             {option}
                           </span>
 
                           {showAsCorrect && (
-                            <CheckCircle
-                              size={16}
-                              className="text-[#00E5B3] shrink-0"
-                            />
+                            <CheckCircle size={16} className="text-[#00E5B3] shrink-0" />
                           )}
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* ── Action bar ── */}
                   <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-[#1C1F26]">
-
-                    {/* See Answer button — primary CTA */}
                     <button
                       onClick={() => toggleAnswer(q._id)}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border transition-all duration-200 active:scale-[0.97] ${isRevealed
-                        ? "bg-[#00E5B3]/10 border-[#00E5B3]/40 text-[#00E5B3]"
-                        : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:bg-[#1C1F26] hover:border-[#9B51E0]/40 hover:text-[#F5F7FA]"
-                        }`}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border transition-all duration-200 active:scale-[0.97] ${
+                        isRevealed
+                          ? "bg-[#00E5B3]/10 border-[#00E5B3]/40 text-[#00E5B3]"
+                          : "bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:bg-[#1C1F26] hover:border-[#9B51E0]/40 hover:text-[#F5F7FA]"
+                      }`}
                     >
                       {isRevealed ? (
-                        <>
-                          <EyeOff size={16} />
-                          উত্তর লুকান
-                        </>
+                        <><EyeOff size={16} /> উত্তর লুকান</>
                       ) : (
-                        <>
-                          <Eye size={16} />
-                          উত্তর দেখুন
-                        </>
+                        <><Eye size={16} /> উত্তর দেখুন</>
                       )}
                     </button>
 
-                    {/* Bookmark */}
                     <button
                       onClick={() => toggleBookmark(q._id)}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border transition-all duration-200 active:scale-[0.97] ${isBookmarked
-                        ? "bg-[#9B51E0]/10 border-[#9B51E0]/40 text-[#9B51E0]"
-                        : "bg-transparent border-[#23262D] text-[#A1A8B3] hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA]"
-                        }`}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border transition-all duration-200 active:scale-[0.97] ${
+                        isBookmarked
+                          ? "bg-[#9B51E0]/10 border-[#9B51E0]/40 text-[#9B51E0]"
+                          : "bg-transparent border-[#23262D] text-[#A1A8B3] hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA]"
+                      }`}
                       aria-label={isBookmarked ? "বুকমার্ক সরান" : "বুকমার্ক করুন"}
                     >
-                      <Heart
-                        size={16}
-                        fill={isBookmarked ? "currentColor" : "none"}
-                      />
+                      <Heart size={16} fill={isBookmarked ? "currentColor" : "none"} />
                       <span className="hidden xs:inline">
                         {isBookmarked ? "সংরক্ষিত" : "ফেভারিট"}
                       </span>
                     </button>
 
-                    {/* Statistics */}
                     <button
                       onClick={() => openModal("statistics", originalIdx)}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border border-[#23262D] text-[#A1A8B3] bg-transparent hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition active:scale-[0.97]"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border transition active:scale-[0.97] border-[#23262D] text-[#A1A8B3] bg-transparent hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA]"
                     >
                       <BarChart3 size={16} />
                       <span className="hidden sm:inline">পরিসংখ্যান</span>
                     </button>
 
-                    {/* Explanation */}
                     <button
                       onClick={() => openModal("explanation", originalIdx)}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border border-[#23262D] text-[#A1A8B3] bg-transparent hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition active:scale-[0.97]"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold border transition active:scale-[0.97] border-[#23262D] text-[#A1A8B3] bg-transparent hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA]"
                     >
                       <BookOpen size={16} />
                       <span className="hidden sm:inline">ব্যাখ্যা</span>
                     </button>
 
-                    {/* Correct answer pill — visible only when revealed, pushed to the right */}
                     {isRevealed && (
-                      <div className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#00E5B3]/8 border border-[#00E5B3]/25 animate-[fadeIn_0.2s_ease]">
+                      <div className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#00E5B3]/8 border border-[#00E5B3]/25">
                         <CheckCircle size={11} className="text-[#00E5B3]" />
                         <span className="text-[11px] font-bold text-[#00E5B3]">
                           সঠিক উত্তর: {letters[q.correctAnswer]}
@@ -599,8 +741,6 @@ export default function QuestionView() {
         )}
       </div>
 
-
-      {/* ── Modal ──────────────────────────────────────────── */}
       <CustomModal
         setIsModalOpen={closeModal}
         isModalOpen={modalState.isOpen}

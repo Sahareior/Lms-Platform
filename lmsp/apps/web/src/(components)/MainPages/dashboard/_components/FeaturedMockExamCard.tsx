@@ -40,10 +40,12 @@ export default function FeaturedMockExamCard({
   featured,
   isLoading,
   userId,
+  isDark,
 }: {
   featured: any;
   isLoading: boolean;
   userId?: string;
+  isDark: boolean;
   /** @deprecated use internal navigate instead */
   onStart?: () => void;
 }) {
@@ -68,11 +70,9 @@ export default function FeaturedMockExamCard({
   const isEnded = effectiveStatus === "ended" || effectiveStatus === "cancelled";
   const isCancelled = effectiveStatus === "cancelled";
 
-  // Countdown target: upcoming → start date, live → end date
   const countdownTarget = isUpcoming ? featured?.startDate : featured?.endDate;
   const countdown = useCountdown(countdownTarget);
 
-  // ─── Check if the user has already completed this scheduled exam ───
   const { data: userAttempts } = useGetUserAttemptsQuery(
     { userId: userId!, source: "mock_exam", limit: 50 },
     { skip: !userId || !examId }
@@ -80,12 +80,10 @@ export default function FeaturedMockExamCard({
 
   const hasCompleted = !!userAttempts?.some((a: any) => {
     if (!a.isCompleted) return false;
-    // Match by scheduleExam ID first
     const attemptScheduleId = String(a.scheduleExam?._id || a.scheduleExam || "");
     if (attemptScheduleId && featured?._id) {
       return attemptScheduleId === String(featured._id);
     }
-    // Fallback: match by exam + version
     const attemptExamId = String(a.exam?._id || a.exam || "");
     if (attemptExamId !== String(examId)) return false;
     if (versionId) {
@@ -95,7 +93,6 @@ export default function FeaturedMockExamCard({
     return true;
   });
 
-  // ─── Navigate directly into the exam page ─────────────────────────
   const handleStartExam = () => {
     if (!examId || !isLive || hasCompleted) return;
     const versionParam = versionId ? `&versionId=${versionId}` : "";
@@ -112,8 +109,10 @@ export default function FeaturedMockExamCard({
   // ─── Loading skeleton ──────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="lg:col-span-2 bg-[#111318] border border-[#23262D] rounded-2xl p-6 flex items-center justify-center min-h-[260px]">
-        <Loader2 size={28} className="animate-spin text-[#9B51E0]" />
+      <div className={`lg:col-span-2 rounded-2xl p-6 flex items-center justify-center min-h-[260px] border ${
+        isDark ? "bg-[#111318] border-[#23262D]" : "bg-[#f2efe9] border-[#d8d4cb]"
+      }`}>
+        <Loader2 size={28} className={`animate-spin ${isDark ? "text-[#9B51E0]" : "text-[#b91c1c]"}`} />
       </div>
     );
   }
@@ -121,17 +120,25 @@ export default function FeaturedMockExamCard({
   // ─── No featured exam ──────────────────────────────────────────────
   if (!featured) {
     return (
-      <div className="lg:col-span-2 bg-[#111318] border border-[#23262D] rounded-2xl p-6 flex flex-col items-center justify-center text-center min-h-[260px]">
-        <div className="w-14 h-14 bg-[#9B51E0]/10 border border-[#9B51E0]/30 rounded-2xl flex items-center justify-center mb-4">
-          <ClipboardCheck size={24} className="text-[#9B51E0]" />
+      <div className={`lg:col-span-2 rounded-2xl p-6 flex flex-col items-center justify-center text-center min-h-[260px] border ${
+        isDark ? "bg-[#111318] border-[#23262D]" : "bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]"
+      }`}>
+        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 border ${
+          isDark ? "bg-[#9B51E0]/10 border-[#9B51E0]/30" : "bg-[#e0dcd5] border-[#d8d4cb]"
+        }`}>
+          <ClipboardCheck size={24} className={isDark ? "text-[#9B51E0]" : "text-[#1a1a1a]"} />
         </div>
-        <h3 className="font-bold text-base text-[#F5F7FA] mb-1">No Featured Mock Exam</h3>
-        <p className="text-xs text-[#A1A8B3] max-w-sm mb-5">
+        <h3 className={`font-bold text-base mb-1 ${isDark ? "text-[#F5F7FA]" : "text-[#1a1a1a] font-serif"}`}>No Featured Mock Exam</h3>
+        <p className={`text-xs max-w-sm mb-5 ${isDark ? "text-[#A1A8B3]" : "text-[#4a4a4a] font-serif"}`}>
           No mock exam is being featured right now. Browse all available mock exams and practice tests.
         </p>
         <button
           onClick={() => navigate("/mock-exam")}
-          className="inline-flex items-center gap-2 bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-5 py-2.5 rounded-xl font-bold text-xs hover:border-[#9B51E0]/50 hover:text-[#9B51E0] transition-all"
+          className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            isDark 
+              ? "bg-[#161920] text-[#F5F7FA] border border-[#23262D] hover:border-[#9B51E0]/50 hover:text-[#9B51E0]"
+              : "bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] shadow-[2px_2px_0px_0px_#b91c1c] hover:shadow-[3px_3px_0px_0px_#b91c1c] font-serif"
+          }`}
         >
           <PlayCircle size={15} />
           Browse Mock Exams
@@ -143,24 +150,34 @@ export default function FeaturedMockExamCard({
   // ─── Ended / Cancelled banner ──────────────────────────────────────
   if (isEnded) {
     return (
-      <div className="lg:col-span-2 bg-[#111318] border border-[#23262D] rounded-2xl p-6 flex flex-col items-center justify-center text-center min-h-[260px]">
-        <div className="w-14 h-14 bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-2xl flex items-center justify-center mb-4">
-          <Clock size={24} className="text-[#EB5757]" />
+      <div className={`lg:col-span-2 rounded-2xl p-6 flex flex-col items-center justify-center text-center min-h-[260px] border ${
+        isDark ? "bg-[#111318] border-[#23262D]" : "bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]"
+      }`}>
+        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 border ${
+          isDark ? "bg-[#EB5757]/10 border-[#EB5757]/30" : "bg-[#f2efe9] border-[#b91c1c]"
+        }`}>
+          <Clock size={24} className={isDark ? "text-[#EB5757]" : "text-[#b91c1c]"} />
         </div>
-        <span className="px-2.5 py-1 bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3">
+        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 border ${
+          isDark ? "bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30" : "bg-[#f2efe9] text-[#b91c1c] border-[#b91c1c] font-serif"
+        }`}>
           {isCancelled ? "Cancelled" : "Ended"}
         </span>
-        <h3 className="font-bold text-base text-[#F5F7FA] mb-1">
+        <h3 className={`font-bold text-base mb-1 ${isDark ? "text-[#F5F7FA]" : "text-[#1a1a1a] font-serif"}`}>
           {isCancelled ? "Mock Exam Cancelled" : "Mock Exam Has Ended"}
         </h3>
-        <p className="text-xs text-[#A1A8B3] max-w-sm mb-5">
+        <p className={`text-xs max-w-sm mb-5 ${isDark ? "text-[#A1A8B3]" : "text-[#4a4a4a] font-serif"}`}>
           {isCancelled
             ? "This mock exam was cancelled."
             : `"${featured.title}" has ended. Browse other available mock exams.`}
         </p>
         <button
           onClick={() => navigate("/mock-exam")}
-          className="inline-flex items-center gap-2 bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-5 py-2.5 rounded-xl font-bold text-xs hover:border-[#9B51E0]/50 hover:text-[#9B51E0] transition-all"
+          className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            isDark 
+              ? "bg-[#161920] text-[#F5F7FA] border border-[#23262D] hover:border-[#9B51E0]/50 hover:text-[#9B51E0]"
+              : "bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] shadow-[2px_2px_0px_0px_#b91c1c] hover:shadow-[3px_3px_0px_0px_#b91c1c] font-serif"
+          }`}
         >
           <PlayCircle size={15} />
           Browse Mock Exams
@@ -169,7 +186,90 @@ export default function FeaturedMockExamCard({
     );
   }
 
-  // ─── Main card (Upcoming or Live) ─────────────────────────────────
+  // ─── LIGHT MODE (Vintage Paper Style - Live/Upcoming) ─────────────
+  if (!isDark) {
+    return (
+      <div 
+        className="lg:col-span-2 bg-[#f2efe9] border border-[#d8d4cb] rounded-lg p-6 relative overflow-hidden flex flex-col justify-between shadow-[3px_3px_0px_0px_#1a1a1a]"
+        style={{
+          backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        <div className="relative z-10">
+          {/* Status & Countdown */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <span className="px-2.5 py-1 bg-[#f2efe9] text-[#b91c1c] border border-[#b91c1c] rounded-full text-[10px] font-black uppercase tracking-widest font-serif flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#b91c1c] animate-pulse"></span>
+              {isLive ? "Live Now" : "Upcoming Mock Exam"}
+            </span>
+            {isLive && (
+              <span className="text-[11px] text-[#4a4a4a] font-serif flex items-center gap-1">
+                <Clock size={12} className="text-[#1a1a1a]" />
+                {countdown
+                  ? countdown.days > 0
+                    ? `${countdown.days}d ${countdown.hours}h ${countdown.mins}m remaining`
+                    : `${countdown.hours}:${countdown.mins}:${countdown.secs} remaining`
+                  : "—"}
+              </span>
+            )}
+          </div>
+
+          {/* Title */}
+          <h2 className="text-2xl md:text-3xl font-black text-[#1a1a1a] font-serif mb-1">{featured.title}</h2>
+          
+          {/* Meta */}
+          <p className="text-xs text-[#4a4a4a] font-serif mb-6">
+            {[examName, versionName, featured.totalQuestions ? `${featured.totalQuestions} Questions` : "", featured.duration ? `${featured.duration} Minutes` : ""]
+              .filter(Boolean)
+              .join(" • ") || featured.description || "Mock Exam"}
+          </p>
+
+          {/* Countdown Blocks */}
+          <div className="grid grid-cols-4 gap-3 mb-6 max-w-sm">
+            {[
+              { val: countdown?.days != null ? String(countdown.days).padStart(2, "0") : "--", label: "Days" },
+              { val: countdown?.hours ?? "--", label: isUpcoming ? "Hours" : "Hrs Left" },
+              { val: countdown?.mins ?? "--", label: isUpcoming ? "Mins" : "Mins Left" },
+              { val: countdown?.secs ?? "--", label: isUpcoming ? "Secs" : "Secs Left" },
+            ].map((t, i) => (
+              <div key={i} className="bg-[#f2efe9] border border-[#d8d4cb] p-3 rounded-lg text-center shadow-[2px_2px_0px_0px_#1a1a1a]">
+                <div className="text-xl font-black text-[#1a1a1a] font-serif">{t.val}</div>
+                <div className="text-[9px] text-[#b91c1c] uppercase font-bold tracking-wider font-serif mt-0.5">{t.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {isUpcoming && (
+            <p className="text-xs text-[#4a4a4a] font-serif italic">
+              <Clock size={11} className="inline mr-1 text-[#b91c1c]" />
+              This exam hasn't started yet. Come back when it goes live.
+            </p>
+          )}
+        </div>
+
+        {/* CTA */}
+        {isLive && (
+          hasCompleted ? (
+            <div className="mt-4 w-full flex items-center justify-center gap-2 bg-[#f2efe9] text-[#1a1a1a] border border-[#b91c1c] py-3 rounded-md font-bold text-sm font-serif">
+              <Trophy size={16} className="text-[#b91c1c]" />
+              You've Completed This Exam
+              <Trophy size={16} className="text-[#b91c1c]" />
+            </div>
+          ) : (
+            <button
+              onClick={handleStartExam}
+              className="mt-4 w-full bg-[#1a1a1a] text-[#f2efe9] py-3 rounded-md font-bold text-sm font-serif hover:bg-[#333] transition-all active:scale-[0.98] shadow-[2px_2px_0px_0px_#b91c1c] hover:shadow-[3px_3px_0px_0px_#b91c1c]"
+            >
+              Start Exam Now →
+            </button>
+          )
+        )}
+      </div>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className="lg:col-span-2 bg-gradient-to-br from-[#111318] to-[#1C1F26] border border-[#23262D] rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
       <div className="absolute -top-1 right-0 w-64 h-64 bg-[#9B51E0]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
@@ -203,7 +303,6 @@ export default function FeaturedMockExamCard({
             .join(" • ") || featured.description || "Mock Exam"}
         </p>
 
-        {/* Countdown timer blocks */}
         <div className="grid grid-cols-4 gap-3 mb-6 max-w-xs">
           {[
             { val: countdown?.days != null ? String(countdown.days).padStart(2, "0") : "--", label: "Days" },
@@ -226,10 +325,8 @@ export default function FeaturedMockExamCard({
         )}
       </div>
 
-      {/* CTA — only shown for live exams */}
       {isLive && (
         hasCompleted ? (
-          /* User already completed this exam */
           <div className="mt-4 w-full flex items-center justify-center gap-2 bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 py-3 rounded-xl font-bold text-xs">
             <CheckCircle2 size={15} />
             You've Completed This Exam

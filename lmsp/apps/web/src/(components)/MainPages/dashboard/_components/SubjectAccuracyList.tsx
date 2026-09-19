@@ -6,12 +6,154 @@ export default function SubjectAccuracyList({
   scope,
   selectedExams,
   aiStats,
+  isDark,
 }: {
   subjectData: any[];
   scope: string;
   selectedExams: any[];
   aiStats: any;
+  isDark: boolean;
 }) {
+
+  // ─── LIGHT MODE (Vintage/Editorial Style) ──────────────────
+  if (!isDark) {
+    return (
+      <div 
+        className="bg-[#f2efe9] h-[400px] overflow-y-auto border border-[#d8d4cb] rounded-lg p-5 shadow-[3px_3px_0px_0px_#1a1a1a]"
+        style={{
+          backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-start mb-6 relative z-10">
+          <div className="flex items-center gap-2">
+            <Layers size={20} className="text-[#1a1a1a]" />
+            <div>
+              <h3 className="text-lg font-black text-[#1a1a1a] font-serif">Subject-wise Accuracy</h3>
+              <p className="text-[11px] text-[#4a4a4a] font-serif italic mt-0.5">
+                {subjectData.length > 0
+                  ? scope !== "all"
+                    ? aiStats?.exam
+                      ? `Based on ${aiStats.exam} exam analysis`
+                      : "Based on your quiz activity"
+                    : selectedExams.length > 1
+                    ? `Across all ${selectedExams.length} selected exams`
+                    : aiStats?.exam
+                    ? `Based on ${aiStats.exam} exam analysis`
+                    : "Based on your quiz activity"
+                  : "No analysis yet"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {subjectData.length > 0 ? (
+          <div className="space-y-3 relative z-10">
+            {/* Performance Snapshot */}
+            <div className="rounded-lg border border-[#d8d4cb] bg-[#e0dcd5] p-3 flex items-center justify-between shadow-[2px_2px_0px_0px_#1a1a1a]">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="p-1.5 rounded-md bg-[#f2efe9] border border-[#d8d4cb]">
+                    <Layers size={14} className="text-[#1a1a1a]" />
+                  </div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#4a4a4a] font-serif font-bold">
+                    Performance snapshot
+                  </p>
+                </div>
+                <p className="text-sm font-black text-[#1a1a1a] font-serif">
+                  Avg. accuracy {(
+                    subjectData.reduce((sum: number, item: any) => {
+                      const accuracy = Number(item.accuracy ?? item.score ?? 0);
+                      return sum + (Number.isFinite(accuracy) ? accuracy : 0);
+                    }, 0) / subjectData.length
+                  ).toFixed(0)}%
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-[#4a4a4a] font-serif font-bold uppercase tracking-wider">Strong / Needs work</p>
+                <p className="text-sm font-black text-[#1a1a1a] font-serif">
+                  {subjectData.filter((item: any) => {
+                    const accuracy = Number(item.accuracy ?? item.score ?? 0);
+                    return Number.isFinite(accuracy) && accuracy >= 70;
+                  }).length}/{subjectData.length}
+                </p>
+              </div>
+            </div>
+
+            {/* Subject List */}
+            <div className="space-y-2.5">
+              {subjectData.map((item: any, idx: number) => {
+                const accuracy = Number(item.accuracy ?? item.score ?? 0);
+                const safeAccuracy = Number.isFinite(accuracy) ? accuracy : 0;
+                const isWeak = item.isWeak ?? safeAccuracy < 40;
+                const isStrong = safeAccuracy >= 70;
+                const subjectName = item.subject || item.name || "Subject";
+                const badgeText = isWeak ? "Needs focus" : isStrong ? "Strong" : "Steady";
+                
+                const badgeClasses = isWeak
+                  ? "text-[#b91c1c] bg-[#f2efe9] border-[#b91c1c]"
+                  : isStrong
+                  ? "text-[#1a1a1a] bg-[#f2efe9] border-[#1a1a1a]"
+                  : "text-[#4a4a4a] bg-[#f2efe9] border-[#4a4a4a]";
+
+                return (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-[#d8d4cb] bg-[#f2efe9] p-3 shadow-[1px_1px_0px_0px_#1a1a1a]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-bold text-[#1a1a1a] font-serif truncate">
+                          {subjectName}
+                        </h4>
+                        <p className="text-[11px] text-[#4a4a4a] font-serif italic mt-0.5">
+                          {isWeak
+                            ? "A bit more practice will boost this area quickly."
+                            : "This subject is performing well and staying consistent."}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold font-serif uppercase tracking-wider ${badgeClasses}`}>
+                          {badgeText}
+                        </span>
+                        <div className="mt-2 flex items-end justify-end gap-1">
+                          <span className={`text-lg font-black font-serif ${isWeak ? "text-[#b91c1c]" : "text-[#1a1a1a]"}`}>
+                            {safeAccuracy}
+                          </span>
+                          <span className="text-[10px] font-bold mb-1 text-[#4a4a4a] font-serif">%</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="mt-3 h-2 rounded-full bg-[#e0dcd5] border border-[#d8d4cb] overflow-hidden">
+                      <div
+                        className={`h-full bg-[#b91c1c]`}
+                        style={{ width: `${Math.max(8, safeAccuracy)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* Empty State (matches reference image) */
+          <div className="flex flex-col items-center justify-center h-[280px] text-center gap-4 relative z-10">
+            {/* Target Illustration Placeholder */}
+            <div className="w-20 h-20 rounded-full border-2 border-[#1a1a1a] bg-[#e0dcd5] flex items-center justify-center shadow-[3px_3px_0px_0px_#1a1a1a] mb-2">
+                <Target size={40} className="text-[#1a1a1a]" />
+            </div>
+            <p className="text-xs text-[#1a1a1a] font-serif max-w-[240px] leading-relaxed">
+              No subject data yet — complete quizzes to see your accuracy per subject.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className="bg-[#111318] h-[400px] overflow-y-auto border border-[#23262D] rounded-2xl p-4">
       <div className="flex justify-between items-start mb-6">

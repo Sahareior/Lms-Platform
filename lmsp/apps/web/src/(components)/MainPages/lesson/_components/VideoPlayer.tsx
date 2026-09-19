@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, SkipBack, SkipForward, Pause, Volume2, Maximize, Loader2 } from 'lucide-react';
+import { useTheme } from '../../../../theme/ThemeContext';
+
 
 // ─── YouTube URL Parsing ─────────────────────────────────────
 function getYouTubeEmbedUrl(url: string): string | null {
@@ -68,6 +70,7 @@ export default function VideoPlayer({
   hasPrevious,
   hasNext,
 }: VideoPlayerProps) {
+  const { isDark } = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
   const embedUrl = videoUri ? getYouTubeEmbedUrl(videoUri) : null;
   const isYoutube = videoUri ? isYouTubeUrl(videoUri) : false;
@@ -104,14 +107,14 @@ export default function VideoPlayer({
 
   if (isLoading) {
     return (
-      <div className="bg-[#111b29] rounded-xl overflow-hidden relative aspect-video flex items-center justify-center shadow-lg">
-        <Loader2 size={32} className="animate-spin text-emerald-500" />
+      <div className={isDark ? 'bg-[#111b29] rounded-xl overflow-hidden relative aspect-video flex items-center justify-center shadow-lg' : 'bg-[#f2efe9] border border-[#d8d4cb] rounded-lg overflow-hidden relative aspect-video flex items-center justify-center shadow-[2px_2px_0px_0px_#1a1a1a]'}>
+        <Loader2 size={32} className={isDark ? 'animate-spin text-emerald-500' : 'animate-spin text-[#b91c1c]'} />
       </div>
     );
   }
 
   return (
-    <div className="bg-[#111b29] rounded-xl overflow-hidden relative aspect-video flex flex-col justify-end shadow-lg">
+    <div className={isDark ? 'bg-[#111b29] rounded-xl overflow-hidden relative aspect-video flex flex-col justify-end shadow-lg' : 'bg-[#f2efe9] border border-[#d8d4cb] rounded-lg overflow-hidden relative aspect-video flex flex-col justify-end shadow-[2px_2px_0px_0px_#1a1a1a]'}>
       {videoUri ? (
         isYoutube && embedUrl ? (
           <iframe
@@ -133,37 +136,36 @@ export default function VideoPlayer({
         <>
           {/* No video placeholder */}
           <div className="absolute inset-0 flex flex-col justify-center items-center">
-            <div className="w-16 h-16 bg-[#1eff70] rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(30,255,112,0.4)] cursor-pointer hover:scale-105 transition">
+            <div className={isDark ? 'w-16 h-16 bg-[#1eff70] rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(30,255,112,0.4)] cursor-pointer hover:scale-105 transition' : 'w-16 h-16 bg-[#1a1a1a] rounded-full flex items-center justify-center shadow-[2px_2px_0px_0px_#b91c1c] cursor-pointer hover:scale-105 transition'}>
               <Play size={30} fill="white" className="text-white ml-1" />
             </div>
-            <div className="mt-4 text-white text-center">
-              <h2 className="text-xl font-bold">{title || 'Lesson Title'}</h2>
-              <p className="text-gray-400 text-sm">{instructor || 'Instructor'}</p>
+            <div className={isDark ? 'mt-4 text-white text-center' : 'mt-4 text-[#1a1a1a] text-center'}>
+              <h2 className={isDark ? 'text-xl font-bold' : 'text-xl font-black font-serif'}>{title || 'Lesson Title'}</h2>
+              <p className={isDark ? 'text-gray-400 text-sm' : 'text-[#4a4a4a] text-sm font-serif italic'}>{instructor || 'Instructor'}</p>
             </div>
           </div>
 
-          {/* Custom controls bar (only shown when no video URL) */}
-          <div className="bg-gradient-to-t from-black/80 to-transparent p-4 relative z-10">
-            <div className="w-full h-1 bg-gray-600 rounded-full mb-3">
-              <div className="w-[0%] h-full bg-[#1eff70] rounded-full" />
+          <div className={isDark ? 'bg-gradient-to-t from-black/80 to-transparent p-4 relative z-10' : 'bg-gradient-to-t from-[#1a1a1a]/80 to-transparent p-4 relative z-10'}>
+            <div className={isDark ? 'w-full h-1 bg-gray-600 rounded-full mb-3' : 'w-full h-1 bg-[#e0dcd5] rounded-full mb-3'}>
+              <div className={isDark ? 'w-[0%] h-full bg-[#1eff70] rounded-full' : 'w-[0%] h-full bg-[#b91c1c] rounded-full'} />
             </div>
-            <div className="flex items-center justify-between text-white text-xs">
+            <div className={isDark ? 'flex items-center justify-between text-white text-xs' : 'flex items-center justify-between text-[#f2efe9] text-xs'}>
               <div className="flex items-center gap-4">
                 <SkipBack
-                  fill="white"
+                  fill="currentColor"
                   size={18}
                   className={`cursor-pointer ${!hasPrevious ? 'opacity-30' : ''}`}
                   onClick={hasPrevious ? onPrevious : undefined}
                 />
                 <button onClick={() => setIsPlaying(!isPlaying)}>
                   {isPlaying ? (
-                    <Pause fill="white" size={20} className="cursor-pointer" />
+                    <Pause fill="currentColor" size={20} className="cursor-pointer" />
                   ) : (
-                    <Play fill="white" size={20} className="cursor-pointer" />
+                    <Play fill="currentColor" size={20} className="cursor-pointer" />
                   )}
                 </button>
                 <SkipForward
-                  fill="white"
+                  fill="currentColor"
                   size={18}
                   className={`cursor-pointer ${!hasNext ? 'opacity-30' : ''}`}
                   onClick={hasNext ? onNext : undefined}
@@ -172,7 +174,7 @@ export default function VideoPlayer({
                 <span>0:00 / {formatDuration(duration || 0)}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="border border-white/20 px-2 py-0.5 rounded">1.25x</span>
+                <span className={isDark ? 'border border-white/20 px-2 py-0.5 rounded' : 'border border-[#f2efe9]/30 px-2 py-0.5 rounded'}>1.25x</span>
                 <Maximize size={16} className="cursor-pointer" />
               </div>
             </div>

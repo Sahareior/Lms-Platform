@@ -12,6 +12,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
+import { useTheme } from '../../../../theme/ThemeContext';
 
 // BrainForge accent colours per category
 const categoryAccent: Record<string, string> = {
@@ -24,26 +25,20 @@ const categoryAccent: Record<string, string> = {
 };
 
 export default function QuestionMaster() {
-  // Route param: /question-center/:examType/:subjectId
   const { examType, subjectId } = useParams<{ examType: string; subjectId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isDark } = useTheme();
 
   const [selectedYear, setSelectedYear] = useState<string>("All");
-  // Filter by the source of the question set: board / testpaper / mockexam.
-  // Applied server-side via the ?questionType= query param — "All" sends no
-  // param so legacy sets saved before questionType existed stay visible.
   const resolvedQuestionType = location.state?.questionType === undefined ? "All" : (location.state?.questionType || "All");
   const [selectedQuestionType, setSelectedQuestionType] = useState<string>(resolvedQuestionType);
-  // Board filter (client-side): only shown when board-type sets exist.
   const [selectedBoard, setSelectedBoard] = useState<string>("All");
 
-  // Determine if we're on a child route (exam-din or question-view)
   const isChildRoute =
     location.pathname.includes("/exam-din") ||
     location.pathname.includes("/question-view");
 
-  // Fetch question sets for this exam category, filtered server-side by type.
   const {
     data: questionSets,
     isLoading,
@@ -60,7 +55,6 @@ export default function QuestionMaster() {
   const { data: userData } = useGetMeQuery();
   const { data: allExams } = useGetExamsQuery();
 
-  // Find Exam information
   const currentExam = useMemo(() => {
     if (!examType) return null;
     const fromUser = userData?.selectedExams?.find((e: any) => e._id === examType);
@@ -75,7 +69,6 @@ export default function QuestionMaster() {
 
   const examName = currentExam?.name || "Exam";
 
-  // Filter question sets for the chosen subject
   const subjectQuestionSets = useMemo(() => {
     if (!questionSets || !Array.isArray(questionSets)) return [];
     if (!subjectId) return questionSets;
@@ -105,7 +98,6 @@ export default function QuestionMaster() {
     });
   }, [questionSets, subjectId]);
 
-  // Extract the display name of the subject
   const currentSubjectName = useMemo(() => {
     if (location.state?.subjectName) return location.state.subjectName;
     if (subjectQuestionSets.length > 0) {
@@ -129,8 +121,6 @@ export default function QuestionMaster() {
       const subId = set?.subject?._id || subjectId;
       const version = set.examVersion?.examVersion || "";
       const subject = set.subject?.name || currentSubjectName || "";
-      // Board sets: "Dhaka - HSC (2023)"; testpaper sets: "Dhaka College 2024";
-      // mockexam sets: exam name only.
       const title = collegeName
         ? `${collegeName}${setYear ? ` ${setYear}` : ""}`
         : `${board ? `${board} - ` : ""}${eName}${version ? ` (${version})` : ""}`;
@@ -172,9 +162,6 @@ export default function QuestionMaster() {
     return Array.from(examYearBasedFilter).sort();
   }, [exams]);
 
-  // While a type filter is active, the server response only contains that one
-  // type — so the chip row is frozen from the last unfiltered load instead of
-  // being recomputed live (otherwise the other chips would disappear).
   const [typeChips, setTypeChips] = useState<{ value: QuestionType; label: string }[]>([]);
 
   useEffect(() => {
@@ -184,14 +171,11 @@ export default function QuestionMaster() {
       if (set.questionType) types.add(set.questionType);
     });
     const next = QUESTION_TYPES.filter((t) => types.has(t.value));
-    // Skip identical updates so refetches don't cause extra renders
     setTypeChips((prev) =>
       prev.length === next.length && prev.every((t, i) => t.value === next[i].value) ? prev : next
     );
   }, [subjectQuestionSets, selectedQuestionType]);
 
-  // Keep the chosen question type for the active subject, but reset when the
-  // route changes to a different exam/subject without a fresh selection.
   useEffect(() => {
     const nextType = location.state?.questionType === undefined ? "All" : (location.state?.questionType || "All");
     setSelectedQuestionType(nextType);
@@ -209,12 +193,10 @@ export default function QuestionMaster() {
     });
   }, [examType, subjectId, isChildRoute, location.state?.questionType, navigate, currentSubjectName, examName]);
 
-  // Reset board filter when switching away from the board type.
   useEffect(() => {
     if (selectedQuestionType !== "board") setSelectedBoard("All");
   }, [selectedQuestionType]);
 
-  // Derive distinct board names present in the loaded sets.
   const boardChips = useMemo(() => {
     const seen = new Set<string>();
     subjectQuestionSets.forEach((set: any) => {
@@ -225,26 +207,21 @@ export default function QuestionMaster() {
 
   const filteredExams = useMemo(() => {
     let result = exams;
-    // Year filter (client-side)
     if (selectedYear !== "All") {
       result = result.filter((exam: any) => exam.version === selectedYear);
     }
-    // Board filter (client-side) — only when board question type is selected
     if (selectedBoard !== "All") {
       result = result.filter((exam: any) => exam.board === selectedBoard);
     }
     return result;
   }, [exams, selectedYear, selectedBoard]);
 
-  // Accent colour for current category
   const accent = examType ? categoryAccent[examType] || "#9B51E0" : "#9B51E0";
 
-  // If on child route, render nested content (exam-din or question-view)
   if (isChildRoute) {
     return <Outlet />;
   }
 
-  // If no examType, redirect to question-center root
   if (!examType) {
     navigate("/question-center", { replace: true });
     return null;
@@ -253,10 +230,10 @@ export default function QuestionMaster() {
   // --- Loading State ---
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-[#0B0D12]' : 'bg-[#e8e4db]'}`}>
         <div className="text-center">
-          <Loader2 size={36} className="animate-spin text-[#9B51E0] mx-auto mb-4" />
-          <p className="text-[#A1A8B3] font-medium">Loading question sets...</p>
+          <Loader2 size={36} className={`animate-spin mx-auto mb-4 ${isDark ? 'text-[#9B51E0]' : 'text-[#b91c1c]'}`} />
+          <p className={`font-medium ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif italic'}`}>Loading question sets...</p>
         </div>
       </div>
     );
@@ -265,16 +242,20 @@ export default function QuestionMaster() {
   // --- Error State ---
   if (isError || !questionSets) {
     return (
-      <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center">
-        <div className="text-center max-w-md p-8 bg-[#111318] rounded-2xl border border-[#23262D]">
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-[#0B0D12]' : 'bg-[#e8e4db]'}`}>
+        <div className={`text-center max-w-md p-8 rounded-2xl border ${isDark ? 'bg-[#111318] border-[#23262D]' : 'bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]'}`}>
           <AlertCircle size={32} className="text-[#EB5757] mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-[#F5F7FA] mb-2">Failed to load</h3>
-          <p className="text-[#A1A8B3] text-sm mb-4">
+          <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif font-black'}`}>Failed to load</h3>
+          <p className={`text-sm mb-4 ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif italic'}`}>
             Could not load question sets for this subject.
           </p>
           <button
             onClick={() => navigate(`/question-center/${examType}`)}
-            className="inline-flex items-center gap-2 bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#1C1F26] transition"
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition ${
+              isDark 
+                ? 'bg-[#161920] text-[#F5F7FA] border border-[#23262D] hover:bg-[#1C1F26]' 
+                : 'bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] font-serif shadow-[2px_2px_0px_0px_#b91c1c] hover:shadow-[3px_3px_0px_0px_#b91c1c]'
+            }`}
           >
             Back to Subjects
           </button>
@@ -283,40 +264,80 @@ export default function QuestionMaster() {
     );
   }
 
+  // Helper for filter chip styles
+  const getChipStyle = (isSelected: boolean) => {
+    if (isDark) {
+      return isSelected
+        ? "text-white"
+        : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50";
+    }
+    return isSelected
+      ? "text-[#f2efe9] border border-[#1a1a1a] font-serif"
+      : "bg-[#f2efe9] text-[#1a1a1a] border border-[#d8d4cb] hover:shadow-[2px_2px_0px_0px_#1a1a1a] font-serif";
+  };
+
+  const getChipBg = (isSelected: boolean) => {
+    if (isSelected) {
+      return { backgroundColor: isDark ? accent : "#1a1a1a" };
+    }
+    return {};
+  };
+
   return (
-    <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
-      {/* Top Header & Breadcrumbs */}
-      <div className="bg-[#111318]/95 backdrop-blur-xl border-b border-[#23262D] sticky -top-1 z-20">
+    <div 
+      className={`min-h-screen ${isDark ? 'bg-[#0B0D12] text-[#F5F7FA]' : 'bg-[#e8e4db] text-[#1a1a1a]'}`}
+      style={!isDark ? {
+        backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+        backgroundSize: '16px 16px',
+      } : undefined}
+    >
+      <div className={`sticky -top-1 z-20 border-b backdrop-blur-xl ${isDark ? 'bg-[#111318]/95 border-[#23262D]' : 'bg-[#f2efe9]/95 border-[#d8d4cb] shadow-[0_3px_0px_0px_#1a1a1a]'}`}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <button
-                onClick={() => navigate(`/question-center/${examType}`)}
-                className="p-2.5 rounded-xl bg-[#161920] border border-[#23262D] text-[#A1A8B3] hover:text-[#F5F7FA] hover:bg-[#1C1F26] hover:border-[#9B51E0]/40 transition-all active:scale-95"
-                title="Back to Subjects"
+                onClick={() =>
+                  navigate(`/question-center/${examType}/${subjectId}/type`, {
+                    state: location.state,
+                  })
+                }
+                className={`p-2.5 rounded-xl border transition-all active:scale-95 ${
+                  isDark 
+                    ? 'bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:text-[#F5F7FA] hover:bg-[#1C1F26] hover:border-[#9B51E0]/40' 
+                    : 'bg-[#f2efe9] border-[#d8d4cb] text-[#4a4a4a] hover:text-[#1a1a1a] hover:shadow-[2px_2px_0px_0px_#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]'
+                }`}
+                title="Back to Question Types"
               >
                 <ArrowLeft size={18} />
               </button>
 
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-[#9B51E0]/15 text-[#9B51E0] border border-[#9B51E0]/30 uppercase tracking-wider">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                    isDark 
+                      ? 'bg-[#9B51E0]/15 text-[#9B51E0] border border-[#9B51E0]/30' 
+                      : 'bg-[#e0dcd5] text-[#1a1a1a] border border-[#d8d4cb] font-serif'
+                  }`}>
                     {examName}
                   </span>
-                  <span className="text-xs text-[#6B7280]">/</span>
-                  <span className="text-xs font-medium text-[#00C8FF]">
+                  <span className={`text-xs ${isDark ? 'text-[#6B7280]' : 'text-[#4a4a4a]'}`}>/</span>
+                  <span className={`text-xs font-medium ${isDark ? 'text-[#00C8FF]' : 'text-[#b91c1c] font-serif font-bold'}`}>
                     {currentSubjectName}
                   </span>
                 </div>
-                <h1 className="text-xl sm:text-2xl font-extrabold text-[#F5F7FA] mt-1 tracking-tight">
+                <h1 className={`text-xl sm:text-2xl font-extrabold mt-1 tracking-tight ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif font-black'}`}>
                   Question Sets
                 </h1>
               </div>
             </div>
 
             {filteredExams.length > 0 && (
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#161920] border border-[#23262D] text-xs font-medium text-[#A1A8B3]">
-                <Layers size={14} className="text-[#9B51E0]" />
+              <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium ${
+                isDark 
+                  ? 'bg-[#161920] border-[#23262D] text-[#A1A8B3]' 
+                  : 'bg-[#f2efe9] border-[#d8d4cb] text-[#1a1a1a] font-serif shadow-[1px_1px_0px_0px_#1a1a1a]'
+              }`}>
+                <Layers size={14} className={isDark ? 'text-[#9B51E0]' : 'text-[#b91c1c]'} />
                 <span>{filteredExams.length} {filteredExams.length === 1 ? "Set" : "Sets"} Available</span>
               </div>
             )}
@@ -324,24 +345,17 @@ export default function QuestionMaster() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-5 pb-24">
-        
-        {/* Question Type Filter */}
         {typeChips.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap pb-2 border-b border-[#23262D]/60">
-            <div className="flex items-center gap-1.5 text-xs text-[#A1A8B3] mr-2">
+          <div className={`flex items-center gap-2 flex-wrap pb-2 border-b ${isDark ? 'border-[#23262D]/60' : 'border-[#d8d4cb]'}`}>
+            <div className={`flex items-center gap-1.5 text-xs mr-2 ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif'}`}>
               <Tag size={14} />
               <span>Type:</span>
             </div>
             <button
               onClick={() => setSelectedQuestionType("All")}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                selectedQuestionType === "All"
-                  ? "text-white"
-                  : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
-              }`}
-              style={selectedQuestionType === "All" ? { backgroundColor: accent } : {}}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${getChipStyle(selectedQuestionType === "All")}`}
+              style={getChipBg(selectedQuestionType === "All")}
             >
               All Types
             </button>
@@ -349,12 +363,8 @@ export default function QuestionMaster() {
               <button
                 key={value}
                 onClick={() => setSelectedQuestionType(value)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  selectedQuestionType === value
-                    ? "text-white"
-                    : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
-                }`}
-                style={selectedQuestionType === value ? { backgroundColor: accent } : {}}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${getChipStyle(selectedQuestionType === value)}`}
+                style={getChipBg(selectedQuestionType === value)}
               >
                 {label}
               </button>
@@ -362,21 +372,16 @@ export default function QuestionMaster() {
           </div>
         )}
 
-        {/* Board Filter — visible when board question sets exist */}
         {boardChips.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap pb-2 border-b border-[#23262D]/60">
-            <div className="flex items-center gap-1.5 text-xs text-[#A1A8B3] mr-2">
+          <div className={`flex items-center gap-2 flex-wrap pb-2 border-b ${isDark ? 'border-[#23262D]/60' : 'border-[#d8d4cb]'}`}>
+            <div className={`flex items-center gap-1.5 text-xs mr-2 ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif'}`}>
               <MapPin size={14} />
               <span>Board:</span>
             </div>
             <button
               onClick={() => setSelectedBoard("All")}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                selectedBoard === "All"
-                  ? "text-white"
-                  : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
-              }`}
-              style={selectedBoard === "All" ? { backgroundColor: accent } : {}}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${getChipStyle(selectedBoard === "All")}`}
+              style={getChipBg(selectedBoard === "All")}
             >
               All Boards
             </button>
@@ -384,12 +389,8 @@ export default function QuestionMaster() {
               <button
                 key={board}
                 onClick={() => setSelectedBoard(board)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  selectedBoard === board
-                    ? "text-white"
-                    : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
-                }`}
-                style={selectedBoard === board ? { backgroundColor: accent } : {}}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${getChipStyle(selectedBoard === board)}`}
+                style={getChipBg(selectedBoard === board)}
               >
                 {board}
               </button>
@@ -397,21 +398,16 @@ export default function QuestionMaster() {
           </div>
         )}
 
-        {/* Year Filter */}
         {examYearArray.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap pb-2 border-b border-[#23262D]/60">
-            <div className="flex items-center gap-1.5 text-xs text-[#A1A8B3] mr-2">
+          <div className={`flex items-center gap-2 flex-wrap pb-2 border-b ${isDark ? 'border-[#23262D]/60' : 'border-[#d8d4cb]'}`}>
+            <div className={`flex items-center gap-1.5 text-xs mr-2 ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif'}`}>
               <Calendar size={14} />
               <span>Year:</span>
             </div>
             <button
               onClick={() => setSelectedYear("All")}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                selectedYear === "All"
-                  ? "text-white"
-                  : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
-              }`}
-              style={selectedYear === "All" ? { backgroundColor: accent } : {}}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${getChipStyle(selectedYear === "All")}`}
+              style={getChipBg(selectedYear === "All")}
             >
               All Years
             </button>
@@ -419,12 +415,8 @@ export default function QuestionMaster() {
               <button
                 key={year}
                 onClick={() => setSelectedYear(year)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  selectedYear === year
-                    ? "text-white"
-                    : "bg-[#111318] text-[#A1A8B3] border border-[#23262D] hover:border-[#9B51E0]/50"
-                }`}
-                style={selectedYear === year ? { backgroundColor: accent } : {}}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${getChipStyle(selectedYear === year)}`}
+                style={getChipBg(selectedYear === year)}
               >
                 {year || "Unknown"}
               </button>
@@ -432,17 +424,20 @@ export default function QuestionMaster() {
           </div>
         )}
 
-        {/* Empty State */}
         {filteredExams.length === 0 ? (
-          <div className="text-center py-16 bg-[#111318] rounded-2xl border border-[#23262D] max-w-md mx-auto p-8">
-            <FileText size={36} className="text-[#6B7280] mx-auto mb-3" />
-            <h3 className="text-base font-bold text-[#F5F7FA] mb-1">No question sets found</h3>
-            <p className="text-[#A1A8B3] text-sm mb-4">
+          <div className={`text-center py-16 rounded-2xl border max-w-md mx-auto p-8 ${isDark ? 'bg-[#111318] border-[#23262D]' : 'bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]'}`}>
+            <FileText size={36} className={`mx-auto mb-3 ${isDark ? 'text-[#6B7280]' : 'text-[#1a1a1a]'}`} />
+            <h3 className={`text-base font-bold mb-1 ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif font-black'}`}>No question sets found</h3>
+            <p className={`text-sm mb-4 ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif italic'}`}>
               There are no question sets available for this subject in the selected year.
             </p>
             <button
               onClick={() => navigate(`/question-center/${examType}`)}
-              className="bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#1C1F26] transition"
+              className={`border px-4 py-2 rounded-xl text-xs font-bold transition ${
+                isDark 
+                  ? 'bg-[#161920] text-[#F5F7FA] border-[#23262D] hover:bg-[#1C1F26]' 
+                  : 'bg-[#1a1a1a] text-[#f2efe9] border-[#1a1a1a] font-serif shadow-[2px_2px_0px_0px_#b91c1c] hover:shadow-[3px_3px_0px_0px_#b91c1c]'
+              }`}
             >
               Back to Subjects
             </button>
@@ -451,56 +446,66 @@ export default function QuestionMaster() {
           filteredExams.map((exam: any) => (
             <div
               key={exam._id}
-              className="bg-[#111318] rounded-2xl border border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.3)] transition-all duration-300 p-6 group"
+              className={`rounded-2xl border p-6 group transition-all duration-300 ${
+                isDark 
+                  ? 'bg-[#111318] border-[#23262D] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.3)]' 
+                  : 'bg-[#f2efe9] border-[#d8d4cb] hover:shadow-[4px_4px_0px_0px_#1a1a1a] shadow-[3px_3px_0px_0px_#1a1a1a]'
+              }`}
             >
-              {/* Top Row */}
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-2">
                   {exam.questionType && (
-                    <span className="bg-[#9B51E0]/10 text-[#9B51E0] border border-[#9B51E0]/30 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                      {QUESTION_TYPES.find((t) => t.value === exam.questionType)?.label ||
-                        exam.questionType}
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                      isDark 
+                        ? 'bg-[#9B51E0]/10 text-[#9B51E0] border border-[#9B51E0]/30' 
+                        : 'bg-[#e0dcd5] text-[#1a1a1a] border border-[#d8d4cb] font-serif uppercase tracking-wider'
+                    }`}>
+                      {QUESTION_TYPES.find((t) => t.value === exam.questionType)?.label || exam.questionType}
                     </span>
                   )}
-                  <p className="text-xs text-[#A1A8B3] font-medium">{exam.date}</p>
+                  <p className={`text-xs font-medium ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif italic'}`}>{exam.date}</p>
                 </div>
-                <span className="bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30 text-xs font-semibold px-3 py-0.5 rounded-full">
+                <span className={`text-xs font-bold px-3 py-0.5 rounded-full ${
+                  isDark 
+                    ? 'bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30' 
+                    : 'bg-[#f2efe9] text-[#1a1a1a] border border-[#1a1a1a] font-serif uppercase tracking-wider'
+                }`}>
                   {exam.status}
                 </span>
               </div>
 
-              {/* Title */}
-              <h2 className="font-bold text-lg sm:text-xl text-[#F5F7FA] mb-2 group-hover:text-[#9B51E0] transition-colors">
+              <h2 className={`font-bold text-lg sm:text-xl mb-2 transition-colors ${
+                isDark ? 'text-[#F5F7FA] group-hover:text-[#9B51E0]' : 'text-[#1a1a1a] font-serif font-black'
+              }`}>
                 {exam.title}
               </h2>
 
-              {/* Description */}
-              <p className="text-[#A1A8B3] leading-relaxed mb-6 text-sm">
+              <p className={`leading-relaxed mb-6 text-sm ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif italic'}`}>
                 {exam.description}
               </p>
 
-              {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => {
                     const matchedSet = questionSets?.find((s: any) => s._id === exam._id);
                     const targetSubjectId = subjectId || exam.subjectId;
-                    navigate(
-                      `/question-center/${examType}/${targetSubjectId}/question-view?setId=${exam._id}`,
-                      {
-                        state: {
-                          questions: matchedSet?.data || [],
-                          examTitle: exam.title,
-                          subject: exam.subject,
-                          questionSetId: exam._id,
-                          examId: exam.examId,
-                          subjectId: targetSubjectId,
-                          examVersionId: exam.examVersionId,
-                        },
-                      }
-                    );
+                    navigate(`/question-center/${examType}/${targetSubjectId}/question-view?setId=${exam._id}`, {
+                      state: {
+                        questions: matchedSet?.data || [],
+                        examTitle: exam.title,
+                        subject: exam.subject,
+                        questionSetId: exam._id,
+                        examId: exam.examId,
+                        subjectId: targetSubjectId,
+                        examVersionId: exam.examVersionId,
+                      },
+                    });
                   }}
-                  className="border border-[#23262D] rounded-xl py-3 font-semibold text-sm text-[#A1A8B3] hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA] transition-all text-center"
+                  className={`border rounded-xl py-3 font-bold text-sm transition-all text-center ${
+                    isDark 
+                      ? 'border-[#23262D] text-[#A1A8B3] hover:bg-[#161920] hover:border-[#323742] hover:text-[#F5F7FA]' 
+                      : 'border-[#d8d4cb] text-[#1a1a1a] hover:shadow-[2px_2px_0px_0px_#1a1a1a] font-serif shadow-[1px_1px_0px_0px_#1a1a1a]'
+                  }`}
                 >
                   প্রশ্ন দেখুন
                 </button>
@@ -508,25 +513,24 @@ export default function QuestionMaster() {
                   onClick={() => {
                     const matchedSet = questionSets?.find((s: any) => s._id === exam._id);
                     const targetSubjectId = subjectId || exam.subjectId;
-                    navigate(
-                      `/question-center/${examType}/${targetSubjectId}/exam-din?setId=${exam._id}`,
-                      {
-                        state: {
-                          questions: matchedSet?.data || [],
-                          examTitle: exam.title,
-                          subject: exam.subject,
-                          questionSetId: exam._id,
-                          examId: exam.examId,
-                          subjectId: targetSubjectId,
-                          examVersionId: exam.examVersionId,
-                        },
-                      }
-                    );
+                    navigate(`/question-center/${examType}/${targetSubjectId}/exam-din?setId=${exam._id}`, {
+                      state: {
+                        questions: matchedSet?.data || [],
+                        examTitle: exam.title,
+                        subject: exam.subject,
+                        questionSetId: exam._id,
+                        examId: exam.examId,
+                        subjectId: targetSubjectId,
+                        examVersionId: exam.examVersionId,
+                      },
+                    });
                   }}
-                  className="text-white rounded-xl py-3 font-semibold text-sm transition-all active:scale-[0.98] text-center"
+                  className={`rounded-xl py-3 font-bold text-sm transition-all active:scale-[0.98] text-center ${
+                    isDark ? 'text-white' : 'text-[#f2efe9] font-serif border border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a] hover:shadow-[3px_3px_0px_0px_#1a1a1a]'
+                  }`}
                   style={{
-                    backgroundColor: accent,
-                    boxShadow: `0 4px 14px ${accent}40`,
+                    backgroundColor: isDark ? accent : "#1a1a1a",
+                    boxShadow: isDark ? `0 4px 14px ${accent}40` : undefined,
                   }}
                 >
                   পরীক্ষা দিন
@@ -537,7 +541,6 @@ export default function QuestionMaster() {
         )}
       </div>
 
-      {/* Outlet for nested child routes */}
       <Outlet />
     </div>
   );

@@ -1,5 +1,6 @@
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, BookOpen, GraduationCap, Swords, ChevronRight } from 'lucide-react';
+import { useTheme } from '../../../theme/ThemeContext';
 
 // BrainForge accent colours per category
 const categoryAccent: Record<string, string> = {
@@ -54,6 +55,7 @@ export default function QuestionTypeSelection() {
   const { examType, subjectId } = useParams<{ examType: string; subjectId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isDark } = useTheme();
 
   const subjectName: string = location.state?.subjectName || 'Subject';
   const examName: string = location.state?.examName || 'Exam';
@@ -70,15 +72,113 @@ export default function QuestionTypeSelection() {
     });
   };
 
+  // ─── LIGHT MODE (Vintage Paper Style) ───────────────────────
+  if (!isDark) {
+    return (
+      <div 
+        className="min-h-screen bg-[#e8e4db] text-[#1a1a1a]"
+        style={{
+          backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        <div className="sticky -top-1 z-20 border-b border-[#d8d4cb] bg-[#f2efe9]/95 backdrop-blur-xl shadow-[0_3px_0px_0px_#1a1a1a]">
+          <div className="max-w-8xl mx-auto px-4 sm:px-6 py-5">
+            <div className="flex items-center gap-3.5">
+              <button
+                onClick={() => navigate(`/question-center/${examType}`, { state: location.state })}
+                className="p-2.5 rounded-xl border border-[#d8d4cb] bg-[#f2efe9] text-[#4a4a4a] hover:text-[#1a1a1a] hover:shadow-[2px_2px_0px_0px_#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a] transition-all active:scale-95"
+                title="Back to Subjects"
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border border-[#d8d4cb] bg-[#e0dcd5] text-[#1a1a1a] font-serif">
+                    {examName}
+                  </span>
+                  <span className="text-xs text-[#4a4a4a]">/</span>
+                  <span className="text-xs font-bold text-[#b91c1c] font-serif">{subjectName}</span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-black mt-1 tracking-tight text-[#1a1a1a] font-serif">
+                  Select Question Type
+                </h1>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 pb-24">
+          <p className="text-sm mb-8 text-center text-[#4a4a4a] font-serif italic">
+            Choose the type of questions you want to practice for{' '}
+            <span className="font-bold text-[#1a1a1a]">{subjectName}</span>
+          </p>
+
+          <div className="space-y-4">
+            {QUESTION_TYPE_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => handleSelect(opt.value)}
+                  className="w-full group relative flex items-center gap-5 p-6 rounded-lg border border-[#d8d4cb] bg-[#f2efe9] transition-all duration-300 text-left active:scale-[0.985] overflow-hidden shadow-[3px_3px_0px_0px_#1a1a1a] hover:shadow-[4px_4px_0px_0px_#1a1a1a] hover:-translate-y-0.5"
+                >
+                  {/* Icon Box */}
+                  <div className="w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 border border-[#1a1a1a] bg-[#1a1a1a] transition-transform group-hover:scale-105">
+                    <Icon size={26} className="text-[#f2efe9]" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-base font-black tracking-tight text-[#1a1a1a] font-serif">
+                        {opt.label}
+                      </h2>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#1a1a1a] bg-[#f2efe9] text-[#1a1a1a] uppercase tracking-wider font-serif">
+                        {opt.badge}
+                      </span>
+                    </div>
+                    <p className="text-xs mb-0.5 text-[#4a4a4a] font-serif">{opt.labelBn}</p>
+                    <p className="text-sm leading-relaxed hidden sm:block text-[#4a4a4a] font-serif italic">
+                      {opt.description}
+                    </p>
+                  </div>
+
+                  <ChevronRight
+                    size={20}
+                    className="flex-shrink-0 text-[#4a4a4a] group-hover:text-[#b91c1c] group-hover:translate-x-0.5 transition-all"
+                  />
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="text-center text-xs mt-8 text-[#4a4a4a] font-serif italic">
+            Want all types?{' '}
+            <button
+              onClick={() =>
+                navigate(`/question-center/${examType}/${subjectId}`, {
+                  state: { subjectName, examName, questionType: '' },
+                })
+              }
+              className="underline transition text-[#1a1a1a] hover:text-[#b91c1c] font-bold"
+            >
+              Show all question sets
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
-      {/* Sticky Header */}
-      <div className="bg-[#111318]/95 backdrop-blur-xl border-b border-[#23262D] sticky -top-1 z-20">
+      <div className="sticky -top-1 z-20 border-b backdrop-blur-xl bg-[#111318]/95 border-[#23262D]">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex items-center gap-3.5">
             <button
               onClick={() => navigate(`/question-center/${examType}`, { state: location.state })}
-              className="p-2.5 rounded-xl bg-[#161920] border border-[#23262D] text-[#A1A8B3] hover:text-[#F5F7FA] hover:bg-[#1C1F26] transition-all active:scale-95"
+              className="p-2.5 rounded-xl border transition-all active:scale-95 bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:text-[#F5F7FA] hover:bg-[#1C1F26]"
               title="Back to Subjects"
             >
               <ArrowLeft size={18} />
@@ -94,7 +194,7 @@ export default function QuestionTypeSelection() {
                 <span className="text-xs text-[#6B7280]">/</span>
                 <span className="text-xs font-medium text-[#00C8FF]">{subjectName}</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-[#F5F7FA] mt-1 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-extrabold mt-1 tracking-tight text-[#F5F7FA]">
                 Select Question Type
               </h1>
             </div>
@@ -102,15 +202,12 @@ export default function QuestionTypeSelection() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 pb-24">
-        {/* Subtitle */}
-        <p className="text-[#6B7280] text-sm mb-8 text-center">
+        <p className="text-sm mb-8 text-center text-[#6B7280]">
           Choose the type of questions you want to practice for{' '}
-          <span className="text-[#A1A8B3] font-semibold">{subjectName}</span>
+          <span className="font-semibold text-[#A1A8B3]">{subjectName}</span>
         </p>
 
-        {/* Cards */}
         <div className="space-y-4">
           {QUESTION_TYPE_OPTIONS.map((opt) => {
             const Icon = opt.icon;
@@ -118,7 +215,7 @@ export default function QuestionTypeSelection() {
               <button
                 key={opt.value}
                 onClick={() => handleSelect(opt.value)}
-                className={`w-full group relative flex items-center gap-5 p-6 rounded-2xl border bg-gradient-to-br ${opt.gradient} border-[#23262D] hover:border-opacity-80 transition-all duration-300 hover:shadow-[0_0_28px_-6px] text-left active:scale-[0.985] overflow-hidden`}
+                className={`w-full group relative flex items-center gap-5 p-6 rounded-2xl border bg-gradient-to-br ${opt.gradient} transition-all duration-300 text-left active:scale-[0.985] overflow-hidden border-[#23262D] hover:border-opacity-80 hover:shadow-[0_0_28px_-6px]`}
                 style={{
                   '--tw-shadow-color': `${opt.borderColor}50`,
                   borderColor: `${opt.borderColor}30`,
@@ -132,13 +229,11 @@ export default function QuestionTypeSelection() {
                   (e.currentTarget as HTMLElement).style.boxShadow = '';
                 }}
               >
-                {/* Decorative glow blob */}
                 <div
                   className="absolute -right-8 -top-8 w-32 h-32 rounded-full opacity-10 blur-2xl transition-opacity group-hover:opacity-20"
                   style={{ backgroundColor: opt.iconColor }}
                 />
 
-                {/* Icon */}
                 <div
                   className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 border transition-transform group-hover:scale-105"
                   style={{
@@ -149,10 +244,9 @@ export default function QuestionTypeSelection() {
                   <Icon size={26} style={{ color: opt.iconColor }} />
                 </div>
 
-                {/* Text */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-base font-extrabold text-[#F5F7FA] tracking-tight group-hover:text-white">
+                    <h2 className="text-base font-extrabold tracking-tight text-[#F5F7FA] group-hover:text-white">
                       {opt.label}
                     </h2>
                     <span
@@ -166,24 +260,22 @@ export default function QuestionTypeSelection() {
                       {opt.badge}
                     </span>
                   </div>
-                  <p className="text-xs text-[#6B7280] mb-0.5">{opt.labelBn}</p>
-                  <p className="text-sm text-[#A1A8B3] leading-relaxed hidden sm:block">
+                  <p className="text-xs mb-0.5 text-[#6B7280]">{opt.labelBn}</p>
+                  <p className="text-sm leading-relaxed hidden sm:block text-[#A1A8B3]">
                     {opt.description}
                   </p>
                 </div>
 
-                {/* Arrow */}
                 <ChevronRight
                   size={20}
-                  className="flex-shrink-0 text-[#6B7280] group-hover:text-[#A1A8B3] group-hover:translate-x-0.5 transition-all"
+                  className="flex-shrink-0 transition-all text-[#6B7280] group-hover:text-[#A1A8B3] group-hover:translate-x-0.5"
                 />
               </button>
             );
           })}
         </div>
 
-        {/* Skip hint */}
-        <p className="text-center text-xs text-[#6B7280] mt-8">
+        <p className="text-center text-xs mt-8 text-[#6B7280]">
           Want all types?{' '}
           <button
             onClick={() =>
@@ -191,7 +283,7 @@ export default function QuestionTypeSelection() {
                 state: { subjectName, examName, questionType: '' },
               })
             }
-            className="text-[#A1A8B3] underline hover:text-[#F5F7FA] transition"
+            className="underline transition text-[#A1A8B3] hover:text-[#F5F7FA]"
           >
             Show all question sets
           </button>

@@ -9,18 +9,25 @@ export default function RadarChartCard({
   primaryColor,
   strongest,
   weakest,
+  isDark,
 }: {
   radarData: Array<{ subject: string; value: number; fullMark: number }>;
   primaryColor: string;
   strongest: { subject: string; value: number } | null;
   weakest: { subject: string; value: number } | null;
+  isDark: boolean;
 }) {
+  const cardClass = isDark ? 'bg-[#111318] border-[#23262D]' : 'bg-[#f2efe9] border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a]';
+  const titleClass = isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif';
+  const subClass = isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif italic';
+  const strongText = isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif';
+
   return (
-    <div className="bg-[#111318] p-5 rounded-2xl border border-[#23262D]">
+    <div className={`p-5 rounded-2xl border ${cardClass}`}>
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="font-bold text-[#F5F7FA]">Subject Strength Map</h3>
-          <p className="text-[10px] text-[#A1A8B3]">
+          <h3 className={`font-bold ${titleClass}`}>Subject Strength Map</h3>
+          <p className={`text-[10px] ${subClass}`}>
             {radarData.length > 0
               ? `Accuracy % across ${radarData.length} subject${radarData.length !== 1 ? 's' : ''}`
               : 'No subject data yet'}
@@ -29,8 +36,8 @@ export default function RadarChartCard({
       </div>
       {radarData.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-[280px] text-center gap-2">
-          <Target size={22} className="text-[#2F80ED]" />
-          <p className="text-xs text-[#A1A8B3]">
+          <Target size={22} className={isDark ? 'text-[#2F80ED]' : 'text-[#1a1a1a]'} />
+          <p className={`text-xs ${subClass}`}>
             No subject data yet — generate an AI report to see your strengths and weak areas.
           </p>
         </div>
@@ -39,9 +46,9 @@ export default function RadarChartCard({
           <div className="w-full h-full max-w-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                <PolarGrid stroke="#23262D" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#A1A8B3', fontSize: 10 }} />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 8, fill: '#A1A8B3' }} />
+                <PolarGrid stroke={isDark ? '#23262D' : '#d8d4cb'} />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: isDark ? '#A1A8B3' : '#4a4a4a', fontSize: 10 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 8, fill: isDark ? '#A1A8B3' : '#4a4a4a' }} />
                 <Radar name="Accuracy" dataKey="value" stroke={primaryColor} fill={primaryColor} fillOpacity={0.15} />
               </RadarChart>
             </ResponsiveContainer>
@@ -51,15 +58,15 @@ export default function RadarChartCard({
               <>
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 rounded-full bg-[#00E5B3]"></div>
-                  <span className="font-semibold text-[#F5F7FA]">Strongest:</span> {strongest.subject} {strongest.value}%
+                  <span className={`font-semibold ${strongText}`}>Strongest:</span> {strongest.subject} {strongest.value}%
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 rounded-full bg-[#EB5757]"></div>
-                  <span className="font-semibold text-[#F5F7FA]">Weakest:</span> {weakest.subject} {weakest.value}%
+                  <span className={`font-semibold ${strongText}`}>Weakest:</span> {weakest.subject} {weakest.value}%
                 </div>
               </>
             ) : (
-              <div className="text-[10px] text-[#A1A8B3]">More subject data needed for comparison.</div>
+              <div className={`text-[10px] ${subClass}`}>More subject data needed for comparison.</div>
             )}
           </div>
         </div>

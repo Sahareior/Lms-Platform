@@ -6,7 +6,7 @@
     --bg-surface: #111318;
     --bg-card: #111318;
     --bg-card-hover: #161920;
-    
+
     --border-color: #23262D;
     --border-subtle: #1C1F26;
     --border-hover: #323742;
@@ -22,12 +22,38 @@
     --achievement-gold: #F2C94C;
   }
 
+  :root[data-theme='light'] {
+    --bg-main: #F3F7FB;
+    --bg-surface: #FFFFFF;
+    --bg-card: #F8FAFC;
+    --bg-card-hover: #EEF4FF;
+
+    --border-color: #D9E2EC;
+    --border-subtle: #E5EDF7;
+    --border-hover: #BFD0EA;
+
+    --text-primary: #111827;
+    --text-secondary: #52607A;
+    --text-muted: #6B7280;
+
+    --brand-primary: #2F80ED;
+    --ai-teal: #00A57C;
+    --analytics-cyan: #0EA5E9;
+    --exam-purple: #7C3AED;
+    --achievement-gold: #D4A72C;
+  }
+
+  html {
+    background: var(--bg-main);
+  }
+
   body {
     font-family: 'Space Grotesk', 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: linear-gradient(180deg, #0B0D12 0%, #0E1016 60%, #12141B 100%);
+    background: linear-gradient(180deg, var(--bg-main) 0%, color-mix(in srgb, var(--bg-main) 86%, #ffffff) 60%, color-mix(in srgb, var(--bg-main) 92%, #ffffff) 100%);
     color: var(--text-primary);
     min-height: 100vh;
     min-height: 100dvh;
+    transition: background-color 0.2s ease, color 0.2s ease;
 
     margin: 0;
     -webkit-font-smoothing: antialiased;

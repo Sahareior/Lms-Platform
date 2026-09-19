@@ -29,6 +29,7 @@ import {
   useAddUserInfoMutation,
   type ExamCategory,
 } from '@my-monorepo/store';
+import { useTheme } from '../../theme/ThemeContext';
 
 type Exam = {
   _id: string;
@@ -82,7 +83,6 @@ const CATEGORIES: Array<{
   },
 ];
 
-// ─── Bangladesh 64 Districts for Auto-suggestion ───────────
 const BD_DISTRICTS = [
   'Bagerhat', 'Bandarban', 'Barguna', 'Barishal', 'Bhola', 'Bogura', 'Brahmanbaria', 'Chandpur',
   'Chattogram', 'Chuadanga', "Cox's Bazar", 'Cumilla', 'Dhaka', 'Dinajpur', 'Faridpur', 'Feni',
@@ -95,7 +95,6 @@ const BD_DISTRICTS = [
   'Thakurgaon',
 ];
 
-// ─── Academic Classes ──────────────────────────────────────
 const ACADEMIC_CLASSES = [
   { id: 'Class 9', label: 'Class 9', badge: 'Secondary' },
   { id: 'Class 10', label: 'Class 10', badge: 'SSC Candidate' },
@@ -105,7 +104,6 @@ const ACADEMIC_CLASSES = [
   { id: 'other', label: 'Other', badge: 'Custom' },
 ];
 
-// ─── Icon mapping based on exam name patterns ─────────────
 const getExamIcon = (name: string) => {
   const lower = (name || '').toLowerCase();
   if (lower.includes('bcs') || lower.includes('বিসিএস')) return <University size={22} />;
@@ -128,6 +126,7 @@ const Onboarding: React.FC = () => {
   const { data: exams = [], isLoading: examsLoading } = useGetExamsQuery();
   const [selectExam, { isLoading: isSaving }] = useSelectExamMutation();
   const [addUserInfo, { isLoading: isUpdatingInfo }] = useAddUserInfoMutation();
+  const { isDark } = useTheme();
 
   const queryStep = searchParams.get('step');
   const queryCategory = searchParams.get('category') as ExamCategory | null;
@@ -136,7 +135,6 @@ const Onboarding: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(queryExam || null);
   const [error, setError] = useState<string | null>(null);
 
-  // Form Fields
   const [phone, setPhone] = useState(userData?.phone || '');
   const [selectedClass, setSelectedClass] = useState<string>(
     userData?.studentClass || userData?.class || 'Class 10'
@@ -148,14 +146,12 @@ const Onboarding: React.FC = () => {
 
   const userId = userData?._id || user?._id || '';
 
-  // Synchronize query parameters
   useEffect(() => {
     if (queryExam && queryExam !== selectedId) {
       setSelectedId(queryExam);
     }
   }, [queryExam]);
 
-  // Determine current active step
   let step: 'category' | 'exam' | 'details' = 'category';
   if (queryStep === 'details' && (selectedId || queryExam)) {
     step = 'details';
@@ -175,7 +171,6 @@ const Onboarding: React.FC = () => {
     [exams, selectedId, queryExam]
   );
 
-  // Determine if target is academic
   const isAcademic = useMemo(() => {
     if (selectedCategory === 'academic') return true;
     if (selectedExam?.category === 'academic') return true;
@@ -224,7 +219,6 @@ const Onboarding: React.FC = () => {
     const errors: Record<string, string> = {};
     const trimmedPhone = phone.trim();
 
-    // Phone validation
     if (!trimmedPhone) {
       errors.phone = 'Phone number is required';
     } else {
@@ -277,7 +271,6 @@ const Onboarding: React.FC = () => {
       return;
     }
 
-    // Also call addUserInfo to ensure user document profile is completely synchronized
     try {
       await addUserInfo({
         id: userId,
@@ -307,23 +300,573 @@ const Onboarding: React.FC = () => {
   const activeCategory = CATEGORIES.find((c) => c.id === selectedCategory);
   const isSubmitting = isSaving || isUpdatingInfo;
 
+  // ═══════════════════════════════════════════════════════════
+  // LIGHT MODE
+  // ═══════════════════════════════════════════════════════════
+  if (!isDark) {
+    return (
+      <div
+        className="min-h-screen bg-[#e8e4db] text-[#1a1a1a] flex flex-col relative overflow-x-hidden"
+        style={{
+          backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        <datalist id="bangladesh-districts">
+          {BD_DISTRICTS.map((d) => (
+            <option key={d} value={d} />
+          ))}
+        </datalist>
+
+        {/* Top Navbar */}
+        <nav className="relative z-10 flex items-center justify-between w-full bg-[#f2efe9] px-6 py-4 border-b-2 border-[#1a1a1a] shadow-[0_3px_0px_0px_#1a1a1a]">
+          <div className="flex items-center gap-3">
+            <img src="/nav.png" className="w-9 h-9 object-contain" alt="Logo" />
+            <div className="flex flex-col leading-tight">
+              <span className="font-black text-xl tracking-tight text-[#1a1a1a] font-serif">Geneseon</span>
+              <span className="text-[10px] text-[#333] uppercase tracking-widest font-black font-serif">
+                Personalized Setup
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#333] mr-2 font-serif">
+              <span className={step === 'category' ? 'text-[#1a1a1a] font-black' : 'text-[#666]'}>
+                1. Category
+              </span>
+              <span className="text-[#999]">→</span>
+              <span className={step === 'exam' ? 'text-[#1a1a1a] font-black' : 'text-[#666]'}>
+                2. Target Exam
+              </span>
+              <span className="text-[#999]">→</span>
+              <span className={step === 'details' ? 'text-[#1a1a1a] font-black' : 'text-[#666]'}>
+                3. Details
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-[#e0dcd5] border border-[#d8d4cb] px-3 py-1 rounded-full text-xs font-black font-serif">
+              <span className="text-[#333]">Step</span>
+              <span className="font-black text-[#1a1a1a]">
+                {step === 'category' ? '1' : step === 'exam' ? '2' : '3'}
+              </span>
+              <span className="text-[#666]">/ 3</span>
+            </div>
+          </div>
+        </nav>
+
+        <main className="relative z-10 flex-1 w-full max-w-4xl mx-auto px-4 md:px-8 py-8 md:py-12 pb-24 flex flex-col">
+          {/* Back button */}
+          <div className="mb-6">
+            {step === 'exam' && (
+              <button
+                onClick={handleBackToCategory}
+                className="inline-flex items-center gap-1.5 text-xs font-black text-[#1a1a1a] font-serif bg-[#f2efe9] border-2 border-[#1a1a1a] px-3 py-1.5 rounded-md shadow-[2px_2px_0px_0px_#1a1a1a] hover:shadow-[3px_3px_0px_0px_#1a1a1a] transition-all"
+              >
+                <ArrowLeft size={14} />
+                Change Category
+              </button>
+            )}
+
+            {step === 'details' && (
+              <button
+                onClick={handleBackToExams}
+                className="inline-flex items-center gap-1.5 text-xs font-black text-[#1a1a1a] font-serif bg-[#f2efe9] border-2 border-[#1a1a1a] px-3 py-1.5 rounded-md shadow-[2px_2px_0px_0px_#1a1a1a] hover:shadow-[3px_3px_0px_0px_#1a1a1a] transition-all"
+              >
+                <ArrowLeft size={14} />
+                Change Target Exam
+              </button>
+            )}
+          </div>
+
+          {/* Hero Section */}
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 bg-[#1a1a1a] text-[#f2efe9] text-[11px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-4 border border-[#1a1a1a] font-serif shadow-[2px_2px_0px_0px_#b91c1c]">
+              <Sparkles size={13} />
+              {step === 'details' ? 'Profile Setup' : 'Personalized Learning Path'}
+              <Sparkles size={13} />
+            </div>
+
+            {step === 'category' && (
+              <>
+                <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-3 font-serif text-[#1a1a1a]">
+                  Welcome,{' '}
+                  <span className="text-[#b91c1c]">
+                    {userData?.name?.split(' ')[0] || user?.name?.split(' ')[0] || 'Student'}
+                  </span>{' '}
+                  👋
+                </h1>
+                <p className="text-[#333] text-sm md:text-base max-w-xl mx-auto leading-relaxed font-serif">
+                  What are you preparing for? Choose a track to personalize your questions, mock tests, and study schedule.
+                </p>
+              </>
+            )}
+
+            {step === 'exam' && (
+              <>
+                <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-3 font-serif text-[#1a1a1a]">
+                  Pick your <span className="text-[#b91c1c]">{activeCategory?.title || 'Target'}</span> Exam
+                </h1>
+                <p className="text-[#333] text-sm md:text-base max-w-xl mx-auto leading-relaxed font-serif">
+                  Select your primary exam. All mock exams, analytics, and syllabus roadmaps will be tuned for this.
+                </p>
+              </>
+            )}
+
+            {step === 'details' && (
+              <>
+                <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-3 font-serif text-[#1a1a1a]">
+                  {isAcademic ? 'Academic Profile Details' : 'Candidate Profile Details'}
+                </h1>
+                <p className="text-[#333] text-sm md:text-base max-w-xl mx-auto leading-relaxed font-serif">
+                  {isAcademic
+                    ? 'Please provide your mobile number, class, and hometown so we can tailor the curriculum and local exam notifications.'
+                    : 'Please provide your phone number and location so we can keep your mock tests and circular updates synced.'}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* ── STEP 1: Category Selection ── */}
+          {step === 'category' && (
+            examsLoading ? (
+              <div className="flex-1 flex items-center justify-center py-20">
+                <Loader2 size={32} className="animate-spin text-[#b91c1c]" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto w-full">
+                {CATEGORIES.map((cat) => {
+                  const count = countFor(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => pickCategory(cat.id)}
+                      className="group relative text-left rounded-lg overflow-hidden border-2 border-[#1a1a1a] p-7 transition-all duration-300 ease-out flex flex-col bg-[#f2efe9] hover:-translate-y-1 shadow-[4px_4px_0px_0px_#1a1a1a] hover:shadow-[6px_6px_0px_0px_#1a1a1a]"
+                    >
+                      <div className="flex items-center justify-between mb-5">
+                        <div className="w-14 h-14 rounded-md bg-[#1a1a1a] flex items-center justify-center text-[#f2efe9] shadow-[2px_2px_0px_0px_#b91c1c]">
+                          {cat.icon}
+                        </div>
+                        <span className="text-[11px] font-black px-2.5 py-1 rounded-md border border-[#1a1a1a] bg-[#e0dcd5] text-[#1a1a1a] font-serif uppercase tracking-wider">
+                          {count} {count === 1 ? 'Exam' : 'Exams'}
+                        </span>
+                      </div>
+
+                      <div className="mb-2">
+                        <h2 className="text-xl font-black text-[#1a1a1a] font-serif">
+                          {cat.title}
+                        </h2>
+                        <p className="text-xs font-black text-[#b91c1c] mt-0.5 font-serif">{cat.subtitle}</p>
+                      </div>
+
+                      <p className="text-xs text-[#333] leading-relaxed mb-6 flex-1 font-serif">
+                        {cat.description}
+                      </p>
+
+                      <div className="flex items-center gap-2 text-xs font-black text-[#b91c1c] group-hover:translate-x-1 transition-transform font-serif">
+                        <span>Select Track</span>
+                        <ArrowRight size={14} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          )}
+
+          {/* ── STEP 2: Exam Selection ── */}
+          {step === 'exam' && (
+            examsLoading ? (
+              <div className="flex-1 flex items-center justify-center py-20">
+                <Loader2 size={32} className="animate-spin text-[#b91c1c]" />
+              </div>
+            ) : categoryExams.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-14 h-14 bg-[#f2efe9] border-2 border-[#1a1a1a] rounded-md flex items-center justify-center mb-4">
+                  <BookOpen size={24} className="text-[#1a1a1a]" />
+                </div>
+                <p className="font-black text-[#1a1a1a] font-serif">No exams available in this category</p>
+                <button
+                  onClick={handleBackToCategory}
+                  className="mt-4 inline-flex items-center gap-2 bg-[#1a1a1a] text-[#f2efe9] border-2 border-[#1a1a1a] px-5 py-2.5 rounded-md font-black text-xs font-serif shadow-[2px_2px_0px_0px_#b91c1c] hover:shadow-[3px_3px_0px_0px_#b91c1c] transition-all"
+                >
+                  <ArrowLeft size={14} /> Choose another track
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full">
+                {categoryExams.map((exam, idx) => {
+                  const isSelected = selectedId === exam._id;
+
+                  return (
+                    <button
+                      key={exam._id}
+                      onClick={() => setSelectedId(exam._id)}
+                      className={`group relative text-left rounded-lg p-5 border-2 transition-all duration-200 flex flex-col justify-between overflow-hidden ${
+                        isSelected
+                          ? 'border-[#1a1a1a] bg-[#f2efe9] shadow-[4px_4px_0px_0px_#b91c1c]'
+                          : 'border-[#d8d4cb] bg-[#f2efe9] hover:border-[#1a1a1a] shadow-[3px_3px_0px_0px_#1a1a1a] hover:-translate-y-0.5'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between w-full mb-4">
+                        <div className="w-10 h-10 rounded-md bg-[#1a1a1a] flex items-center justify-center text-[#f2efe9]">
+                          {getExamIcon(exam.name)}
+                        </div>
+
+                        <div
+                          className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                            isSelected
+                              ? 'bg-[#1a1a1a] border-[#1a1a1a] text-[#f2efe9]'
+                              : 'border-[#d8d4cb] bg-[#f2efe9] text-transparent'
+                          }`}
+                        >
+                          {isSelected && <Check size={13} strokeWidth={3.5} />}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3
+                          className={`font-black text-sm mb-1.5 font-serif ${
+                            isSelected ? 'text-[#b91c1c]' : 'text-[#1a1a1a]'
+                          }`}
+                        >
+                          {exam.name}
+                        </h3>
+                        <p className="text-[11px] text-[#333] line-clamp-2 leading-relaxed font-serif">
+                          {exam.description || 'Targeted syllabus, mock papers, and ranking.'}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          )}
+
+          {/* ── STEP 3: User Details Page ── */}
+          {step === 'details' && (
+            <div className="max-w-2xl mx-auto w-full">
+              {/* Target Exam Summary Banner */}
+              <div className="bg-[#f2efe9] border-2 border-[#1a1a1a] rounded-lg p-4 md:p-5 mb-8 flex items-center justify-between shadow-[4px_4px_0px_0px_#1a1a1a]">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-md bg-[#1a1a1a] flex items-center justify-center text-[#f2efe9]">
+                    {getExamIcon(selectedExam?.name || '')}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#1a1a1a] bg-[#e0dcd5] px-2 py-0.5 rounded-full border border-[#d8d4cb] font-serif">
+                        Target Exam
+                      </span>
+                      <span className="text-[11px] text-[#333] font-serif">
+                        {selectedCategory === 'academic' || isAcademic ? 'Academic Track' : 'Job Prep Track'}
+                      </span>
+                    </div>
+                    <h3 className="font-black text-base text-[#1a1a1a] font-serif">
+                      {selectedExam?.name || 'Selected Exam'}
+                    </h3>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleBackToExams}
+                  className="text-xs font-black text-[#b91c1c] hover:underline px-2.5 py-1 font-serif"
+                >
+                  Change
+                </button>
+              </div>
+
+              {/* Profile Input Form */}
+              <form onSubmit={handleFinalSubmit} className="space-y-6">
+                {/* Phone Number Field */}
+                <div className="bg-[#f2efe9] border-2 border-[#1a1a1a] rounded-lg p-5 md:p-6 shadow-[3px_3px_0px_0px_#1a1a1a]">
+                  <label className="block text-xs font-black text-[#1a1a1a] uppercase tracking-wider mb-2 flex items-center gap-2 font-serif">
+                    <Phone size={14} className="text-[#b91c1c]" />
+                    Phone Number <span className="text-[#b91c1c]">*</span>
+                  </label>
+                  <p className="text-xs text-[#333] mb-3 font-serif">
+                    Used for account security, verification, and critical exam reminders.
+                  </p>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#1a1a1a] text-sm font-black font-serif">
+                      +880
+                    </div>
+                    <input
+                      type="tel"
+                      value={phone.startsWith('+880') ? phone.slice(4) : phone}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPhone(val.startsWith('+880') ? val : `+880${val.replace(/^0+/, '')}`);
+                        if (formErrors.phone) {
+                          setFormErrors((prev) => ({ ...prev, phone: '' }));
+                        }
+                      }}
+                      placeholder="17XXXXXXXX"
+                      className={`w-full pl-16 pr-4 py-3 bg-[#f2efe9] border-2 rounded-md text-sm text-[#1a1a1a] placeholder-[#8a8577] focus:outline-none transition-all font-serif shadow-[1px_1px_0px_0px_#1a1a1a] ${
+                        formErrors.phone
+                          ? 'border-[#b91c1c] focus:border-[#b91c1c]'
+                          : 'border-[#1a1a1a] focus:border-[#b91c1c]'
+                      }`}
+                    />
+                  </div>
+                  {formErrors.phone && (
+                    <p className="text-xs text-[#b91c1c] mt-1.5 flex items-center gap-1 font-serif">
+                      <AlertCircle size={12} /> {formErrors.phone}
+                    </p>
+                  )}
+                </div>
+
+                {/* Academic Track */}
+                {isAcademic ? (
+                  <>
+                    {/* Class Selection */}
+                    <div className="bg-[#f2efe9] border-2 border-[#1a1a1a] rounded-lg p-5 md:p-6 shadow-[3px_3px_0px_0px_#1a1a1a]">
+                      <label className="block text-xs font-black text-[#1a1a1a] uppercase tracking-wider mb-2 flex items-center gap-2 font-serif">
+                        <GraduationCap size={15} className="text-[#b91c1c]" />
+                        Current Class / Academic Level <span className="text-[#b91c1c]">*</span>
+                      </label>
+                      <p className="text-xs text-[#333] mb-4 font-serif">
+                        Select your current academic standard so questions and practice sets align perfectly with your syllabus.
+                      </p>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+                        {ACADEMIC_CLASSES.map((cls) => {
+                          const isChosen = selectedClass === cls.id;
+                          return (
+                            <button
+                              type="button"
+                              key={cls.id}
+                              onClick={() => {
+                                setSelectedClass(cls.id);
+                                if (formErrors.selectedClass) {
+                                  setFormErrors((prev) => ({ ...prev, selectedClass: '' }));
+                                }
+                              }}
+                              className={`p-3 rounded-md border-2 text-left transition-all duration-200 flex flex-col justify-between ${
+                                isChosen
+                                  ? 'bg-[#f2efe9] border-[#1a1a1a] shadow-[2px_2px_0px_0px_#b91c1c]'
+                                  : 'bg-[#f2efe9] border-[#d8d4cb] hover:border-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-black text-sm text-[#1a1a1a] font-serif">{cls.label}</span>
+                                {isChosen && <CheckCircle2 size={15} className="text-[#b91c1c]" />}
+                              </div>
+                              <span className="text-[10px] text-[#333] font-serif">{cls.badge}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {selectedClass === 'other' && (
+                        <div className="mt-3">
+                          <input
+                            type="text"
+                            value={customClass}
+                            onChange={(e) => {
+                              setCustomClass(e.target.value);
+                              if (formErrors.selectedClass) {
+                                setFormErrors((prev) => ({ ...prev, selectedClass: '' }));
+                              }
+                            }}
+                            placeholder="e.g. A-Levels, Diploma, Medical Second Timer..."
+                            className="w-full px-4 py-2.5 bg-[#f2efe9] border-2 border-[#1a1a1a] rounded-md text-sm text-[#1a1a1a] placeholder-[#8a8577] focus:outline-none focus:border-[#b91c1c] font-serif shadow-[1px_1px_0px_0px_#1a1a1a]"
+                          />
+                        </div>
+                      )}
+
+                      {formErrors.selectedClass && (
+                        <p className="text-xs text-[#b91c1c] mt-2 flex items-center gap-1 font-serif">
+                          <AlertCircle size={12} /> {formErrors.selectedClass}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Hometown Field */}
+                    <div className="bg-[#f2efe9] border-2 border-[#1a1a1a] rounded-lg p-5 md:p-6 shadow-[3px_3px_0px_0px_#1a1a1a]">
+                      <label className="block text-xs font-black text-[#1a1a1a] uppercase tracking-wider mb-2 flex items-center gap-2 font-serif">
+                        <Home size={14} className="text-[#b91c1c]" />
+                        Hometown / Home District <span className="text-[#b91c1c]">*</span>
+                      </label>
+                      <p className="text-xs text-[#333] mb-3 font-serif">
+                        Select or type your hometown or home district.
+                      </p>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#1a1a1a]">
+                          <MapPin size={16} />
+                        </div>
+                        <input
+                          type="text"
+                          list="bangladesh-districts"
+                          value={hometown}
+                          onChange={(e) => {
+                            setHometown(e.target.value);
+                            if (formErrors.hometown) {
+                              setFormErrors((prev) => ({ ...prev, hometown: '' }));
+                            }
+                          }}
+                          placeholder="e.g. Dhaka, Chattogram, Sylhet, Rajshahi, Bogura..."
+                          className={`w-full pl-10 pr-4 py-3 bg-[#f2efe9] border-2 rounded-md text-sm text-[#1a1a1a] placeholder-[#8a8577] focus:outline-none transition-all font-serif shadow-[1px_1px_0px_0px_#1a1a1a] ${
+                            formErrors.hometown
+                              ? 'border-[#b91c1c] focus:border-[#b91c1c]'
+                              : 'border-[#1a1a1a] focus:border-[#b91c1c]'
+                          }`}
+                        />
+                      </div>
+                      {formErrors.hometown && (
+                        <p className="text-xs text-[#b91c1c] mt-1.5 flex items-center gap-1 font-serif">
+                          <AlertCircle size={12} /> {formErrors.hometown}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  /* Non-Academic Track */
+                  <div className="bg-[#f2efe9] border-2 border-[#1a1a1a] rounded-lg p-5 md:p-6 shadow-[3px_3px_0px_0px_#1a1a1a]">
+                    <label className="block text-xs font-black text-[#1a1a1a] uppercase tracking-wider mb-2 flex items-center gap-2 font-serif">
+                      <MapPin size={14} className="text-[#b91c1c]" />
+                      Current Location / District <span className="text-[#b91c1c]">*</span>
+                    </label>
+                    <p className="text-xs text-[#333] mb-3 font-serif">
+                      Your current city or district to tailor regional job circulars and test centers.
+                    </p>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#1a1a1a]">
+                        <MapPin size={16} />
+                      </div>
+                      <input
+                        type="text"
+                        list="bangladesh-districts"
+                        value={location}
+                        onChange={(e) => {
+                          setLocation(e.target.value);
+                          if (formErrors.location) {
+                            setFormErrors((prev) => ({ ...prev, location: '' }));
+                          }
+                        }}
+                        placeholder="e.g. Dhaka, Chattogram, Rajshahi, Khulna..."
+                        className={`w-full pl-10 pr-4 py-3 bg-[#f2efe9] border-2 rounded-md text-sm text-[#1a1a1a] placeholder-[#8a8577] focus:outline-none transition-all font-serif shadow-[1px_1px_0px_0px_#1a1a1a] ${
+                          formErrors.location
+                            ? 'border-[#b91c1c] focus:border-[#b91c1c]'
+                            : 'border-[#1a1a1a] focus:border-[#b91c1c]'
+                        }`}
+                      />
+                    </div>
+                    {formErrors.location && (
+                      <p className="text-xs text-[#b91c1c] mt-1.5 flex items-center gap-1 font-serif">
+                        <AlertCircle size={12} /> {formErrors.location}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </form>
+            </div>
+          )}
+
+          {/* Global Error Banner */}
+          {error && (
+            <div className="mt-6 max-w-2xl mx-auto w-full flex items-center justify-between gap-2 text-xs font-black text-[#b91c1c] bg-[#f2efe9] border-2 border-[#b91c1c] rounded-md px-4 py-3 shadow-[2px_2px_0px_0px_#b91c1c] font-serif">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{error}</span>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="text-[#b91c1c] hover:underline shrink-0 font-black"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+        </main>
+
+        {/* Sticky Bottom Footer */}
+        <div className="sticky bottom-0 relative z-20 shrink-0 border-t-2 border-[#1a1a1a] bg-[#f2efe9] px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-3px_0px_0px_#1a1a1a]">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            {step === 'category' && (
+              <div className="text-sm text-center sm:text-left text-[#333] font-serif">
+                First pick your target track. You can change this anytime from your dashboard settings.
+              </div>
+            )}
+
+            {step === 'exam' && (
+              <>
+                <div className="text-sm text-[#333] font-serif">
+                  {selectedId ? (
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#b91c1c] animate-pulse" />
+                      <span className="text-[#1a1a1a] font-bold">
+                        Selected: <strong className="text-[#b91c1c]">{selectedExam?.name}</strong>
+                      </span>
+                    </div>
+                  ) : (
+                    <>Select an exam card to proceed</>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleProceedToDetails}
+                  disabled={!selectedId}
+                  className="inline-flex items-center gap-2 bg-[#1a1a1a] text-[#f2efe9] border-2 border-[#1a1a1a] font-black px-8 py-3.5 rounded-md font-serif shadow-[3px_3px_0px_0px_#b91c1c] hover:shadow-[4px_4px_0px_0px_#b91c1c] transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <span>Continue</span>
+                  <ArrowRight size={17} />
+                </button>
+              </>
+            )}
+
+            {step === 'details' && (
+              <>
+                <div className="flex items-center gap-2 text-xs text-[#333] font-serif">
+                  <ShieldCheck size={16} className="text-[#b91c1c]" />
+                  <span>Your information is encrypted and never shared.</span>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleFinalSubmit()}
+                    disabled={isSubmitting || !userId}
+                    className="md:flex-1 sm:flex-none inline-flex mx-auto md:w-fit w-[60vw] items-center justify-center gap-2 bg-[#1a1a1a] text-[#f2efe9] border-2 border-[#1a1a1a] font-black md:px-8 py-3 rounded-md font-serif shadow-[3px_3px_0px_0px_#b91c1c] hover:shadow-[4px_4px_0px_0px_#b91c1c] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={17} className="animate-spin" />
+                        <span>Saving Profile...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Launch Dashboard</span>
+                        <ArrowRight size={17} />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // DARK MODE (Original, unchanged)
+  // ═══════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA] flex flex-col relative overflow-x-hidden">
-      {/* Datalist for district auto-complete */}
       <datalist id="bangladesh-districts">
         {BD_DISTRICTS.map((d) => (
           <option key={d} value={d} />
         ))}
       </datalist>
 
-      {/* Subtle ambient lighting glows */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#2F80ED]/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#9B51E0]/10 rounded-full blur-3xl" />
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#00E5B3]/5 rounded-full blur-3xl" />
       </div>
 
-      {/* Top Navbar */}
       <nav className="relative z-10 flex items-center justify-between w-full bg-[#111318]/80 backdrop-blur px-6 py-4 border-b border-[#23262D]">
         <div className="flex items-center gap-3">
           <img src="/nav.png" className="w-9 h-9 object-contain" alt="Logo" />
@@ -335,7 +878,6 @@ const Onboarding: React.FC = () => {
           </div>
         </div>
 
-        {/* Multi-step indicator */}
         <div className="flex items-center gap-2">
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#A1A8B3] mr-2">
             <span className={step === 'category' ? 'text-[#00E5B3] font-bold' : 'text-[#6B7280]'}>
@@ -361,7 +903,6 @@ const Onboarding: React.FC = () => {
       </nav>
 
       <main className="relative z-10 flex-1 w-full max-w-4xl mx-auto px-4 md:px-8 py-8 md:py-12 pb-24 flex flex-col">
-        {/* Navigation Breadcrumbs / Back button */}
         <div className="mb-6">
           {step === 'exam' && (
             <button
@@ -384,7 +925,6 @@ const Onboarding: React.FC = () => {
           )}
         </div>
 
-        {/* Hero Section */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-[#00E5B3]/10 text-[#00E5B3] text-[11px] font-bold px-4 py-1.5 rounded-full uppercase tracking-wider mb-4 border border-[#00E5B3]/25 shadow-sm shadow-[#00E5B3]/10">
             <Sparkles size={13} />
@@ -434,7 +974,6 @@ const Onboarding: React.FC = () => {
           )}
         </div>
 
-        {/* ── STEP 1: Category Selection ── */}
         {step === 'category' && (
           examsLoading ? (
             <div className="flex-1 flex items-center justify-center py-20">
@@ -489,7 +1028,6 @@ const Onboarding: React.FC = () => {
           )
         )}
 
-        {/* ── STEP 2: Exam Selection ── */}
         {step === 'exam' && (
           examsLoading ? (
             <div className="flex-1 flex items-center justify-center py-20">
@@ -562,10 +1100,8 @@ const Onboarding: React.FC = () => {
           )
         )}
 
-        {/* ── STEP 3: User Details Page ── */}
         {step === 'details' && (
           <div className="max-w-2xl mx-auto w-full">
-            {/* Target Exam Summary Banner */}
             <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-4 md:p-5 mb-8 flex items-center justify-between shadow-lg">
               <div className="flex items-center gap-3.5">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-md">
@@ -595,9 +1131,7 @@ const Onboarding: React.FC = () => {
               </button>
             </div>
 
-            {/* Profile Input Form */}
             <form onSubmit={handleFinalSubmit} className="space-y-6">
-              {/* Phone Number Field */}
               <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-5 md:p-6 transition-all hover:border-[#2D3139]">
                 <label className="block text-xs font-bold text-[#E1E4EA] uppercase tracking-wider mb-2 flex items-center gap-2">
                   <Phone size={14} className="text-[#00E5B3]" />
@@ -635,10 +1169,8 @@ const Onboarding: React.FC = () => {
                 )}
               </div>
 
-              {/* Academic Track: Class Selection + Hometown */}
               {isAcademic ? (
                 <>
-                  {/* Class Selection */}
                   <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-5 md:p-6 transition-all hover:border-[#2D3139]">
                     <label className="block text-xs font-bold text-[#E1E4EA] uppercase tracking-wider mb-2 flex items-center gap-2">
                       <GraduationCap size={15} className="text-[#00E5B3]" />
@@ -704,7 +1236,6 @@ const Onboarding: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Hometown Field */}
                   <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-5 md:p-6 transition-all hover:border-[#2D3139]">
                     <label className="block text-xs font-bold text-[#E1E4EA] uppercase tracking-wider mb-2 flex items-center gap-2">
                       <Home size={14} className="text-[#00E5B3]" />
@@ -743,7 +1274,6 @@ const Onboarding: React.FC = () => {
                   </div>
                 </>
               ) : (
-                /* Non-Academic Track: Phone + Location */
                 <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-5 md:p-6 transition-all hover:border-[#2D3139]">
                   <label className="block text-xs font-bold text-[#E1E4EA] uppercase tracking-wider mb-2 flex items-center gap-2">
                     <MapPin size={14} className="text-[#00E5B3]" />
@@ -785,7 +1315,6 @@ const Onboarding: React.FC = () => {
           </div>
         )}
 
-        {/* Global Error Banner */}
         {error && (
           <div className="mt-6 max-w-2xl mx-auto w-full flex items-center justify-between gap-2 text-xs font-semibold text-[#EB5757] bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-xl px-4 py-3">
             <div className="flex items-center gap-2">
@@ -802,7 +1331,6 @@ const Onboarding: React.FC = () => {
         )}
       </main>
 
-      {/* Sticky Bottom Footer CTA Bar */}
       <div className="sticky bottom-0 relative z-20 shrink-0 border-t border-[#23262D] bg-[#111318]/95 backdrop-blur px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           {step === 'category' && (
@@ -846,7 +1374,6 @@ const Onboarding: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto">
-   
                 <button
                   type="button"
                   onClick={() => handleFinalSubmit()}

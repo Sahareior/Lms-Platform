@@ -19,6 +19,7 @@ export default function AiRecommendationsCard({
   recommendations,
   hasRecommendationContent,
   onViewAll,
+  isDark,
 }: {
   scope: string;
   aiStats: any;
@@ -31,7 +32,123 @@ export default function AiRecommendationsCard({
   recommendations: Recommendation[];
   hasRecommendationContent: boolean;
   onViewAll: () => void;
+  isDark: boolean;
 }) {
+
+  // ─── LIGHT MODE (Vintage/Editorial Style) ──────────────────
+  if (!isDark) {
+    return (
+      <div 
+        className="bg-[#f2efe9] border border-[#d8d4cb] rounded-lg p-5 flex flex-col justify-between space-y-4 shadow-[3px_3px_0px_0px_#1a1a1a]"
+        style={{
+          backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 relative z-10">
+          <Brain size={20} className="text-[#1a1a1a]" />
+          <h2 className="font-black text-lg text-[#1a1a1a] font-serif">AI Recommended</h2>
+          {scope !== "all" && aiStats?.exam && (
+            <span className="ml-auto text-[10px] text-[#1a1a1a] bg-[#e0dcd5] px-2 py-0.5 rounded-md border border-[#d8d4cb] font-serif font-bold uppercase tracking-wider">
+              {aiStats.exam}
+            </span>
+          )}
+          {aiReportLoading && (
+            <span className="ml-auto text-[10px] text-[#4a4a4a] animate-pulse font-serif italic">
+              Analyzing…
+            </span>
+          )}
+          {aiReportError && (
+            <span className="ml-auto text-[10px] text-[#b91c1c] font-serif font-bold">Unavailable</span>
+          )}
+        </div>
+
+        {/* Content */}
+        {hasRecommendationContent ? (
+          <div className="h-[310px] overflow-y-auto space-y-3 relative z-10">
+            {/* Verdict */}
+            <div
+              className="rounded-lg p-3 border text-center shadow-[2px_2px_0px_0px_#1a1a1a]"
+              style={{ borderColor: '#1a1a1a', background: '#e0dcd5' }}
+            >
+              <div className="text-[15px] uppercase tracking-wider font-black font-serif text-[#b91c1c]">
+                {activeVerdict} 
+              </div>
+              <p className="text-sm text-[#1a1a1a] font-serif mt-1 leading-relaxed">
+                {verdictMessage}
+              </p>
+            </div>
+
+            {/* Study Plan */}
+            {(aiInsights?.study_plan?.length ?? 0) > 0 && (
+              <div className="rounded-lg p-3 border border-[#d8d4cb] bg-[#f2efe9] shadow-[2px_2px_0px_0px_#1a1a1a]">
+                <div className="flex items-center gap-1.5 mb-2 border-b border-[#d8d4cb] pb-1.5">
+                  <Calendar size={13} className="text-[#b91c1c]" />
+                  <span className="text-[12px] uppercase tracking-widest font-black text-[#1a1a1a] font-serif">
+                    AI Study Plan
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {aiInsights!.study_plan.slice(0, 3).map((plan: any, idx: number) => (
+                    <div key={idx} className="flex items-start gap-3 text-sm">
+                      <span className="font-bold text-[#f2efe9] bg-[#1a1a1a] px-1.5 py-0.5 rounded text-xs font-serif">{plan.day}</span>
+                      <span className="text-[#4a4a4a] leading-snug font-serif">
+                        <span className="text-[#1a1a1a] font-bold block">{plan.title}</span>
+                        <span className="text-xs">{plan.duration_minutes} minutes</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {recommendations.length > 0 ? (
+              recommendations.map((item, index) => (
+                <div
+                  key={index}
+                  className={`bg-[#f2efe9] border border-[#d8d4cb] border-l-4 ${item.color.replace('border-', 'border-[#1a1a1a] border-l-')} rounded-lg p-3 hover:shadow-[2px_2px_0px_0px_#1a1a1a] transition-all shadow-[1px_1px_0px_0px_#1a1a1a]`}
+                >
+                  <h3 className="font-bold text-base text-[#1a1a1a] font-serif leading-snug">{item.title}</h3>
+                  <p className="text-sm text-[#4a4a4a] mt-1 font-serif leading-relaxed">{item.desc}</p>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center gap-2 py-8">
+                <Sparkles size={20} className="text-[#b91c1c]" />
+                <p className="text-[11px] text-[#4a4a4a] font-serif italic">
+                  No focus areas yet — keep practicing and we'll surface them here.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Empty State (matches reference image) */
+          <div className="h-[310px] flex flex-col items-center justify-center text-center gap-4 relative z-10">
+            {/* Robot Illustration Placeholder */}
+            <div className="w-24 h-24 rounded-lg border-2 border-[#1a1a1a] bg-[#e0dcd5] flex items-center justify-center shadow-[3px_3px_0px_0px_#1a1a1a] mb-2">
+                <Brain size={40} className="text-[#1a1a1a]" />
+            </div>
+            <p className="text-xs text-[#1a1a1a] font-serif max-w-[220px] leading-relaxed">
+              No performance data yet. Complete a few quizzes to unlock your personalized analysis.
+            </p>
+          </div>
+        )}
+
+        {/* Footer Button */}
+        <button
+          onClick={onViewAll}
+          className="w-full text-sm font-bold font-serif text-[#1a1a1a] bg-[#f2efe9] border-2 border-[#1a1a1a] rounded-md py-2.5 hover:bg-[#e0dcd5] transition-all shadow-[2px_2px_0px_0px_#b91c1c] hover:shadow-[3px_3px_0px_0px_#b91c1c] relative z-10 flex items-center justify-center gap-2"
+        >
+          View All AI Insights
+          <span className="text-[#b91c1c]">→</span>
+        </button>
+      </div>
+    );
+  }
+
+  // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-4 flex flex-col justify-between space-y-4">
       <div className="flex items-center gap-2">
