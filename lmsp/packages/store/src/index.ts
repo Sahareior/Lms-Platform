@@ -121,10 +121,12 @@ export {
   useUploadVideoMutation,
   useUploadFileMutation,
   useGetUploadSignatureMutation,
+  useGetSignedPdfUrlMutation,
 } from './redux/api/uploadApi';
 export type {
   UploadResponse,
   UploadSignature,
+  SignedPdfUrlResponse,
 } from './redux/api/uploadApi';
 
 // ─── RTK Query Course API ───────────────────────────────────
@@ -426,6 +428,34 @@ export type {
   AdminQuizAttemptQuestion,
   QuizAttemptSummary,
 } from './redux/api/adminApi';
+
+// ─── RTK Query Study Section API (PDFs / Blog / Study Groups) ──
+export {
+  useGetStudyPdfsQuery,
+  useGetStudyPdfByIdQuery,
+  useCreateStudyPdfMutation,
+  useUpdateStudyPdfMutation,
+  useDeleteStudyPdfMutation,
+  useIncrementPdfDownloadMutation,
+  useGetBlogPostsQuery,
+  useGetBlogPostByIdQuery,
+  useCreateBlogPostMutation,
+  useUpdateBlogPostMutation,
+  useDeleteBlogPostMutation,
+  useGetStudyGroupLinksQuery,
+  useCreateStudyGroupLinkMutation,
+  useUpdateStudyGroupLinkMutation,
+  useDeleteStudyGroupLinkMutation,
+} from './redux/api/studyApi';
+export type {
+  StudyPdf,
+  BlogPost,
+  StudyGroupLink,
+  StudyGroupPlatform,
+  StudyPdfsResponse,
+  BlogPostsResponse,
+  StudyGroupLinksResponse,
+} from './redux/api/studyApi';
 
 // ─── Context Providers ──────────────────────────────────────
 export { SharedProviders } from './providers';

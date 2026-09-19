@@ -71,7 +71,7 @@ export const uploadFile = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
-    const result = await uploadToCloudinary(req.file.buffer, { resource_type: 'raw' });
+    const result = await uploadToCloudinary(req.file.buffer, { resource_type: 'raw', access_mode: 'public' });
     res.status(201).json({
       message: 'File uploaded successfully',
       url: result.secure_url,
@@ -109,9 +109,12 @@ export const getUploadSignature = (req, res) => {
     const timestamp = Math.round(Date.now() / 1000);
     // Folder is locked server-side so clients can't redirect uploads elsewhere.
     const folder = 'brainforge';
+    // access_mode must be signed to guarantee public delivery for raw (PDF)
+    // files — without it Cloudinary may restrict access and return 401.
+    const access_mode = 'public';
 
     const signature = cloudinary.utils.api_sign_request(
-      { timestamp, folder },
+      { timestamp, folder, access_mode },
       apiSecret
     );
 
@@ -120,10 +123,44 @@ export const getUploadSignature = (req, res) => {
       api_key: apiKey,
       timestamp,
       folder,
+      access_mode,
       signature,
     });
   } catch (err) {
     console.error('Cloudinary signature error:', err);
     res.status(500).json({ message: 'Failed to generate upload signature' });
+  }
+};
+
+/** GET /upload/pdf-url?url=<cloudinaryRawUrl>
+ *  Extracts the public_id from a Cloudinary raw delivery URL and returns a
+ *  short-lived signed URL that bypasses account-level raw resource restrictions
+ *  (HTTP 401). The client never needs the API secret — all signing happens here.
+ */
+export const getSignedPdfUrl = (req, res) => {
+  try {
+    const rawUrl = req.query.url;
+    if (!rawUrl) return res.status(400).json({ message: 'url query param required' });
+
+    // Extract the public_id from the Cloudinary delivery URL.
+    // URL shape: https://res.cloudinary.com/<cloud>/raw/upload/v<ver>/<public_id>
+    // For raw files the public_id always includes the file extension.
+    const match = rawUrl.match(/\/raw\/upload\/(?:v\d+\/)?(.+)$/);
+    if (!match) return res.status(400).json({ message: 'Could not parse Cloudinary URL' });
+    const publicId = match[1];
+
+    // Generate a signed delivery URL valid for 1 hour.
+    const signedUrl = cloudinary.url(publicId, {
+      resource_type: 'raw',
+      type: 'upload',
+      sign_url: true,
+      secure: true,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    res.json({ url: signedUrl });
+  } catch (err) {
+    console.error('Signed PDF URL error:', err);
+    res.status(500).json({ message: 'Failed to generate signed URL' });
   }
 };

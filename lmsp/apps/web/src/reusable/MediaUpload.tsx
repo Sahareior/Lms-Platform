@@ -74,16 +74,18 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
     );
     try {
       // 1) Get a short-lived signed upload from the backend.
-      const { cloud_name, api_key, timestamp, folder, signature } = await getSignature({}).unwrap();
+      const { cloud_name, api_key, timestamp, folder, access_mode, signature } = await getSignature({}).unwrap();
 
       // 2) Upload the file straight to Cloudinary.
       const resourceType = RESOURCE_TYPE[type];
+
       const uploadUrl = `https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/upload`;
       const formData = new FormData();
       formData.append('file', file as File);
       formData.append('api_key', api_key);
       formData.append('timestamp', String(timestamp));
       formData.append('folder', folder);
+      formData.append('access_mode', access_mode);
       formData.append('signature', signature);
 
       const response = await fetch(uploadUrl, {
