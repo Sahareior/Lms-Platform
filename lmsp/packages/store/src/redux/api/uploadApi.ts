@@ -24,11 +24,6 @@ export interface UploadSignature {
   signature: string;
 }
 
-// Response from the backend signed PDF URL endpoint.
-export interface SignedPdfUrlResponse {
-  url: string;
-}
-
 // ─── Injected Endpoints ─────────────────────────────────────
 // Media uploads: the frontend sends the raw file, the backend streams
 // it to Cloudinary and returns the secure URL.
@@ -65,15 +60,6 @@ const uploadApi = api.injectEndpoints({
         body: body ?? {},
       }),
     }),
-
-    // Fetches a short-lived signed Cloudinary delivery URL for a raw asset.
-    // Required when the Cloudinary account restricts direct raw URL delivery.
-    getSignedPdfUrl: build.mutation<SignedPdfUrlResponse, { url: string }>({
-      query: ({ url }) => ({
-        url: `/upload/pdf-url?url=${encodeURIComponent(url)}`,
-        method: 'GET',
-      }),
-    }),
   }),
   overrideExisting: false,
 });
@@ -84,5 +70,4 @@ export const {
   useUploadVideoMutation,
   useUploadFileMutation,
   useGetUploadSignatureMutation,
-  useGetSignedPdfUrlMutation,
 } = uploadApi;

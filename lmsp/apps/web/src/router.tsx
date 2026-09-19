@@ -28,6 +28,15 @@ const AvailableCourses = lazy(() => import('./(components)/AvailableCourses'));
 const CourseDetails = lazy(() => import('./(components)/CourseDetails'));
 const Onboarding = lazy(() => import('./(components)/onBoarding/Onboarding'));
 const ExamOptions = lazy(() => import('./(components)/MainPages/mock_exam/ExamOptions'));
+const StudySection = lazy(() => import('./(components)/MainPages/study_section/StudySection'));
+const PdfSection = lazy(() => import('./(components)/MainPages/study_section/PdfSection'));
+const BlogSection = lazy(() => import('./(components)/MainPages/study_section/BlogSection'));
+const BlogPostDetail = lazy(() => import('./(components)/MainPages/study_section/BlogPostDetail'));
+const StudyGroupSection = lazy(() => import('./(components)/MainPages/study_section/StudyGroupSection'));
+const PdfManagement = lazy(() => import('./AdminDashboard/pages/StudySection/PdfManagement'));
+const BlogManagement = lazy(() => import('./AdminDashboard/pages/StudySection/BlogManagement'));
+const BlogPostEditor = lazy(() => import('./AdminDashboard/pages/StudySection/BlogPostEditor'));
+const StudyGroupManagement = lazy(() => import('./AdminDashboard/pages/StudySection/StudyGroupManagement'));
 const SelectedExam = lazy(() => import('./(components)/MainPages/mock_exam/routes/SelectedExam'));
 const Exampage = lazy(() => import('./(components)/MainPages/mock_exam/routes/StartExam'));
 const ResultPage = lazy(() => import('./(components)/MainPages/mock_exam/routes/ResultPage'));
@@ -155,6 +164,17 @@ const router = createBrowserRouter([
               },
             ],
           },
+          {
+            path: 'study-section',
+            element: <StudySection />,
+            children: [
+              { path: 'pdf', element: <PdfSection /> },
+              { path: 'pdf/:category', element: <PdfSection /> },
+              { path: 'posts', element: <BlogSection /> },
+              { path: 'posts/:postId', element: <BlogPostDetail /> },
+              { path: 'study-group', element: <StudyGroupSection /> },
+            ],
+          },
           { path: 'ai-assistant', element: <AIChatInterface /> },
           { path: 'question-bank', element: <QuestionPatterns /> },
           { path: 'performance', element: <Perfomence /> },
@@ -212,6 +232,13 @@ const router = createBrowserRouter([
           { path: 'featured-exam', element: <FeaturedExamControl /> },
           { path: 'user-performance', element: <UserPerformance /> },
           { path: 'user-performance/:attemptId', element: <AttemptDetail /> },
+
+          // ── Study Section (PDFs / Blog / Groups) ──────────
+          { path: 'study-section/pdf', element: <PdfManagement /> },
+          { path: 'study-section/blog', element: <BlogManagement /> },
+          { path: 'study-section/blog/new', element: <BlogPostEditor /> },
+          { path: 'study-section/blog/edit/:postId', element: <BlogPostEditor /> },
+          { path: 'study-section/groups', element: <StudyGroupManagement /> },
         ],
       },
     ],

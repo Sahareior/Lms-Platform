@@ -95,7 +95,7 @@ export default function WeeklyActivityChart({
           </div>
         ) : weeklyTotalAttempts > 0 ? (
           <div className="h-44 relative z-10">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="170%">
               <BarChart data={weeklyDays} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
                 <XAxis
                   dataKey="label"

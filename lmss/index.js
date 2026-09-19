@@ -32,6 +32,7 @@ import favoriteRoutes from './routes/favorites.js';
 import statsRoutes from './routes/stats.js';
 import gamificationRoutes from './routes/gamification.js';
 import mistakeNotebookRoutes from './routes/mistakeNotebook.js';
+import studySectionRoutes from './routes/studySection.js';
 import { generalRateLimit } from './middleware/rateLimit.js';
 
 const app = express();
@@ -112,6 +113,7 @@ app.use('/favorites', favoriteRoutes);
 app.use('/stats', statsRoutes);
 app.use('/gamification', gamificationRoutes);
 app.use('/mistake-notebook', mistakeNotebookRoutes);
+app.use('/study-section', studySectionRoutes);
 
 // ─── 404 for unknown routes ─────────────────────────────────
 app.use((req, res) => {

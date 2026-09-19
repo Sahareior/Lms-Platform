@@ -75,11 +75,12 @@ export default function DashboardHeader({
             )}
 
             {/* Center Illustration Text (Some Students Bigger Dreams) */}
-            <div className="relative z-10 flex-1 flex items-center justify-center">
-              <div className="text-center">
+            <div className="relative z-10 flex-1 -ml-16 flex items-center justify-center">
+              <div className="text-start">
                 <p className="text-2xl md:text-3xl font-bold text-[#1a1a1a] font-serif leading-tight rotate-[-6deg]">
                   Some<br/>
                   Students<br/>
+                  Have <br />
                   <span className="text-[#b91c1c]">Bigger</span><br/>
                   Dreams.
                 </p>
@@ -89,8 +90,8 @@ export default function DashboardHeader({
             </div>
 
             {/* Date (Bottom Right) */}
-            <div className="relative z-20 flex justify-end mt-4 md:mt-0">
-              <p className="text-[9px] text-[#4a4a4a] font-medium uppercase tracking-widest flex items-center gap-1.5">
+            <div className="relative z-20 flex justify-end mt-4">
+              <p className="text-[11px] text-[#000000] font-medium uppercase tracking-widest flex items-center gap-1.5">
                 <Calendar size={10} /> {dateStr}
               </p>
             </div>

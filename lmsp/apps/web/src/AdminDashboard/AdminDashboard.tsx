@@ -24,6 +24,7 @@ import {
   StarOutlined,
   SunOutlined,
   MoonOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ADMIN_COLORS } from './theme';
@@ -49,6 +50,10 @@ const AdminDashboardInner: React.FC = () => {
     if (path.includes('/admin/subjects')) return 'subjects';
     if (path.includes('/admin/exam-control')) return 'exam-control';
     if (path.includes('/admin/featured-exam')) return 'featured-exam';
+    if (path.includes('/admin/study-section')) {
+      const child = path.split('/').pop();
+      return ['study-section', child === 'new' || child === 'edit' ? 'blog-posts' : child];
+    }
     if (path.includes('/admin/user-performance')) return 'user-performance';
     return 'dashboard';
   };
@@ -107,6 +112,16 @@ const AdminDashboardInner: React.FC = () => {
       icon: <StarOutlined />,
       label: 'Featured Mock Exam',
       onClick: () => navigate('/admin/featured-exam'),
+    },
+    {
+      key: 'study-section',
+      icon: <AppstoreOutlined />,
+      label: 'Study Section',
+      children: [
+        { key: 'study-pdfs', label: 'Study PDFs', onClick: () => navigate('/admin/study-section/pdf') },
+        { key: 'blog-posts', label: 'Blog Posts', onClick: () => navigate('/admin/study-section/blog') },
+        { key: 'study-groups', label: 'Study Groups', onClick: () => navigate('/admin/study-section/groups') },
+      ],
     },
     {
       key: 'user-performance',

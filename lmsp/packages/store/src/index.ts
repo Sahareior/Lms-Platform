@@ -121,12 +121,10 @@ export {
   useUploadVideoMutation,
   useUploadFileMutation,
   useGetUploadSignatureMutation,
-  useGetSignedPdfUrlMutation,
 } from './redux/api/uploadApi';
 export type {
   UploadResponse,
   UploadSignature,
-  SignedPdfUrlResponse,
 } from './redux/api/uploadApi';
 
 // ─── RTK Query Course API ───────────────────────────────────

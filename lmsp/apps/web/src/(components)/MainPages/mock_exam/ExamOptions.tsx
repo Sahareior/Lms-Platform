@@ -5,7 +5,6 @@ import {
   BookOpen,
   ChevronRight,
   ClipboardList,
-  FileText,
   GraduationCap,
   Search,
   Star,
@@ -13,7 +12,6 @@ import {
   TrendingUp,
   UserCheck,
   Users,
-  Video,
   Zap,
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -53,15 +51,6 @@ const getCategoryLabel = (category?: string) => {
   if (category === "job_preparation") return "Job Preparation";
   return null;
 };
-
-// ─── Study section items ───────────────────────────────────────
-const studyItems = [
-  { title: "Video Section", icon: <Video size={18} /> },
-  { title: "PDF Section", icon: <FileText size={18} /> },
-  { title: "সাম্প্রতিক পোস্ট", icon: <BookOpen size={18} /> },
-  { title: "Central Job Solutions", icon: <Target size={18} /> },
-  { title: "Study Group", icon: <Users size={18} /> },
-];
 
 // ─── Skeleton card for loading state ───────────────────────────
 const ExamCardSkeleton = ({ isDark }: { isDark: boolean }) => (
@@ -439,42 +428,6 @@ const ExamOptions = () => {
               </>
             )}
 
-            {/* ── Study Section ─────────────────────────────────── */}
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className={`font-bold ${isDark ? "text-lg" : "text-xl font-serif font-black text-[#1a1a1a]"}`}>
-                  Study Section
-                </h2>
-                <span className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${
-                  isDark 
-                    ? "bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30" 
-                    : "bg-[#f2efe9] text-[#b91c1c] border-[#b91c1c] font-serif"
-                }`}>
-                  Coming Soon
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                {studyItems.map((item, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-center gap-3 rounded-xl px-4 py-4 transition ${
-                      isDark 
-                        ? "border border-[#23262D] bg-[#111318] hover:bg-[#161920]" 
-                        : "border border-[#d8d4cb] bg-[#f2efe9] hover:shadow-[2px_2px_0px_0px_#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]"
-                    }`}
-                  >
-                    <span className={isDark ? "text-[#2F80ED]" : "text-[#b91c1c]"}>
-                      {item.icon}
-                    </span>
-                    <span className={`text-sm font-medium ${
-                      isDark ? "text-[#F5F7FA]" : "text-[#1a1a1a] font-serif font-bold"
-                    }`}>
-                      {item.title}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       ) : (
