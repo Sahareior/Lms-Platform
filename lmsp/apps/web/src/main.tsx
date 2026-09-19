@@ -8,6 +8,7 @@ import './index.css'
 import SmoothScroll from './tools/SmoothScroll'
 import GamificationToastHost from './gamification/GamificationToast'
 import { ThemeProvider } from './theme/ThemeContext'
+import { NavigationProvider } from './navigation/NavigationContext'
 
 // Point the API client at the backend. Falls back to localhost for local dev.
 configureApi({ baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3000/' })
@@ -26,13 +27,15 @@ createRoot(document.getElementById('root')!).render(
     <SharedProviders>
       <AuthInitializer>
         <ThemeProvider>
-          <Suspense fallback={<PageFallback />}>
-            <SmoothScroll>
-              <RouterProvider router={router} />
-            </SmoothScroll>
-            {/* App-wide XP / level-up notifications */}
-            <GamificationToastHost />
-          </Suspense>
+          <NavigationProvider>
+            <Suspense fallback={<PageFallback />}>
+              <SmoothScroll>
+                <RouterProvider router={router} />
+              </SmoothScroll>
+              {/* App-wide XP / level-up notifications */}
+              <GamificationToastHost />
+            </Suspense>
+          </NavigationProvider>
         </ThemeProvider>
       </AuthInitializer>
     </SharedProviders>

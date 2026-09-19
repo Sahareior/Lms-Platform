@@ -23,6 +23,7 @@ const Perfomence = lazy(() => import('./(components)/MainPages/performence/Perfo
 const SearchPage = lazy(() => import('./(components)/MainPages/search/SearchPage'));
 const MistakeNotebook = lazy(() => import('./(components)/MainPages/mistake_notebook/MistakeNotebook'));
 const Settings = lazy(() => import('./(components)/Settings'));
+const NavigationHub = lazy(() => import('./navigation/NavigationHub'));
 const AvailableCourses = lazy(() => import('./(components)/AvailableCourses'));
 const CourseDetails = lazy(() => import('./(components)/CourseDetails'));
 const Onboarding = lazy(() => import('./(components)/onBoarding/Onboarding'));
@@ -185,6 +186,7 @@ const router = createBrowserRouter([
             element: <QuestionTypeSelection />,
           },
           { path: 'settings', element: <Settings /> },
+          { path: 'navigate', element: <NavigationHub /> },
         ],
       },
 

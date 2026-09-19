@@ -25,6 +25,8 @@ import {
   Camera,
   SunMedium,
   MoonStar,
+  PanelLeft,
+  LayoutGrid,
 } from 'lucide-react';
 import {
   useAppDispatch,
@@ -39,6 +41,7 @@ import {
 } from '@my-monorepo/store';
 import { persistAuth } from '../auth/AuthInitializer';
 import { useTheme } from '../theme/ThemeContext';
+import { useNavigationMode } from '../navigation/NavigationContext';
 
 
 // ─── Bangladesh Divisions & Districts ─────────────────────
@@ -236,6 +239,7 @@ const Settings: React.FC = () => {
   const [removeExam, { isLoading: isRemoving }] = useRemoveExamMutation();
   const [addUserInfo, { isLoading: isSavingProfile }] = useAddUserInfoMutation();
   const { isDark, toggleTheme } = useTheme();
+  const { mode: navMode, setMode: setNavMode } = useNavigationMode();
 
   const [form, setForm] = useState<ProfileForm>(emptyForm);
   const [formInitialized, setFormInitialized] = useState(false);
@@ -402,6 +406,77 @@ const Settings: React.FC = () => {
           }`}
         />
       </button>
+    </div>
+  );
+
+  // ─── Navigation mode picker (sidebar vs hub page) ──────────
+  const NavigationModePicker = ({ isDark }: { isDark: boolean }) => (
+    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {([
+        { value: 'sidebar', icon: <PanelLeft size={18} />, title: 'Sidebar Menu', description: 'Classic side navigation always visible' },
+        { value: 'hub', icon: <LayoutGrid size={18} />, title: 'Navigation Hub', description: 'A menu page listing all sections' },
+      ] as const).map((option) => {
+        const selected = navMode === option.value;
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setNavMode(option.value)}
+            className={`relative flex items-start gap-3 rounded-xl p-4 text-left transition-all border ${
+              isDark
+                ? selected
+                  ? 'bg-[#161920] border-[#00E5B3]/60 shadow-[0_0_0_1px_rgba(0,229,179,0.25),0_8px_24px_-12px_rgba(0,229,179,0.4)]'
+                  : 'bg-[#161920] border-[#23262D] hover:border-[#323742]'
+                : selected
+                ? 'bg-[#f2efe9] border-[#1a1a1a] shadow-[3px_3px_0px_0px_#1a1a1a]'
+                : 'bg-[#f2efe9] border-[#d8d4cb] shadow-[2px_2px_0px_0px_#d8d4cb] hover:shadow-[3px_3px_0px_0px_#1a1a1a]'
+            }`}
+          >
+            <span
+              className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                isDark
+                  ? selected
+                    ? 'bg-[#00E5B3]/15 text-[#00E5B3] ring-1 ring-[#00E5B3]/30'
+                    : 'bg-[#1D2029] text-[#A1A8B3] ring-1 ring-[#23262D]'
+                  : selected
+                  ? 'bg-[#1a1a1a] text-[#f2efe9]'
+                  : 'bg-[#e0dcd5] text-[#4a4a4a]'
+              }`}
+            >
+              {option.icon}
+            </span>
+            <span className="flex-1">
+              <span className={`block text-sm ${isDark ? 'font-semibold text-[#F5F7FA]' : 'font-black font-serif text-[#1a1a1a]'}`}>
+                {option.title}
+                {selected && (
+                  <span className={`ml-2 inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                    isDark ? 'text-[#00E5B3] bg-[#00E5B3]/10' : 'text-[#b91c1c] bg-[#e0dcd5] border border-[#b91c1c]/40'
+                  }`}>
+                    <CheckCircle2 size={10} /> Active
+                  </span>
+                )}
+              </span>
+              <span className={`block text-xs mt-0.5 ${isDark ? 'text-[#8A919E]' : 'text-[#4a4a4a] font-serif italic'}`}>
+                {option.description}
+              </span>
+            </span>
+            <span
+              className={`shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
+                selected
+                  ? isDark
+                    ? 'bg-[#00E5B3] border-[#00E5B3] text-black'
+                    : 'bg-[#1a1a1a] border-[#1a1a1a] text-[#f2efe9]'
+                  : isDark
+                  ? 'border-[#323742] text-transparent'
+                  : 'border-[#d8d4cb] text-transparent'
+              }`}
+            >
+              <Check size={12} strokeWidth={3} />
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 
@@ -706,6 +781,19 @@ const Settings: React.FC = () => {
               </h3>
 
               <div className="bg-[#f2efe9] border border-[#d8d4cb] rounded-lg p-5 shadow-[2px_2px_0px_0px_#1a1a1a]">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-md bg-[#1a1a1a] flex items-center justify-center text-[#f2efe9]">
+                    <LayoutGrid size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm text-[#1a1a1a] font-serif">Dashboard Navigation</h3>
+                    <p className="text-xs text-[#4a4a4a] font-serif italic">Choose how you move between sections</p>
+                  </div>
+                </div>
+                <NavigationModePicker isDark={false} />
+              </div>
+
+              <div className="bg-[#f2efe9] border border-[#d8d4cb] rounded-lg p-5 shadow-[2px_2px_0px_0px_#1a1a1a] mt-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-md bg-[#1a1a1a] flex items-center justify-center text-[#f2efe9]">
                     <Palette size={18} />
@@ -1035,6 +1123,19 @@ const Settings: React.FC = () => {
             <h3 className="text-[11px] font-bold uppercase tracking-wider text-[#6B7280] mb-3">
               More Settings <span className="text-[10px] text-[#A1A8B3]"> (coming soon)</span>
             </h3>
+
+            <div className="bg-[#111318] border border-[#23262D] rounded-xl p-5 mb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-[#00E5B3]/10 border border-[#00E5B3]/20 flex items-center justify-center text-[#00E5B3]">
+                  <LayoutGrid size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[#F5F7FA]">Dashboard Navigation</h3>
+                  <p className="text-xs text-[#A1A8B3]">Choose how you move between sections</p>
+                </div>
+              </div>
+              <NavigationModePicker isDark={true} />
+            </div>
 
             <div className="bg-[#111318] border border-[#23262D] rounded-xl p-5 mb-4">
               <div className="flex items-center gap-3 mb-2">

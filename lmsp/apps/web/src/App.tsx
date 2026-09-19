@@ -2,17 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ConfigProvider, Layout, theme as antdTheme } from 'antd';
 import { useTheme } from './theme/ThemeContext';
 import {
-  LayoutDashboard,
-  BookOpen,
-  FileCheck,
-  Bot,
-  Library,
-  BarChart3,
-  Settings,
   LogOut,
-  ShieldCheck,
-  Search,
-  NotebookPen,
+  LayoutGrid,
 } from 'lucide-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
@@ -28,30 +19,15 @@ import {
   clearCurrentReport,
 } from '@my-monorepo/store';
 import { clearPersistedAuth } from './auth/AuthInitializer';
+import { navItemConfigs } from './navigation/navItems';
+import { useNavigationMode } from './navigation/NavigationContext';
 import { useGetOrGenerateAiPerformanceMutation } from '@my-monorepo/store/src/redux/api/userPerformanceApi';
 import NotificationBell from './(components)/MainPages/notifications/NotificationBell';
 
 const { Content, Sider } = Layout;
 
-interface NavItem {
-  label: string;
-  icon: React.ReactNode;
-  path: string;
-  glowClass?: string;
-  activeColorClass?: string;
-}
-
-const navItems: NavItem[] = [
-  { label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/dashboard', glowClass: 'glow-primary', activeColorClass: 'bg-[#2F80ED] text-white' },
-  { label: 'My Courses', icon: <BookOpen size={18} />, path: '/courses', glowClass: 'glow-primary', activeColorClass: 'bg-[#2F80ED] text-white' },
-  { label: 'AI Assistant', icon: <Bot size={18} />, path: '/ai-assistant', glowClass: 'glow-ai', activeColorClass: 'bg-[#00E5B3] text-black font-semibold' },
-  { label: 'Mock Exam', icon: <FileCheck size={18} />, path: '/mock-exam', glowClass: 'glow-purple', activeColorClass: 'bg-[#9B51E0] text-white' },
-  { label: 'Question Analysis', icon: <Library size={18} />, path: '/question-bank', glowClass: 'glow-cyan', activeColorClass: 'bg-[#00C8FF] text-black font-semibold' },
-  { label: 'Performance', icon: <BarChart3 size={18} />, path: '/performance', glowClass: 'glow-cyan', activeColorClass: 'bg-[#00C8FF] text-black font-semibold' },
-  { label: 'Question Center', icon: <BarChart3 size={18} />, path: '/question-center', glowClass: 'glow-cyan', activeColorClass: 'bg-[#00C8FF] text-black font-semibold' },
-  { label: 'Notebook', icon: <NotebookPen size={18} />, path: '/notebook', glowClass: 'glow-purple', activeColorClass: 'bg-[#9B51E0] text-white' },
-  { label: 'Settings', icon: <Settings size={18} />, path: '/settings', glowClass: 'glow-primary', activeColorClass: 'bg-[#23262D] text-[#F5F7FA]' },
-];
+// Single source of truth shared with the Navigation Hub page and the Settings picker
+const navItems = navItemConfigs;
 
 const App: React.FC = () => {
   const navigate = useNavigate();
@@ -60,6 +36,7 @@ const App: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { theme, isDark, setTheme } = useTheme();
+  const { isHub } = useNavigationMode();
   const { user } = useAppSelector((state) => state.user);
   const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
   const lastSentKey = useRef<string | null>(null);
@@ -164,6 +141,8 @@ const App: React.FC = () => {
       }}
     >
       <Layout className="h-dvh" style={{ background: shellColors.pageBg, color: shellColors.textPrimary }}>
+        {/* Sidebar hidden entirely in hub navigation mode */}
+        {!isHub && (
         <Sider
           width={260}
           breakpoint="lg"
@@ -327,6 +306,7 @@ const App: React.FC = () => {
             </div>
           </aside>
         </Sider>
+        )}
 
         <Layout className="bg-transparent">
           <Content className="bg-transparent p-1">
@@ -346,6 +326,22 @@ const App: React.FC = () => {
                 }),
               }}
             >
+              {/* Floating menu button in hub mode — quick access to the hub page */}
+              {isHub && (
+                <div className="fixed bottom-5 right-5 z-50">
+                  <button
+                    onClick={() => navigate('/navigate')}
+                    title="Open Navigation Hub"
+                    className={`flex h-12 w-12 items-center justify-center rounded-full transition-all active:scale-90 ${
+                      isDark
+                        ? 'bg-[#161920] border border-[#00E5B3]/40 text-[#00E5B3] shadow-[0_8px_24px_-8px_rgba(0,229,179,0.5)] hover:bg-[#1D2029]'
+                        : 'bg-[#1a1a1a] border border-[#1a1a1a] text-[#f2efe9] shadow-[3px_3px_0px_0px_#b91c1c] hover:shadow-[4px_4px_0px_0px_#b91c1c]'
+                    }`}
+                  >
+                    <LayoutGrid size={20} />
+                  </button>
+                </div>
+              )}
               <Outlet />
             </div>
           </Content>
