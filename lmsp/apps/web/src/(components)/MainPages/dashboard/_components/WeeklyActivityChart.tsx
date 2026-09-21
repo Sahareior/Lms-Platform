@@ -66,7 +66,7 @@ export default function WeeklyActivityChart({
   if (!isDark) {
     return (
       <div 
-        className="bg-[#f2efe9] border border-[#d8d4cb] rounded-lg p-5 shadow-[3px_3px_0px_0px_#1a1a1a]"
+        className="h-full bg-[#f2efe9] border border-[#d8d4cb] rounded-lg p-5 shadow-[3px_3px_0px_0px_#1a1a1a]"
         style={{
           backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
           backgroundSize: '16px 16px',
@@ -95,7 +95,7 @@ export default function WeeklyActivityChart({
           </div>
         ) : weeklyTotalAttempts > 0 ? (
           <div className="h-44 relative z-10">
-            <ResponsiveContainer width="100%" height="170%">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weeklyDays} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
                 <XAxis
                   dataKey="label"
@@ -140,7 +140,7 @@ export default function WeeklyActivityChart({
 
   // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
-    <div className="bg-[#111318] border border-[#23262D] rounded-2xl p-4">
+    <div className="h-full bg-[#111318] border border-[#23262D] rounded-2xl p-4">
       <div className="flex justify-between items-start mb-6">
         <div>
           <h3 className="text-base font-bold text-[#F5F7FA]">Weekly Study Activity</h3>
