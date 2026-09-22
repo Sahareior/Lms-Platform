@@ -4,12 +4,20 @@ import {
   Users,
   ArrowRight,
   Sparkles,
+  GraduationCap,
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../../../theme/ThemeContext";
 
 // ─── Study section items ───────────────────────────────────────
 const studyItems = [
+  {
+    title: "টেস্ট পেপার প্রশ্নব্যাংক (CQ)",
+    icon: <GraduationCap size={22} />,
+    path: "reading",
+    description: "এইচএসসি ও এসএসসি বোর্ড ও শীর্ষ কলেজের সৃজনশীল প্রশ্ন ও পূর্ণাঙ্গ উত্তর",
+    accent: "reading",
+  },
   {
     title: "PDF Section",
     icon: <FileText size={22} />,
@@ -104,7 +112,7 @@ const StudySection = () => {
         )}
 
         {/* ── Study Section Grid ────────────────────────────── */}
-        <div className="grid grid-cols-1 mt-5 md:mt-12 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 mt-5 md:mt-12 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {studyItems.map((item, index) => {
             if (isDark) {
               return (
