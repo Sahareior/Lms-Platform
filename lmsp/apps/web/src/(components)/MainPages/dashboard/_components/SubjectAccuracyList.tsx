@@ -18,7 +18,7 @@ export default function SubjectAccuracyList({
   if (!isDark) {
     return (
       <div
-        className="bg-[#f2efe9] h-[400px] flex flex-col border border-[#d8d4cb] rounded-lg p-5 shadow-[3px_3px_0px_0px_#1a1a1a]"
+        className="h-full bg-[#f2efe9] flex flex-col border border-[#d8d4cb] rounded-lg p-5 shadow-[3px_3px_0px_0px_#1a1a1a]"
         style={{
           backgroundImage: "radial-gradient(#d8d4cb 1px, transparent 1px)",
           backgroundSize: "16px 16px",
@@ -176,7 +176,7 @@ export default function SubjectAccuracyList({
 
   // ─── DARK MODE ─────────────────────────────────────────────
   return (
-    <div className="bg-[#111318] h-[400px] flex flex-col border border-[#23262D] rounded-2xl p-4">
+    <div className="h-full bg-[#111318] flex flex-col border border-[#23262D] rounded-2xl p-4">
       {/* Header — pinned */}
       <div className="flex justify-between items-start mb-4 shrink-0">
         <div>

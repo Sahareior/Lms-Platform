@@ -33,6 +33,7 @@ const PdfSection = lazy(() => import('./(components)/MainPages/study_section/Pdf
 const BlogSection = lazy(() => import('./(components)/MainPages/study_section/BlogSection'));
 const BlogPostDetail = lazy(() => import('./(components)/MainPages/study_section/BlogPostDetail'));
 const StudyGroupSection = lazy(() => import('./(components)/MainPages/study_section/StudyGroupSection'));
+const ReadingPage = lazy(() => import('./(components)/MainPages/study_section/ReadingPage/ReadingPage'));
 const PdfManagement = lazy(() => import('./AdminDashboard/pages/StudySection/PdfManagement'));
 const BlogManagement = lazy(() => import('./AdminDashboard/pages/StudySection/BlogManagement'));
 const BlogPostEditor = lazy(() => import('./AdminDashboard/pages/StudySection/BlogPostEditor'));
@@ -60,6 +61,8 @@ const ExamControl = lazy(() => import('./AdminDashboard/pages/ExamControl'));
 const FeaturedExamControl = lazy(() => import('./AdminDashboard/pages/FeaturedExamControl'));
 const UserPerformance = lazy(() => import('./AdminDashboard/pages/UserPerformance/UserPerformance'));
 const AttemptDetail = lazy(() => import('./AdminDashboard/pages/UserPerformance/AttemptDetail'));
+const CreativeQuestions = lazy(() => import('./AdminDashboard/pages/CreativeQuestions/CreativeQuestions'));
+const CreativeQuestionManager = lazy(() => import('./AdminDashboard/pages/CreativeQuestions/CreativeQuestionManager'));
 
 const router = createBrowserRouter([
   // ── Landing page at / (public marketing page with its own per-route SEO) ──
@@ -168,6 +171,7 @@ const router = createBrowserRouter([
             path: 'study-section',
             element: <StudySection />,
             children: [
+              { path: 'reading', element: <ReadingPage /> },
               { path: 'pdf', element: <PdfSection /> },
               { path: 'pdf/:category', element: <PdfSection /> },
               { path: 'posts', element: <BlogSection /> },
@@ -175,6 +179,7 @@ const router = createBrowserRouter([
               { path: 'study-group', element: <StudyGroupSection /> },
             ],
           },
+          { path: 'reading', element: <ReadingPage /> },
           { path: 'ai-assistant', element: <AIChatInterface /> },
           { path: 'question-bank', element: <QuestionPatterns /> },
           { path: 'performance', element: <Perfomence /> },
@@ -227,6 +232,8 @@ const router = createBrowserRouter([
           { path: 'questions', element: <QuestionManagement /> },
           { path: 'question-bank', element: <QuestionBank /> },
           { path: 'question-bank/:documentId', element: <QuestionManager /> },
+          { path: 'creative-questions', element: <CreativeQuestions /> },
+          { path: 'creative-questions/:setId', element: <CreativeQuestionManager /> },
           { path: 'subjects', element: <SubjectManagement /> },
           { path: 'exam-control', element: <ExamControl /> },
           { path: 'featured-exam', element: <FeaturedExamControl /> },

@@ -174,6 +174,7 @@ export const tagTypes = [
   'StudyPdf',
   'BlogPost',
   'StudyGroupLink',
+  'CreativeQuestion',
 ] as const;
 
 // ─── Base API Slice ─────────────────────────────────────────

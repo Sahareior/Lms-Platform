@@ -32,18 +32,18 @@ interface SelectedExam {
 function examMeta(name: string): { icon: ReactNode; color: string; subtitle: string } {
   const lower = name.toLowerCase();
   if (lower.includes("bcs") || lower.includes("বিসিএস"))
-    return { icon: <Award size={26} />, color: "#2F80ED", subtitle: "বিসিএস প্রস্তুতি" };
+    return { icon: <Award size={20} />, color: "#2F80ED", subtitle: "বিসিএস প্রস্তুতি" };
   if (lower.includes("bank") || lower.includes("ব্যাংক"))
-    return { icon: <TrendingUp size={26} />, color: "#F2C94C", subtitle: "ব্যাংক জব প্রস্তুতি" };
+    return { icon: <TrendingUp size={20} />, color: "#F2C94C", subtitle: "ব্যাংক জব প্রস্তুতি" };
   if (lower.includes("ssc") || lower.includes("এসএসসি"))
-    return { icon: <BookOpen size={26} />, color: "#00E5B3", subtitle: "এসএসসি প্রস্তুতি" };
+    return { icon: <BookOpen size={20} />, color: "#00E5B3", subtitle: "এসএসসি প্রস্তুতি" };
   if (lower.includes("hsc") || lower.includes("এইচএসসি"))
-    return { icon: <ClipboardList size={26} />, color: "#9B51E0", subtitle: "এইচএসসি প্রস্তুতি" };
+    return { icon: <ClipboardList size={20} />, color: "#9B51E0", subtitle: "এইচএসসি প্রস্তুতি" };
   if (lower.includes("teacher") || lower.includes("শিক্ষক") || lower.includes("নিবন্ধন"))
-    return { icon: <UserCheck size={26} />, color: "#EB5757", subtitle: "শিক্ষক নিবন্ধন প্রস্তুতি" };
+    return { icon: <UserCheck size={20} />, color: "#EB5757", subtitle: "শিক্ষক নিবন্ধন প্রস্তুতি" };
   if (lower.includes("govt") || lower.includes("job") || lower.includes("চাকরি") || lower.includes("সল্যুশন"))
-    return { icon: <Zap size={26} />, color: "#00C8FF", subtitle: "সরকারি চাকরি প্রস্তুতি" };
-  return { icon: <GraduationCap size={26} />, color: "#9B51E0", subtitle: "পরীক্ষার প্রস্তুতি" };
+    return { icon: <Zap size={20} />, color: "#00C8FF", subtitle: "সরকারি চাকরি প্রস্তুতি" };
+  return { icon: <GraduationCap size={20} />, color: "#9B51E0", subtitle: "পরীক্ষার প্রস্তুতি" };
 }
 
 const getCategoryLabel = (category?: string) => {
@@ -54,14 +54,14 @@ const getCategoryLabel = (category?: string) => {
 
 // ─── Skeleton card for loading state ───────────────────────────
 const ExamCardSkeleton = ({ isDark }: { isDark: boolean }) => (
-  <div className={`rounded-2xl border p-5 ${
+  <div className={`rounded-lg border p-3 ${
     isDark ? "border-[#23262D] bg-[#111318]" : "border-[#d8d4cb] bg-[#f2efe9]"
   }`}>
-    <div className={`h-12 w-12 rounded-xl animate-pulse mb-4 ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
-    <div className={`h-4 w-3/4 rounded animate-pulse mb-2 ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
-    <div className={`h-3 w-1/2 rounded animate-pulse mb-4 ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
-    <div className={`h-3 w-full rounded animate-pulse mb-2 ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
-    <div className={`h-3 w-5/6 rounded animate-pulse ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
+    <div className={`h-8 w-8 rounded-lg animate-pulse mb-2.5 ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
+    <div className={`h-3 w-3/4 rounded animate-pulse mb-1.5 ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
+    <div className={`h-2.5 w-1/2 rounded animate-pulse mb-2.5 ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
+    <div className={`h-2.5 w-full rounded animate-pulse mb-1.5 ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
+    <div className={`h-2.5 w-5/6 rounded animate-pulse ${isDark ? "bg-[#23262D]" : "bg-[#e0dcd5]"}`} />
   </div>
 );
 
@@ -137,7 +137,7 @@ const ExamOptions = () => {
     <div>
       {location.pathname === "/mock-exam" ? (
         <div className={`min-h-screen md:p-4 p-1  ${isDark ? "bg-[#0B0D12] text-[#F5F7FA]" : "bg-[#e8e4db] text-[#1a1a1a]"}`}>
-          <div className="mx-auto max-w-8xl">
+          <div className="mx-auto max-w-8xl pb-12 md:pb-36">
 
             {/* ── Already Completed Alert ──────────────────────── */}
             {showAlert && (
@@ -311,8 +311,8 @@ const ExamOptions = () => {
                     </button>
                   </div>
                 ) : (
-                  /* Exam grid */
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  /* Exam grid — CARD SIZE REDUCED */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredExams.map((exam) => {
                       const { icon, color, subtitle } = examMeta(exam.name);
                       const categoryLabel = getCategoryLabel(exam.category);
@@ -330,21 +330,21 @@ const ExamOptions = () => {
                           }}
                           className={`group relative flex flex-col overflow-hidden cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 ${
                             isDark 
-                              ? "rounded-2xl border border-[#23262D] bg-[#111318] hover:border-[#9B51E0]/50 hover:shadow-[0_0_20px_-5px_rgba(155,81,224,0.3)] hover:-translate-y-0.5 active:scale-[0.98] focus-visible:ring-[#9B51E0]/50"
-                              : "rounded-lg border border-[#d8d4cb] bg-[#f2efe9] hover:shadow-[4px_4px_0px_0px_#1a1a1a] hover:-translate-y-0.5 active:scale-[0.98] focus-visible:ring-[#b91c1c]/50 shadow-[3px_3px_0px_0px_#1a1a1a]"
+                              ? "rounded-xl border border-[#23262D] bg-[#111318] hover:border-[#9B51E0]/50 hover:shadow-[0_0_15px_-5px_rgba(155,81,224,0.3)] hover:-translate-y-0.5 active:scale-[0.98] focus-visible:ring-[#9B51E0]/50"
+                              : "rounded-lg border border-[#d8d4cb] bg-[#f2efe9] hover:shadow-[3px_3px_0px_0px_#1a1a1a] hover:-translate-y-0.5 active:scale-[0.98] focus-visible:ring-[#b91c1c]/50 shadow-[2px_2px_0px_0px_#1a1a1a]"
                           }`}
                         >
                           {/* Top accent bar */}
                           <div
-                            className="h-1.5 w-full"
+                            className="h-1 w-full"
                             style={{ backgroundColor: isDark ? color : "#b91c1c" }}
                           />
 
-                          <div className="flex flex-1 flex-col p-5">
+                          <div className="flex flex-1 flex-col p-3">
                             {/* Icon + chevron */}
-                            <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-start justify-between mb-2">
                               <div
-                                className="h-12 w-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
+                                className="h-9 w-9 rounded-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
                                 style={
                                   isDark 
                                     ? { backgroundColor: `${color}1A`, border: `1px solid ${color}4D`, color }
@@ -354,7 +354,7 @@ const ExamOptions = () => {
                                 {icon}
                               </div>
                               <ChevronRight
-                                size={18}
+                                size={15}
                                 className={`transition-all ${
                                   isDark 
                                     ? "text-[#6B7280] group-hover:text-[#F5F7FA] group-hover:translate-x-0.5" 
@@ -364,13 +364,13 @@ const ExamOptions = () => {
                             </div>
 
                             {/* Title */}
-                            <h3 className={`font-bold leading-snug ${
-                              isDark ? "text-base text-[#F5F7FA]" : "text-lg text-[#1a1a1a] font-serif font-black"
+                            <h3 className={`font-bold leading-snug text-sm ${
+                              isDark ? "text-[#F5F7FA]" : "text-[#1a1a1a] font-serif font-black"
                             }`}>
                               {exam.name}
                             </h3>
                             <p
-                              className={`text-xs font-medium mt-1 mb-3 ${isDark ? "" : "font-serif italic"}`}
+                              className={`text-[10px] font-medium mt-0.5 mb-1.5 ${isDark ? "" : "font-serif italic"}`}
                               style={{ color: isDark ? color : "#b91c1c" }}
                             >
                               {subtitle}
@@ -378,7 +378,7 @@ const ExamOptions = () => {
 
                             {/* Description */}
                             {exam.description && (
-                              <p className={`min-h-[2.5rem] text-sm leading-relaxed mb-4 line-clamp-2 ${
+                              <p className={`text-xs leading-relaxed mb-2 line-clamp-2 ${
                                 isDark ? "text-[#A1A8B3]" : "text-[#4a4a4a] font-serif"
                               }`}>
                                 {exam.description}
@@ -386,27 +386,27 @@ const ExamOptions = () => {
                             )}
 
                             {/* Footer */}
-                            <div className={`mt-auto flex items-center justify-between pt-4 border-t ${
+                            <div className={`mt-auto flex items-center justify-between pt-2 border-t ${
                               isDark ? "border-[#23262D]" : "border-[#d8d4cb]"
                             }`}>
                               {exam.applicants ? (
-                                <span className={`flex items-center gap-1.5 text-xs ${
+                                <span className={`flex items-center gap-1 text-[10px] ${
                                   isDark ? "text-[#6B7280]" : "text-[#4a4a4a] font-serif"
                                 }`}>
-                                  <Users size={13} />
+                                  <Users size={11} />
                                   {exam.applicants} applicants
                                 </span>
                               ) : (
-                                <span className={`flex items-center gap-1.5 text-xs ${
+                                <span className={`flex items-center gap-1 text-[10px] ${
                                   isDark ? "text-[#6B7280]" : "text-[#4a4a4a] font-serif"
                                 }`}>
-                                  <GraduationCap size={13} />
+                                  <GraduationCap size={11} />
                                   Mock test ready
                                 </span>
                               )}
                               {categoryLabel && (
                                 <span
-                                  className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${
+                                  className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
                                     isDark ? "font-semibold" : "font-serif uppercase tracking-wider"
                                   }`}
                                   style={

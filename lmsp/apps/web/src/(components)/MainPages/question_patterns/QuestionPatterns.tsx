@@ -361,8 +361,8 @@ const QuestionPatterns = () => {
 
   /* ═══════════════════ STEP 3: SUBJECT QUESTION PATTERN ANALYSIS ═══════════════════ */
   return (
-    <div className={`flex-1 min-h-screen font-sans ${isDark ? "text-[#F5F7FA] bg-[#0B0D12]" : "text-[#1a1a1a] bg-[#e8e4db]"}`}>
-      <div className="max-w-8xl mx-auto py-6 sm:px-3 space-y-7">
+    <div className={`flex-1 min-h-screen px-1.5 font-sans ${isDark ? "text-[#F5F7FA] bg-[#0B0D12]" : "text-[#1a1a1a] bg-[#e8e4db]"}`}>
+      <div className="max-w-8xl mx-auto py-6 sm:px-3 space-y-10">
         <div className={`flex flex-wrap items-center justify-between gap-3 border-b pb-4 ${isDark ? "border-[#23262D]/60" : "border-[#d8d4cb]"}`}>
           <div className="flex items-center gap-3">
             <button
@@ -429,7 +429,7 @@ const QuestionPatterns = () => {
         />
 
         {totalQuestions > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <TopSubjectsChart topSubjects={topSubjects} totalQuestions={totalQuestions} />
             <SubjectDistributionChart
               topSubjects={topSubjects}

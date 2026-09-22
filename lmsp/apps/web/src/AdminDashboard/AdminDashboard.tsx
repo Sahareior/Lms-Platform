@@ -25,6 +25,7 @@ import {
   SunOutlined,
   MoonOutlined,
   AppstoreOutlined,
+  FileAddOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ADMIN_COLORS } from './theme';
@@ -47,6 +48,7 @@ const AdminDashboardInner: React.FC = () => {
     if (path.includes('/admin/courses')) return 'courses';
     if (path.includes('/admin/questions')) return 'questions';
     if (path.includes('/admin/question-bank')) return 'question-bank';
+    if (path.includes('/admin/creative-questions')) return 'creative-questions';
     if (path.includes('/admin/subjects')) return 'subjects';
     if (path.includes('/admin/exam-control')) return 'exam-control';
     if (path.includes('/admin/featured-exam')) return 'featured-exam';
@@ -94,6 +96,12 @@ const AdminDashboardInner: React.FC = () => {
       icon: <BookOutlined />,
       label: 'Question Bank',
       onClick: () => navigate('/admin/question-bank'),
+    },
+    {
+      key: 'creative-questions',
+      icon: <FileAddOutlined />,
+      label: 'Creative Questions',
+      onClick: () => navigate('/admin/creative-questions'),
     },
     {
       key: 'subjects',
