@@ -8,6 +8,43 @@ import AuthGuard from './auth/AuthGuard';
 import HomeRedirect from './auth/HomeRedirect';
 import Omer from './(components)/MainPages/mock_exam/ExamPaper/omr/Omr';
 import PrivacyPolicy from './legal/PrivacyPolicy';
+import { useTheme } from './theme/ThemeContext';
+import { Loader2 } from 'lucide-react';
+
+const RouteLoadingFallback = () => {
+  const { isDark } = useTheme();
+
+  if (!isDark) {
+    return (
+       <div
+        className="min-h-screen bg-[#e8e4db] flex items-center justify-center p-6"
+        style={{
+          backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        <div
+          className="flex flex-col items-center gap-3 px-8 py-6 rounded-lg bg-[#f2efe9] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_0px_#1a1a1a]"
+        >
+          <Loader2 size={28} className="animate-spin text-[#b91c1c]" />
+          {/* <p className="text-sm font-black font-serif text-[#1a1a1a]">{message}</p> */}
+          <p className="text-[16px] text-[#333] font-serif italic">
+            Preparing your workspace
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center p-6">
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#23262D] bg-[#111318]/90 px-8 py-6 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.5)] backdrop-blur-sm">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#2F80ED] border-t-transparent" />
+        <p className="text-sm font-semibold text-[#F5F7FA]">Loading…</p>
+      </div>
+    </div>
+  );
+};
 
 // ─── Lazy page imports (route-level code splitting) ─────────
 // Each page ships in its own chunk, loaded on first visit, so the
@@ -69,7 +106,7 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: (
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<RouteLoadingFallback />}>
         <Seo />
         <ScrollToTop />
         <HomeRedirect />

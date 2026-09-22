@@ -366,10 +366,10 @@ const Settings: React.FC = () => {
   const isBusy = isSelecting || isRemoving;
 
   const moreGroups = [
-    { icon: <Bell size={18} />, title: 'Notifications', description: 'Configure push notifications and email alerts' },
-    { icon: <Shield size={18} />, title: 'Privacy & Security', description: 'Control your account security and data privacy' },
+    // { icon: <Bell size={18} />, title: 'Notifications', description: 'Configure push notifications and email alerts' },
+    // { icon: <Shield size={18} />, title: 'Privacy & Security', description: 'Control your account security and data privacy' },
     { icon: <Palette size={18} />, title: 'Appearance', description: 'Customize theme, colors, and display options' },
-    { icon: <Globe size={18} />, title: 'Language & Region', description: 'Set your preferred language and regional settings' },
+    // { icon: <Globe size={18} />, title: 'Language & Region', description: 'Set your preferred language and regional settings' },
   ];
 
   const AppearanceToggle = () => (

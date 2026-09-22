@@ -103,7 +103,7 @@ const NavigationHub: React.FC = () => {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h3 className={`text-sm ${isDark ? 'font-semibold text-[#F5F7FA]' : 'font-black font-serif text-[#1a1a1a]'}`}>
+                  <h3 className={`md:text-xl text-[18px] ${isDark ? 'font-semibold text-[#F5F7FA]' : 'font-black font-serif text-[#1a1a1a]'}`}>
                     {item.label}
                   </h3>
                   <p className={`text-xs mt-1 leading-relaxed line-clamp-2 ${isDark ? 'text-[#8A919E]' : 'text-[#4a4a4a] font-serif italic'}`}>

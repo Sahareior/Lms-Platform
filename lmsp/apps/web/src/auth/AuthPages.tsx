@@ -59,7 +59,10 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, isLo
             <div>
               <div className="flex items-center justify-between gap-4 md:mb-3 mb-6">
                 <Link to="/" className="inline-flex items-center gap-2 group">
-                  <img src="/logo1.png" className="md:h-20 h-16 w-auto object-contain" alt="Geneseon" />
+                    {
+                  isDark? (<img className="md:h-20 h-16 w-auto object-contain" src="/logo1.png" alt="" />):(<img className="md:h-20 h-16 w-auto object-contain" src="/d.png" alt="" />)
+                }
+                  {/* <img src="/logo1.png" className="md:h-20 h-16 w-auto object-contain" alt="Geneseon" /> */}
                 </Link>
                 <Link
                   to="/"
