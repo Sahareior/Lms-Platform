@@ -56,21 +56,26 @@ const cognitiveBadgeStyles: Record<
   },
 };
 
-const fontSizesMap: Record<FontSize, { qText: string; ansText: string; stimulus: string }> = {
+const fontSizesMap: Record<
+  FontSize,
+  { qText: string; ansText: string; stimulus: string }
+> = {
   sm: {
     qText: 'text-sm md:text-base leading-relaxed',
     ansText: 'text-xs md:text-sm leading-relaxed',
     stimulus: 'text-xs md:text-sm leading-relaxed',
   },
+
   base: {
     qText: 'text-[17px] md:text-[19px] leading-relaxed',
     ansText: 'text-[16px] md:text-[18px] leading-relaxed',
     stimulus: 'text-[13px] md:text-[16px] leading-relaxed',
   },
+
   lg: {
-    qText: 'text-base md:text-lg leading-loose',
-    ansText: 'text-sm md:text-base leading-loose',
-    stimulus: 'text-sm md:text-base leading-loose',
+    qText: 'text-[21px] md:text-[24px] leading-loose',
+    ansText: 'text-[19px] md:text-[22px] leading-loose',
+    stimulus: 'text-[16px] md:text-[19px] leading-loose',
   },
 };
 
@@ -165,10 +170,10 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
           : 'bg-[#e8e2d4] border-b-2 border-[#1a1a1a]'
           }`}
       >
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex text-[15px] flex-wrap items-center gap-1.5">
           {/* Question Number */}
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] ${isDark
+            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[15px] ${isDark
               ? 'bg-[#2F80ED]/15 text-[#2F80ED] border border-[#2F80ED]/30 font-bold'
               : 'bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] font-black font-serif'
               }`}
@@ -179,7 +184,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
 
           {/* Board / Source */}
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] ${isDark
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[15px] ${isDark
               ? 'bg-[#1C1F26] text-[#A1A8B3] border border-[#23262D] font-medium'
               : 'bg-[#f2efe9] text-[#1a1a1a] border border-[#1a1a1a] font-bold font-serif'
               }`}
@@ -190,7 +195,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
 
           {question.source?.year && (
             <span
-              className={`px-1.5 py-0.5 rounded text-[10px] ${isDark
+              className={`px-1.5 py-0.5 rounded text-[15px] ${isDark
                 ? 'bg-blue-500/10 text-blue-400 font-semibold'
                 : 'bg-[#f2efe9] text-[#b91c1c] border border-[#b91c1c] font-black font-serif'
                 }`}
@@ -292,7 +297,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
             </div>
 
             <p
-              className={`font-normal whitespace-pre-line text-justify select-text ${sizeClasses.stimulus} ${isDark ? 'text-[#E5E9F0]' : 'text-[#1a1a1a]'
+              className={`font-medium whitespace-pre-line text-justify select-text ${sizeClasses.stimulus} ${isDark ? 'text-[#E5E9F0]' : 'text-[#1a1a1a]'
                 }`}
             >
               {question.stimulus}

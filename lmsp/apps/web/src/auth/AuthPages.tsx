@@ -74,7 +74,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, isLo
                 <h1 className="text-2xl sm:text-3xl font-black text-[#1a1a1a] tracking-tight mb-1.5 font-serif">
                   {title}
                 </h1>
-                <p className="text-[#333] text-xs sm:text-sm leading-relaxed font-serif">
+                <p className="text-[#333] text-[14px] sm:text-sm leading-relaxed font-serif">
                   {subtitle}
                 </p>
               </div>
@@ -349,7 +349,7 @@ const FormInput: React.FC<FormInputProps> = ({ icon, rightElement, className = '
       </div>
       <input
         {...props}
-        className={`w-full pl-10 pr-4 h-11 rounded-xl text-sm transition-all font-normal ${
+        className={`w-full pl-10 pr-4 h-12 rounded-xl text-[18px] transition-all font-normal ${
           isDark
             ? 'bg-[#161920]/90 border border-[#23262D] text-[#F5F7FA] placeholder:text-[#4B5260] focus:outline-none focus:ring-2 focus:ring-[#00E5B3]/20 focus:border-[#00E5B3] hover:border-[#323742]'
             : 'bg-[#f2efe9] border-2 border-[#1a1a1a] text-[#1a1a1a] placeholder:text-[#8a8577] font-serif shadow-[2px_2px_0px_0px_#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#b91c1c]/20 focus:border-[#b91c1c]'

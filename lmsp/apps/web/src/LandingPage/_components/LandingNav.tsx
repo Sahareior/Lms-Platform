@@ -5,8 +5,7 @@ import { gradientBtn } from "../landingTools/landingTools";
 import { useInstallPrompt } from "../../hooks/useInstallPrompt";
 import { useTheme } from "../../theme/ThemeContext";
 
-// Only sections that exist on the page — keeps the nav honest and minimal.
-const navLinks = ["Home", "Features"];
+const navLinks = ["Home", "Features", "Courses", "Pricing", "About", "Contact"];
 
 const LandingNav = () => {
   const [isOpen, setIsOpen] = useState(false);

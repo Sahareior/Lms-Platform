@@ -415,7 +415,7 @@ const ReadingPage: React.FC = () => {
                 backgroundSize: isDark ? undefined : '16px 16px',
             }}
         >
-            <div className="max-w-8xl mx-auto px-3 sm:px-2 lg:px-2 pt-3 md:pt-4">
+            <div className="max-w-8xl mx-auto px-2  pt-3 md:pt-4">
                 {/* ── Breadcrumb ─────────────────────────────────────── */}
                 <div className="flex items-center gap-1.5 text-[11px] mb-2 font-medium">
                     <button
