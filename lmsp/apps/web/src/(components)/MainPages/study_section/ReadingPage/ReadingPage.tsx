@@ -1,20 +1,22 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
     BookOpen,
-    Search,
     Bookmark,
-    CheckCircle,
     ChevronRight,
     RotateCcw,
     LayoutGrid,
     Zap,
     HelpCircle,
     GraduationCap,
-    X,
     ArrowUp,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { message } from 'antd';
+import {
+    useGetCreativeQuestionSetsQuery,
+    useGetCreativeQuestionSetByIdQuery,
+    type CQQuestionSetSummary,
+} from '@my-monorepo/store';
 import testPaperRaw from './testPaper.json';
 import type { CreativeQuestion, FontSize, SourceCategory, StudyMode } from './tools/types';
 import {
@@ -28,7 +30,8 @@ import CQQuestionCard from './_component/CQQuestionCard';
 import QuestionDrawer from './_component/QuestionDrawer';
 import { useTheme } from '../../../../theme/ThemeContext';
 
-const rawQuestions = testPaperRaw as unknown as CreativeQuestion[];
+/** Offline fallback: the original static test paper, used when the API is unreachable. */
+const fallbackQuestions = testPaperRaw as unknown as CreativeQuestion[];
 
 const PAGE_SIZE = 12;
 const PREFS_KEY = 'lms_cq_prefs';
@@ -90,6 +93,46 @@ const StatChip: React.FC<{
 const ReadingPage: React.FC = () => {
     const { isDark } = useTheme();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    /* ── Data: question sets from the API (offline JSON fallback) ──
+       ?set=<setId> selects a set; without it the newest set is used. */
+    const {
+        data: questionSets,
+        isLoading: setsLoading,
+    } = useGetCreativeQuestionSetsQuery(undefined);
+
+    const selectedSetId = searchParams.get('set') || '';
+
+    const activeSet: CQQuestionSetSummary | undefined = useMemo(() => {
+        const sets = questionSets ?? [];
+        if (sets.length === 0) return undefined;
+        return sets.find((s) => s._id === selectedSetId) ?? sets[0];
+    }, [questionSets, selectedSetId]);
+
+    const {
+        data: activeSetData,
+        isLoading: setLoading,
+        isError: setLoadError,
+    } = useGetCreativeQuestionSetByIdQuery(activeSet?._id ?? '', {
+        skip: !activeSet,
+    });
+
+    const usingFallback = !setsLoading && !setLoading && (!activeSetData || setLoadError);
+    const rawQuestions = (activeSetData?.questions ??
+        (usingFallback ? fallbackQuestions : [])) as unknown as CreativeQuestion[];
+    const questionsReady = !setsLoading && !setLoading && rawQuestions.length > 0;
+
+    const handleSelectSet = useCallback(
+        (setId: string) => {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('set', setId);
+                return next;
+            }, { replace: true });
+        },
+        [setSearchParams]
+    );
 
     /* ── Filters ── */
     const [searchQuery, setSearchQuery] = useState('');
@@ -109,7 +152,6 @@ const ReadingPage: React.FC = () => {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
     const [showScrollTop, setShowScrollTop] = useState(false);
-    const searchInputRef = useRef<HTMLInputElement>(null);
 
     /* ── Persisted progress (bookmarks + read) ── */
     const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => {
@@ -140,27 +182,7 @@ const ReadingPage: React.FC = () => {
         } catch {
             /* storage unavailable */
         }
-    }, [fontSize, studyMode]);
-
-    /* ── "/" focuses search (study-friendly keyboard shortcut) ── */
-    useEffect(() => {
-        const onKeyDown = (e: KeyboardEvent) => {
-            const t = e.target as HTMLElement | null;
-            const typing =
-                t &&
-                (t.tagName === 'INPUT' ||
-                    t.tagName === 'TEXTAREA' ||
-                    t.isContentEditable);
-            if (e.key === '/' && !typing) {
-                e.preventDefault();
-                searchInputRef.current?.focus();
-            }
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, []);
-
-    /* ── Back-to-top visibility ── */
+    }, [fontSize, studyMode]);    /* ── Back-to-top visibility ── */
     useEffect(() => {
         const onScroll = () => setShowScrollTop(window.scrollY > 800);
         window.addEventListener('scroll', onScroll, { passive: true });
@@ -250,6 +272,7 @@ const ReadingPage: React.FC = () => {
             return true;
         });
     }, [
+        rawQuestions,
         showOnlyBookmarked,
         bookmarkedIds,
         selectedSourceCategory,
@@ -311,16 +334,11 @@ const ReadingPage: React.FC = () => {
                 setTimeout(scrollNow, 150);
             }
         },
-        [filteredQuestions, displayCount, handleResetFilters]
+        [rawQuestions, filteredQuestions, displayCount, handleResetFilters]
     );
 
     /* ── Stats ── */
     const totalQuestions = rawQuestions.length;
-    const readCount = readIds.size;
-    const progressPercent = Math.min(
-        100,
-        Math.round((readCount / totalQuestions) * 100)
-    );
 
     const { countBoard, countCollege, countCadet } = useMemo(() => {
         let b = 0;
@@ -333,7 +351,7 @@ const ReadingPage: React.FC = () => {
             else d += 1;
         }
         return { countBoard: b, countCollege: c, countCadet: d };
-    }, []);
+    }, [rawQuestions]);
 
     const hasActiveFilters =
         !!searchQuery ||
@@ -343,8 +361,8 @@ const ReadingPage: React.FC = () => {
         selectedChapter !== 'all' ||
         showOnlyBookmarked;
 
-    /* Chapters derived once from the question bank */
-    const chapters = useMemo(() => getChapters(rawQuestions), []);
+    /* Chapters derived from the active question set */
+    const chapters = useMemo(() => getChapters(rawQuestions), [rawQuestions]);
 
     const sourceTabs = [
         { id: 'all' as const, label: 'সকল', count: totalQuestions },
@@ -352,6 +370,38 @@ const ReadingPage: React.FC = () => {
         { id: 'college' as const, label: 'কলেজ', count: countCollege },
         { id: 'cadet' as const, label: 'ক্যাডেট', count: countCadet },
     ];
+
+    /* ── Data status banner ── */
+    const dataStatus = !questionsReady ? (
+        setsLoading || setLoading ? (
+            <div
+                className={`p-10 text-center rounded-xl border mb-4 ${isDark
+                    ? 'bg-[#111318] border-[#23262D] text-[#A1A8B3]'
+                    : 'bg-white border-2 border-[#1a1a1a] text-gray-600'
+                    }`}
+            >
+                <div className="inline-block w-6 h-6 border-2 border-[#2F80ED] border-t-transparent rounded-full animate-spin mb-2" />
+                <p className="text-xs font-semibold">প্রশ্ন লোড হচ্ছে…</p>
+            </div>
+        ) : (
+            <div
+                className={`p-6 text-center rounded-xl border mb-4 ${isDark
+                    ? 'bg-[#111318] border-[#23262D]'
+                    : 'bg-white border-2 border-[#1a1a1a]'
+                    }`}
+            >
+                <HelpCircle size={28} className="mx-auto text-gray-400 mb-2" />
+                <h3 className="text-sm font-bold mb-1">
+                    {usingFallback ? 'অফলাইন মোড: সংরক্ষিত টেস্ট পেপার দেখানো হচ্ছে' : 'কোনো প্রশ্ন সেট পাওয়া যায়নি'}
+                </h3>
+                <p className={`text-xs max-w-md mx-auto ${isDark ? 'text-[#A1A8B3]' : 'text-gray-600'}`}>
+                    {usingFallback
+                        ? 'সার্ভারে সংযোগ করা যায়নি — তাই ডিভাইসে সংরক্ষিত কপি দেখানো হচ্ছে। নতুন টেস্ট পেপার দেখতে পরে আবার চেষ্টা করুন।'
+                        : 'এখনো কোনো টেস্ট পেপার আপলোড করা হয়নি। অ্যাডমিন প্যানেল থেকে JSON ফাইল আপলোড করুন।'}
+                </p>
+            </div>
+        )
+    ) : null;
 
     return (
         <div
@@ -383,6 +433,51 @@ const ReadingPage: React.FC = () => {
                         টেস্ট পেপার রিডিং (CQ)
                     </span>
                 </div>
+
+                {dataStatus}
+
+                {/* ── Set picker (when multiple sets exist) ───────────── */}
+                {(questionSets?.length ?? 0) > 1 && (
+                    <div className="flex items-center gap-2 mb-3">
+                        <label
+                            className={`text-[11px] font-bold shrink-0 ${isDark ? 'text-[#A1A8B3]' : 'text-[#555]'}`}
+                            htmlFor="cq-set-picker"
+                        >
+                            টেস্ট পেপার:
+                        </label>
+                        <select
+                            id="cq-set-picker"
+                            value={activeSet?._id ?? ''}
+                            onChange={(e) => handleSelectSet(e.target.value)}
+                            className={`flex-1 max-w-md px-2.5 py-1.5 text-xs font-semibold rounded-lg border outline-none cursor-pointer ${isDark
+                                ? 'bg-[#161920] border-[#23262D] text-[#F5F7FA]'
+                                : 'bg-white border-[#1a1a1a] text-[#1a1a1a]'
+                                }`}
+                        >
+                            {(questionSets ?? []).map((s) => {
+                                const examName =
+                                    typeof s.exam === 'object' && s.exam ? s.exam.name : '';
+                                const versionName =
+                                    typeof s.examVersion === 'object' && s.examVersion
+                                        ? s.examVersion.examVersion
+                                        : '';
+                                const subjectName =
+                                    typeof s.subject === 'object' && s.subject
+                                        ? s.subject.name
+                                        : '';
+                                const label =
+                                    s.title ||
+                                    [examName, versionName, subjectName].filter(Boolean).join(' — ') ||
+                                    s._id;
+                                return (
+                                    <option key={s._id} value={s._id}>
+                                        {label} ({toBengaliNumber(s.questionCount)}টি প্রশ্ন)
+                                    </option>
+                               );
+                            })}
+                        </select>
+                    </div>
+                )}
 
                 {/* ── Slim Study Header ──────────────────────────────── */}
                 <div

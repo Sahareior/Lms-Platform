@@ -61,6 +61,8 @@ const ExamControl = lazy(() => import('./AdminDashboard/pages/ExamControl'));
 const FeaturedExamControl = lazy(() => import('./AdminDashboard/pages/FeaturedExamControl'));
 const UserPerformance = lazy(() => import('./AdminDashboard/pages/UserPerformance/UserPerformance'));
 const AttemptDetail = lazy(() => import('./AdminDashboard/pages/UserPerformance/AttemptDetail'));
+const CreativeQuestions = lazy(() => import('./AdminDashboard/pages/CreativeQuestions/CreativeQuestions'));
+const CreativeQuestionManager = lazy(() => import('./AdminDashboard/pages/CreativeQuestions/CreativeQuestionManager'));
 
 const router = createBrowserRouter([
   // ── Landing page at / (public marketing page with its own per-route SEO) ──
@@ -230,6 +232,8 @@ const router = createBrowserRouter([
           { path: 'questions', element: <QuestionManagement /> },
           { path: 'question-bank', element: <QuestionBank /> },
           { path: 'question-bank/:documentId', element: <QuestionManager /> },
+          { path: 'creative-questions', element: <CreativeQuestions /> },
+          { path: 'creative-questions/:setId', element: <CreativeQuestionManager /> },
           { path: 'subjects', element: <SubjectManagement /> },
           { path: 'exam-control', element: <ExamControl /> },
           { path: 'featured-exam', element: <FeaturedExamControl /> },

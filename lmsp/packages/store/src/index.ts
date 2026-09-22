@@ -455,6 +455,28 @@ export type {
   StudyGroupLinksResponse,
 } from './redux/api/studyApi';
 
+// ─── RTK Query Creative Question API (test-paper sets) ────
+export {
+  useGetCreativeQuestionSetsQuery,
+  useGetCreativeQuestionSetByIdQuery,
+  useUploadCreativeQuestionSetMutation,
+  useUpdateCreativeQuestionSetMutation,
+  useUpdateCreativeQuestionMutation,
+  useDeleteCreativeQuestionMutation,
+  useDeleteCreativeQuestionSetMutation,
+} from './redux/api/creativeQuestionApi';
+export type {
+  CQQuestion,
+  CQQuestionSet,
+  CQQuestionSetSummary,
+  CQChapter,
+  CQPart,
+  CQSource,
+  UploadCQSetRequest,
+  UploadCQSetResponse,
+  CQValidationError,
+} from './redux/api/creativeQuestionApi';
+
 // ─── Context Providers ──────────────────────────────────────
 export { SharedProviders } from './providers';
 export { ThemeProvider, useTheme } from './contexts/ThemeContext';
