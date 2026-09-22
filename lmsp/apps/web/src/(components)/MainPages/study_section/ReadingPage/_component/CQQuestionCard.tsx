@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bookmark,
   CheckCircle2,
@@ -27,8 +27,6 @@ interface CQQuestionCardProps {
   isRead: boolean;
   onToggleBookmark: (id: string) => void;
   onToggleRead: (id: string) => void;
-  activeCognitiveFilter: string;
-  searchQuery?: string;
 }
 
 // Light-mode badges use vintage paper palette (monochrome + subtle accent)
@@ -65,9 +63,9 @@ const fontSizesMap: Record<FontSize, { qText: string; ansText: string; stimulus:
     stimulus: 'text-xs md:text-sm leading-relaxed',
   },
   base: {
-    qText: 'text-[15px] md:text-base leading-relaxed',
-    ansText: 'text-[13px] md:text-sm leading-relaxed',
-    stimulus: 'text-[13px] md:text-sm leading-relaxed',
+    qText: 'text-[17px] md:text-[19px] leading-relaxed',
+    ansText: 'text-[16px] md:text-[18px] leading-relaxed',
+    stimulus: 'text-[13px] md:text-[16px] leading-relaxed',
   },
   lg: {
     qText: 'text-base md:text-lg leading-loose',
@@ -85,7 +83,6 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
   isRead,
   onToggleBookmark,
   onToggleRead,
-  activeCognitiveFilter,
 }) => {
   const { isDark } = useTheme();
   const [copied, setCopied] = useState(false);
@@ -93,6 +90,16 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
     if (studyMode === 'practice') return {};
     return { ক: true, খ: true, গ: true, ঘ: true, notes: true };
   });
+
+  // Re-sync answer visibility when the study mode changes
+  // (practice = all hidden, read = all open)
+  useEffect(() => {
+    setOpenAnswers(
+      studyMode === 'practice'
+        ? {}
+        : { ক: true, খ: true, গ: true, ঘ: true, notes: true }
+    );
+  }, [studyMode]);
 
   const togglePartAnswer = (label: string) => {
     setOpenAnswers((prev) => ({ ...prev, [label]: !prev[label] }));
@@ -120,14 +127,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
   const sourceCategory = getSourceCategory(question);
   const sizeClasses = fontSizesMap[fontSize];
 
-  const visibleParts = (question.parts || []).filter((p) => {
-    if (activeCognitiveFilter && activeCognitiveFilter !== 'all') {
-      return p.label === activeCognitiveFilter;
-    }
-    if (studyMode === 'k-special') return p.label === 'ক';
-    if (studyMode === 'kh-special') return p.label === 'খ';
-    return true;
-  });
+  const visibleParts = question.parts || [];
 
   const sourceIcon = isDark ? (
     sourceCategory === 'cadet' ? (
@@ -145,8 +145,8 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
     <div
       id={`cq-${question.id}`}
       className={`relative rounded-xl transition-all duration-200 overflow-hidden ${isDark
-        ? 'bg-[#111318] border border-[#23262D] hover:border-[#2F80ED]/40 shadow-lg shadow-black/20'
-        : 'bg-[#f2efe9] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_0px_#1a1a1a] hover:shadow-[4px_4px_0px_0px_#1a1a1a]'
+        ? 'bg-[#111318] shadow-lg shadow-black/20'
+        : 'bg-[#f2efe9] shadow-[3px_3px_0px_0px_#1a1a1a] hover:shadow-[4px_4px_0px_0px_#1a1a1a]'
         } ${isRead ? (isDark ? 'ring-1 ring-emerald-500/30' : 'ring-2 ring-[#1a1a1a]') : ''}`}
       style={{
         fontFamily: "'Hind Siliguri', 'Inter', sans-serif",
@@ -209,7 +209,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
               toggleAllAnswers(!allOpen);
             }}
             title="সব উত্তর দেখুন বা লুকান"
-            className={`px-2 py-1 text-[11px] rounded-md transition-colors flex items-center gap-1 ${isDark
+            className={`px-2 py-1 text-[13px] rounded-md transition-colors flex items-center gap-1 ${isDark
               ? 'bg-[#1C1F26] text-[#A1A8B3] font-medium hover:text-[#F5F7FA] hover:bg-[#23262D]'
               : 'bg-[#f2efe9] border border-[#1a1a1a] text-[#1a1a1a] font-bold font-serif hover:bg-[#e0dcd5]'
               }`}
@@ -265,13 +265,13 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
         </div>
       </div>
 
-      <div className="p-3 md:p-4 space-y-3.5">
+      <div className="py-3 space-y-3.5">
         {/* ── উদ্দীপক ─────────────────────────────────────────── */}
         {question.stimulus && (
           <div
-            className={`relative rounded-lg p-3 md:p-4 border transition-all ${isDark
+            className={`relative p-3 md:p-4  transition-all ${isDark
               ? 'bg-gradient-to-br from-[#161920] to-[#12141a] border-[#2A2E39]'
-              : 'bg-[#faf8f5] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
+              : 'bg-[#faf8f5] border-t border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
               }`}
           >
             <div className="flex items-center gap-2 mb-2">
@@ -327,9 +327,9 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
               return (
                 <div
                   key={part.label}
-                  className={`rounded-lg border transition-all ${isDark
+                  className={` border-t space-y-1 transition-all ${isDark
                     ? 'bg-[#141720] border-[#23262D] hover:border-[#2C313C]'
-                    : 'bg-[#faf8f5] border border-[#1a1a1a]'
+                    : 'bg-[#faf8f5] border-t border-[#1a1a1a]'
                     }`}
                 >
                   <div className="p-3 md:p-3.5">
@@ -393,7 +393,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
                       <button
                         type="button"
                         onClick={() => togglePartAnswer(part.label)}
-                        className={`shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] transition-all ${isAnswerOpen
+                        className={`shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-md text-[14px] transition-all ${isAnswerOpen
                           ? isDark
                             ? 'bg-[#2F80ED]/20 text-[#2F80ED] border border-[#2F80ED]/40 font-semibold'
                             : 'bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] font-black font-serif'
@@ -451,7 +451,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
             className={`text-center py-3 text-[11px] ${isDark ? 'text-gray-400' : 'text-[#666] font-serif'
               }`}
           >
-            নির্বাচিত ফিল্টারের জন্য কোনো প্রশ্ন অংশ পাওয়া যায়নি।
+            এই প্রশ্নে কোনো প্রশ্নের অংশ (ক/খ/গ/ঘ) নেই।
           </div>
         )}
 

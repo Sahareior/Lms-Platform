@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
     BookOpen,
     Search,
@@ -11,6 +11,7 @@ import {
     HelpCircle,
     GraduationCap,
     X,
+    ArrowUp,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
@@ -19,6 +20,7 @@ import type { CreativeQuestion, FontSize, SourceCategory, StudyMode } from './to
 import {
     toBengaliNumber,
     getSourceCategory,
+    getChapters,
     EDUCATION_BOARDS,
     YEARS,
 } from './tools/bengaliUtils';
@@ -28,21 +30,88 @@ import { useTheme } from '../../../../theme/ThemeContext';
 
 const rawQuestions = testPaperRaw as unknown as CreativeQuestion[];
 
+const PAGE_SIZE = 12;
+const PREFS_KEY = 'lms_cq_prefs';
+
+/** Reading preferences (font size + study mode) persisted across visits. */
+interface ReadingPrefs {
+    fontSize: FontSize;
+    studyMode: StudyMode;
+}
+
+const loadPrefs = (): ReadingPrefs => {
+    try {
+        const saved = localStorage.getItem(PREFS_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved) as Partial<ReadingPrefs>;
+            return {
+                fontSize:
+                    parsed.fontSize === 'sm' || parsed.fontSize === 'lg'
+                        ? parsed.fontSize
+                        : 'base',
+                studyMode: parsed.studyMode === 'practice' ? 'practice' : 'read',
+            };
+        }
+    } catch {
+        /* ignore corrupted prefs */
+    }
+    return { fontSize: 'base', studyMode: 'read' };
+};
+
+/* ── Small presentational helpers ─────────────────────────────────────── */
+
+const StatChip: React.FC<{
+    label: string;
+    value: number;
+    isDark: boolean;
+    accent?: boolean;
+}> = ({ label, value, isDark, accent }) => (
+    <span
+        className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${isDark
+            ? 'bg-[#1C1F26] border-[#23262D] text-[#A1A8B3]'
+            : 'bg-white border-[#1a1a1a] text-[#333]'
+            }`}
+    >
+        {label}:{' '}
+        <strong
+            className={
+                accent
+                    ? 'text-[#2F80ED]'
+                    : isDark
+                        ? 'text-[#F5F7FA]'
+                        : 'text-[#1a1a1a]'
+            }
+        >
+            {toBengaliNumber(value)}
+        </strong>
+    </span>
+);
+
 const ReadingPage: React.FC = () => {
     const { isDark } = useTheme();
     const navigate = useNavigate();
 
+    /* ── Filters ── */
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedSourceCategory, setSelectedSourceCategory] = useState<SourceCategory>('all');
+    const [selectedSourceCategory, setSelectedSourceCategory] =
+        useState<SourceCategory>('all');
     const [selectedBoard, setSelectedBoard] = useState('সকল বোর্ড');
     const [selectedYear, setSelectedYear] = useState('সকল সাল');
-    const [studyMode, setStudyMode] = useState<StudyMode>('read');
-    const [activeCognitiveFilter, setActiveCognitiveFilter] = useState<string>('all');
-    const [fontSize, setFontSize] = useState<FontSize>('base');
+    const [selectedChapter, setSelectedChapter] = useState<string>('all');
     const [showOnlyBookmarked, setShowOnlyBookmarked] = useState(false);
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [displayCount, setDisplayCount] = useState(12);
 
+    /* ── Reading prefs (persisted) ── */
+    const initialPrefs = useMemo(loadPrefs, []);
+    const [studyMode, setStudyMode] = useState<StudyMode>(initialPrefs.studyMode);
+    const [fontSize, setFontSize] = useState<FontSize>(initialPrefs.fontSize);
+
+    /* ── UI state ── */
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+    const [showScrollTop, setShowScrollTop] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    /* ── Persisted progress (bookmarks + read) ── */
     const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => {
         try {
             const saved = localStorage.getItem('lms_cq_bookmarks');
@@ -60,6 +129,43 @@ const ReadingPage: React.FC = () => {
             return new Set();
         }
     });
+
+    /* ── Persist reading preferences ── */
+    useEffect(() => {
+        try {
+            localStorage.setItem(
+                PREFS_KEY,
+                JSON.stringify({ fontSize, studyMode })
+            );
+        } catch {
+            /* storage unavailable */
+        }
+    }, [fontSize, studyMode]);
+
+    /* ── "/" focuses search (study-friendly keyboard shortcut) ── */
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            const t = e.target as HTMLElement | null;
+            const typing =
+                t &&
+                (t.tagName === 'INPUT' ||
+                    t.tagName === 'TEXTAREA' ||
+                    t.isContentEditable);
+            if (e.key === '/' && !typing) {
+                e.preventDefault();
+                searchInputRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, []);
+
+    /* ── Back-to-top visibility ── */
+    useEffect(() => {
+        const onScroll = () => setShowScrollTop(window.scrollY > 800);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
 
     const toggleBookmark = useCallback((id: string) => {
         setBookmarkedIds((prev) => {
@@ -98,13 +204,13 @@ const ReadingPage: React.FC = () => {
         });
     }, []);
 
+    /* ── Filtering ── */
     const filteredQuestions = useMemo(() => {
         return rawQuestions.filter((q) => {
             if (showOnlyBookmarked && !bookmarkedIds.has(q.id)) return false;
 
             if (selectedSourceCategory !== 'all') {
-                const cat = getSourceCategory(q);
-                if (cat !== selectedSourceCategory) return false;
+                if (getSourceCategory(q) !== selectedSourceCategory) return false;
             }
 
             if (selectedBoard !== 'সকল বোর্ড') {
@@ -117,7 +223,13 @@ const ReadingPage: React.FC = () => {
             if (selectedYear !== 'সকল সাল') {
                 const year = q.source?.year || '';
                 const raw = q.source?.raw || '';
-                if (!year.includes(selectedYear) && !raw.includes(selectedYear)) return false;
+                if (!year.includes(selectedYear) && !raw.includes(selectedYear))
+                    return false;
+            }
+
+            if (selectedChapter !== 'all') {
+                const qChapterId = q.chapterId || String(q.chapterNumber ?? '');
+                if (qChapterId !== selectedChapter) return false;
             }
 
             if (searchQuery.trim()) {
@@ -126,10 +238,13 @@ const ReadingPage: React.FC = () => {
                 const boardMatch = q.source?.board?.toLowerCase().includes(term);
                 const rawMatch = q.source?.raw?.toLowerCase().includes(term);
                 const partsMatch = (q.parts || []).some(
-                    (p) => p.text?.toLowerCase().includes(term) || p.answer?.toLowerCase().includes(term)
+                    (p) =>
+                        p.text?.toLowerCase().includes(term) ||
+                        p.answer?.toLowerCase().includes(term)
                 );
                 const notesMatch = q.answerNotes?.toLowerCase().includes(term);
-                if (!stimulusMatch && !boardMatch && !rawMatch && !partsMatch && !notesMatch) return false;
+                if (!stimulusMatch && !boardMatch && !rawMatch && !partsMatch && !notesMatch)
+                    return false;
             }
 
             return true;
@@ -144,14 +259,13 @@ const ReadingPage: React.FC = () => {
     ]);
 
     useEffect(() => {
-        setDisplayCount(12);
+        setDisplayCount(PAGE_SIZE);
     }, [
         searchQuery,
         selectedSourceCategory,
         selectedBoard,
         selectedYear,
-        studyMode,
-        activeCognitiveFilter,
+        selectedChapter,
         showOnlyBookmarked,
     ]);
 
@@ -160,59 +274,88 @@ const ReadingPage: React.FC = () => {
         [filteredQuestions, displayCount]
     );
 
-    const scrollToQuestion = (id: string) => {
-        const target = document.getElementById(`cq-${id}`);
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-            const idx = filteredQuestions.findIndex((q) => q.id === id);
-            if (idx >= 0) {
-                setDisplayCount(Math.max(displayCount, idx + 10));
-                setTimeout(() => {
-                    const el = document.getElementById(`cq-${id}`);
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100);
-            }
-        }
-    };
-
-    const handleResetFilters = () => {
+    /* ── Reset filters ── */
+    const handleResetFilters = useCallback(() => {
         setSearchQuery('');
         setSelectedSourceCategory('all');
         setSelectedBoard('সকল বোর্ড');
         setSelectedYear('সকল সাল');
-        setActiveCognitiveFilter('all');
+        setSelectedChapter('all');
         setShowOnlyBookmarked(false);
-    };
+    }, []);
 
+    /* ── Navigate to a question from the drawer ──
+       If the question is hidden by active filters, clear them first so the
+       navigator always lands on the selected question. */
+    const scrollToQuestion = useCallback(
+        (id: string) => {
+            const scrollNow = () => {
+                document
+                    .getElementById(`cq-${id}`)
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            };
+
+            if (document.getElementById(`cq-${id}`)) {
+                scrollNow();
+                return;
+            }
+
+            const idx = filteredQuestions.findIndex((q) => q.id === id);
+            if (idx >= 0) {
+                setDisplayCount(Math.max(displayCount, idx + PAGE_SIZE));
+                setTimeout(scrollNow, 120);
+            } else {
+                handleResetFilters();
+                const rawIdx = rawQuestions.findIndex((q) => q.id === id);
+                setDisplayCount(Math.max(PAGE_SIZE, rawIdx + PAGE_SIZE));
+                setTimeout(scrollNow, 150);
+            }
+        },
+        [filteredQuestions, displayCount, handleResetFilters]
+    );
+
+    /* ── Stats ── */
     const totalQuestions = rawQuestions.length;
     const readCount = readIds.size;
-    const progressPercent = Math.min(100, Math.round((readCount / totalQuestions) * 100));
+    const progressPercent = Math.min(
+        100,
+        Math.round((readCount / totalQuestions) * 100)
+    );
 
-    const countBoard = useMemo(
-        () => rawQuestions.filter((q) => getSourceCategory(q) === 'board').length,
-        []
-    );
-    const countCollege = useMemo(
-        () => rawQuestions.filter((q) => getSourceCategory(q) === 'college').length,
-        []
-    );
-    const countCadet = useMemo(
-        () => rawQuestions.filter((q) => getSourceCategory(q) === 'cadet').length,
-        []
-    );
+    const { countBoard, countCollege, countCadet } = useMemo(() => {
+        let b = 0;
+        let c = 0;
+        let d = 0;
+        for (const q of rawQuestions) {
+            const cat = getSourceCategory(q);
+            if (cat === 'board') b += 1;
+            else if (cat === 'college') c += 1;
+            else d += 1;
+        }
+        return { countBoard: b, countCollege: c, countCadet: d };
+    }, []);
 
     const hasActiveFilters =
         !!searchQuery ||
         selectedSourceCategory !== 'all' ||
         selectedBoard !== 'সকল বোর্ড' ||
         selectedYear !== 'সকল সাল' ||
-        activeCognitiveFilter !== 'all' ||
+        selectedChapter !== 'all' ||
         showOnlyBookmarked;
+
+    /* Chapters derived once from the question bank */
+    const chapters = useMemo(() => getChapters(rawQuestions), []);
+
+    const sourceTabs = [
+        { id: 'all' as const, label: 'সকল', count: totalQuestions },
+        { id: 'board' as const, label: 'বোর্ড', count: countBoard },
+        { id: 'college' as const, label: 'কলেজ', count: countCollege },
+        { id: 'cadet' as const, label: 'ক্যাডেট', count: countCadet },
+    ];
 
     return (
         <div
-            className={`min-h-screen pb-12 transition-colors ${isDark ? 'bg-[#0B0D12] text-[#F5F7FA]' : 'bg-[#e8e4db] text-[#1a1a1a]'
+            className={`min-h-screen pb-16 transition-colors ${isDark ? 'bg-[#0B0D12] text-[#F5F7FA]' : 'bg-[#e8e4db] text-[#1a1a1a]'
                 }`}
             style={{
                 fontFamily: "'Hind Siliguri', 'Inter', sans-serif",
@@ -222,316 +365,203 @@ const ReadingPage: React.FC = () => {
                 backgroundSize: isDark ? undefined : '16px 16px',
             }}
         >
-            <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 pt-3 md:pt-4">
-                {/* ── Breadcrumb ────────────────────────────────────────── */}
+            <div className="max-w-8xl mx-auto px-3 sm:px-2 lg:px-2 pt-3 md:pt-4">
+                {/* ── Breadcrumb ─────────────────────────────────────── */}
                 <div className="flex items-center gap-1.5 text-[11px] mb-2 font-medium">
                     <button
                         type="button"
                         onClick={() => navigate('/study-section')}
-                        className={`transition-colors hover:underline ${isDark ? 'text-[#A1A8B3] hover:text-white' : 'text-[#555] hover:text-black'
+                        className={`transition-colors hover:underline ${isDark
+                            ? 'text-[#A1A8B3] hover:text-white'
+                            : 'text-[#555] hover:text-black'
                             }`}
                     >
                         Study Section
                     </button>
                     <ChevronRight size={11} className="text-gray-400" />
-                    <span className="text-[#2F80ED] font-bold">টেস্ট পেপার রিডিং (CQ)</span>
+                    <span className="text-[#2F80ED] font-bold">
+                        টেস্ট পেপার রিডিং (CQ)
+                    </span>
                 </div>
 
-                {/* ── Compact Hero Banner ───────────────────────────────── */}
+                {/* ── Slim Study Header ──────────────────────────────── */}
                 <div
-                    className={`relative overflow-hidden rounded-xl p-4 md:p-5 mb-3 border transition-all ${isDark
-                        ? 'bg-gradient-to-br from-[#161920] via-[#111318] to-[#0B0D12] border-[#23262D]'
+                    className={`rounded-xl p-3.5 md:p-4 mb-3 border flex flex-col lg:flex-row lg:items-center gap-3 transition-all ${isDark
+                        ? 'bg-[#111318] border-[#23262D]'
                         : 'bg-[#f2efe9] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_0px_#1a1a1a]'
                         }`}
                 >
-                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <div className="max-w-2xl min-w-0">
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2 border border-[#2F80ED]/30 bg-[#2F80ED]/10 text-[#2F80ED]">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest border border-[#2F80ED]/30 bg-[#2F80ED]/10 text-[#2F80ED]">
                                 <GraduationCap size={12} />
-                                <span>এইচএসসি ও এসএসসি সৃজনশীল প্রশ্নব্যাংক</span>
-                            </div>
-                            <h1 className="text-xl md:text-2xl lg:text-3xl font-black tracking-tight mb-1.5 leading-tight">
+                                সৃজনশীল প্রশ্নব্যাংক
+                            </span>
+                            <h1 className="text-base md:text-lg font-black tracking-tight leading-tight">
                                 তথ্য ও যোগাযোগ প্রযুক্তি (ICT) টেস্ট পেপার
                             </h1>
-                            <p
-                                className={`text-xs md:text-sm leading-relaxed ${isDark ? 'text-[#A1A8B3]' : 'text-[#444]'
-                                    }`}
-                            >
-                                ১ম অধ্যায়: বিশ্ব ও বাংলাদেশ প্রেক্ষিত — বিগত বছরের ঢাকা, রাজশাহী, কুমিল্লাসহ সকল
-                                বোর্ড এবং শীর্ষ কলেজ ও ক্যাডেট কলেজের ১০৫টি সৃজনশীল প্রশ্ন ও পূর্ণাঙ্গ সমাধান।
-                            </p>
-
-                            {/* Compact Stat Badges */}
-                            <div className="flex flex-wrap items-center gap-1.5 mt-3 text-[11px] font-semibold">
-                                <span
-                                    className={`px-2 py-0.5 rounded-md border ${isDark
-                                        ? 'bg-[#1C1F26] border-[#23262D] text-[#F5F7FA]'
-                                        : 'bg-white border-[#1a1a1a]'
-                                        }`}
-                                >
-                                    মোট: <strong className="text-[#2F80ED]">{toBengaliNumber(totalQuestions)}</strong>
-                                </span>
-                                <span
-                                    className={`px-2 py-0.5 rounded-md border ${isDark
-                                        ? 'bg-[#1C1F26] border-[#23262D] text-[#F5F7FA]'
-                                        : 'bg-white border-[#1a1a1a]'
-                                        }`}
-                                >
-                                    বোর্ড: <strong>{toBengaliNumber(countBoard)}</strong>
-                                </span>
-                                <span
-                                    className={`px-2 py-0.5 rounded-md border ${isDark
-                                        ? 'bg-[#1C1F26] border-[#23262D] text-[#F5F7FA]'
-                                        : 'bg-white border-[#1a1a1a]'
-                                        }`}
-                                >
-                                    কলেজ: <strong>{toBengaliNumber(countCollege)}</strong>
-                                </span>
-                                <span
-                                    className={`px-2 py-0.5 rounded-md border ${isDark
-                                        ? 'bg-[#1C1F26] border-[#23262D] text-[#F5F7FA]'
-                                        : 'bg-white border-[#1a1a1a]'
-                                        }`}
-                                >
-                                    ক্যাডেট: <strong>{toBengaliNumber(countCadet)}</strong>
-                                </span>
-                            </div>
                         </div>
-
-                        {/* Compact Reading Progress Card */}
-                        <div
-                            className={`p-3 rounded-lg border shrink-0 w-full lg:w-64 ${isDark
-                                ? 'bg-[#141720] border-[#23262D]'
-                                : 'bg-white border-2 border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
+                        <p
+                            className={`text-[11px] md:text-xs leading-relaxed ${isDark ? 'text-[#A1A8B3]' : 'text-[#444]'
                                 }`}
                         >
-                            <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1">
-                                    <CheckCircle size={12} />
-                                    পড়ার অগ্রগতি
-                                </span>
-                                <span className="text-xs font-black text-[#2F80ED]">
-                                    {toBengaliNumber(progressPercent)}%
-                                </span>
-                            </div>
-                            <div className="w-full h-2 bg-black/10 dark:bg-[#1F232D] rounded-full overflow-hidden mb-2">
-                                <div
-                                    className="h-full bg-gradient-to-r from-[#2F80ED] to-[#00E5B3] transition-all duration-500 rounded-full"
-                                    style={{ width: `${progressPercent}%` }}
-                                />
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-[#A1A8B3]">
-                                <span>পড়া: {toBengaliNumber(readCount)}</span>
-                                <span>বাকি: {toBengaliNumber(Math.max(0, totalQuestions - readCount))}</span>
-                            </div>
+                            বিগত বছরের সকল বোর্ড ও শীর্ষ কলেজ-ক্যাডেট কলেজের প্রশ্নসহ
+                            পূর্ণাঙ্গ সমাধান। অধ্যায়, বোর্ড ও সাল অনুযায়ী ফিল্টার করে পড়ুন।
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            <StatChip label="মোট" value={totalQuestions} isDark={isDark} accent />
+                            <StatChip label="বোর্ড" value={countBoard} isDark={isDark} />
+                            <StatChip label="কলেজ" value={countCollege} isDark={isDark} />
+                            <StatChip label="ক্যাডেট" value={countCadet} isDark={isDark} />
+                            <StatChip label="বুকমার্ক" value={bookmarkedIds.size} isDark={isDark} />
                         </div>
                     </div>
+
+
                 </div>
 
-                {/* ── Compact Sticky Study Mode Bar ──────────────────────── */}
+                {/* ── Sticky Study Toolbar (search + filters + tools) ── */}
                 <div
-                    className={`sticky top-1.5 z-30 mb-3 p-2 rounded-lg border backdrop-blur-md transition-all ${isDark
+                    className={`sticky -top-1.2 z-30 mb-3 p-2.5 rounded-xl border backdrop-blur-md transition-all ${isDark
                         ? 'bg-[#111318]/95 border-[#23262D] shadow-md shadow-black/40'
                         : 'bg-[#f4efe6]/95 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
                         }`}
                 >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        {/* Mode Selectors */}
-                        <div className="flex flex-wrap items-center gap-1">
-                            <span
-                                className={`text-[10px] font-bold mr-0.5 hidden sm:inline ${isDark ? 'text-[#A1A8B3]' : 'text-gray-700'
-                                    }`}
-                            >
-                                মোড:
-                            </span>
+                    {/* Row 1 — Search + Mode + Utilities */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Search */}
 
+
+                        {/* Study mode: read / practice */}
+                        <div
+                            className={`flex items-center rounded-lg p-0.5 border ${isDark
+                                ? 'bg-[#161920] border-[#23262D]'
+                                : 'bg-white border-[#1a1a1a]'
+                                }`}
+                            role="group"
+                            aria-label="স্টাডি মোড"
+                        >
                             <button
                                 type="button"
                                 onClick={() => setStudyMode('read')}
-                                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all ${studyMode === 'read'
+                                aria-pressed={studyMode === 'read'}
+                                title="উত্তরসহ পড়ুন"
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${studyMode === 'read'
                                     ? isDark
                                         ? 'bg-[#2F80ED] text-white'
                                         : 'bg-[#1a1a1a] text-white'
                                     : isDark
-                                        ? 'bg-[#1C1F26] text-[#A1A8B3] hover:text-white'
-                                        : 'bg-white text-[#1a1a1a] border border-[#1a1a1a] hover:bg-[#ded5c2]'
+                                        ? 'text-[#A1A8B3] hover:text-white'
+                                        : 'text-gray-600 hover:text-black'
                                     }`}
                             >
                                 <BookOpen size={12} />
-                                <span>পড়ার মোড</span>
+                                পড়ার মোড
                             </button>
-
                             <button
                                 type="button"
                                 onClick={() => setStudyMode('practice')}
-                                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all ${studyMode === 'practice'
+                                aria-pressed={studyMode === 'practice'}
+                                title="উত্তর লুকিয়ে নিজে অনুশীলন করুন"
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${studyMode === 'practice'
                                     ? isDark
-                                        ? 'bg-[#2F80ED] text-white'
-                                        : 'bg-[#1a1a1a] text-white'
+                                        ? 'bg-amber-500 text-black'
+                                        : 'bg-amber-400 text-black'
                                     : isDark
-                                        ? 'bg-[#1C1F26] text-[#A1A8B3] hover:text-white'
-                                        : 'bg-white text-[#1a1a1a] border border-[#1a1a1a] hover:bg-[#ded5c2]'
+                                        ? 'text-[#A1A8B3] hover:text-white'
+                                        : 'text-gray-600 hover:text-black'
                                     }`}
                             >
-                                <Zap size={12} className="text-amber-400" />
-                                <span>অনুশীলন</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => setStudyMode('k-special')}
-                                className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all ${studyMode === 'k-special'
-                                    ? 'bg-blue-600 text-white'
-                                    : isDark
-                                        ? 'bg-[#1C1F26] text-[#A1A8B3] hover:text-white'
-                                        : 'bg-white text-[#1a1a1a] border border-[#1a1a1a]'
-                                    }`}
-                            >
-                                ক-স্পেশাল
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => setStudyMode('kh-special')}
-                                className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all ${studyMode === 'kh-special'
-                                    ? 'bg-emerald-600 text-white'
-                                    : isDark
-                                        ? 'bg-[#1C1F26] text-[#A1A8B3] hover:text-white'
-                                        : 'bg-white text-[#1a1a1a] border border-[#1a1a1a]'
-                                    }`}
-                            >
-                                খ-স্পেশাল
+                                <Zap size={12} />
+                                অনুশীলন
                             </button>
                         </div>
 
-                        {/* Utility Tools */}
-                        <div className="flex items-center gap-1.5">
-                            {/* Font Size */}
-                            <div
-                                className={`flex items-center rounded-md p-0.5 border ${isDark ? 'bg-[#161920] border-[#23262D]' : 'bg-white border-[#1a1a1a]'
-                                    }`}
-                            >
-                                <button
-                                    type="button"
-                                    onClick={() => setFontSize('sm')}
-                                    title="ছোট ফন্ট"
-                                    className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${fontSize === 'sm'
-                                        ? isDark
-                                            ? 'bg-[#2F80ED] text-white'
-                                            : 'bg-[#1a1a1a] text-white'
-                                        : 'text-gray-400 hover:text-gray-200'
-                                        }`}
-                                >
-                                    A-
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFontSize('base')}
-                                    title="স্বাভাবিক ফন্ট"
-                                    className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${fontSize === 'base'
-                                        ? isDark
-                                            ? 'bg-[#2F80ED] text-white'
-                                            : 'bg-[#1a1a1a] text-white'
-                                        : 'text-gray-400 hover:text-gray-200'
-                                        }`}
-                                >
-                                    A
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFontSize('lg')}
-                                    title="বড় ফন্ট"
-                                    className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${fontSize === 'lg'
-                                        ? isDark
-                                            ? 'bg-[#2F80ED] text-white'
-                                            : 'bg-[#1a1a1a] text-white'
-                                        : 'text-gray-400 hover:text-gray-200'
-                                        }`}
-                                >
-                                    A+
-                                </button>
-                            </div>
-
-                            {/* Bookmarks Toggle */}
-                            <button
-                                type="button"
-                                onClick={() => setShowOnlyBookmarked(!showOnlyBookmarked)}
-                                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all border ${showOnlyBookmarked
-                                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
-                                    : isDark
-                                        ? 'bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:text-[#F5F7FA]'
-                                        : 'bg-white border-[#1a1a1a] text-[#1a1a1a] hover:bg-[#ded5c2]'
-                                    }`}
-                            >
-                                <Bookmark size={11} className={showOnlyBookmarked ? 'fill-amber-400' : ''} />
-                                <span className="hidden sm:inline">বুকমার্ক</span>
-                                <span>({toBengaliNumber(bookmarkedIds.size)})</span>
-                            </button>
-
-                            {/* Drawer Button */}
-                            <button
-                                type="button"
-                                onClick={() => setIsDrawerOpen(true)}
-                                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all ${isDark
-                                    ? 'bg-[#2F80ED]/20 text-[#2F80ED] border border-[#2F80ED]/40 hover:bg-[#2F80ED]/30'
-                                    : 'bg-[#1a1a1a] text-white border border-[#1a1a1a]'
-                                    }`}
-                            >
-                                <LayoutGrid size={11} />
-                                <span>নেভিগেটর</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── Compact Filters Section ────────────────────────────── */}
-                <div
-                    className={`p-3 rounded-xl border mb-4 transition-all ${isDark
-                        ? 'bg-[#111318] border-[#23262D]'
-                        : 'bg-[#f4efe6] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
-                        }`}
-                >
-                    {/* Search */}
-                    <div className="relative mb-3">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="যেকোনো বিষয় লিখে খুঁজুন (যেমন: বায়োমেট্রিক্স, ন্যানোটেকনোলজি...)"
-                            className={`w-full pl-9 pr-9 py-2 text-xs rounded-lg border outline-none transition-all ${isDark
-                                ? 'bg-[#161920] border-[#23262D] text-[#F5F7FA] focus:border-[#2F80ED] focus:ring-1 focus:ring-[#2F80ED]'
-                                : 'bg-white border-2 border-[#1a1a1a] text-[#1a1a1a] focus:ring-1 focus:ring-black'
-                                }`}
-                        />
-                        {searchQuery && (
-                            <button
-                                type="button"
-                                onClick={() => setSearchQuery('')}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
-                            >
-                                <X size={14} />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Tabs & Dropdowns */}
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        {/* Font size */}
                         <div
-                            className={`flex flex-wrap items-center gap-0.5 p-0.5 rounded-lg ${isDark ? 'bg-[#161920]' : 'bg-black/5'
+                            className={`flex items-center rounded-lg p-0.5 border ${isDark
+                                ? 'bg-[#161920] border-[#23262D]'
+                                : 'bg-white border-[#1a1a1a]'
                                 }`}
+                            role="group"
+                            aria-label="ফন্ট সাইজ"
                         >
                             {(
                                 [
-                                    { id: 'all', label: 'সকল', count: totalQuestions },
-                                    { id: 'board', label: 'বোর্ড', count: countBoard },
-                                    { id: 'college', label: 'কলেজ', count: countCollege },
-                                    { id: 'cadet', label: 'ক্যাডেট', count: countCadet },
+                                    { id: 'sm' as const, label: 'A-', title: 'ছোট ফন্ট' },
+                                    { id: 'base' as const, label: 'A', title: 'স্বাভাবিক ফন্ট' },
+                                    { id: 'lg' as const, label: 'A+', title: 'বড় ফন্ট' },
                                 ] as const
-                            ).map((tab) => (
+                            ).map((f) => (
+                                <button
+                                    key={f.id}
+                                    type="button"
+                                    onClick={() => setFontSize(f.id)}
+                                    title={f.title}
+                                    aria-pressed={fontSize === f.id}
+                                    className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${fontSize === f.id
+                                        ? isDark
+                                            ? 'bg-[#2F80ED] text-white'
+                                            : 'bg-[#1a1a1a] text-white'
+                                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                                        }`}
+                                >
+                                    {f.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Bookmarks toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setShowOnlyBookmarked(!showOnlyBookmarked)}
+                            aria-pressed={showOnlyBookmarked}
+                            title="শুধু বুকমার্ক করা প্রশ্ন দেখুন"
+                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all border ${showOnlyBookmarked
+                                ? 'bg-amber-500/20 text-amber-500 border-amber-500/40'
+                                : isDark
+                                    ? 'bg-[#161920] border-[#23262D] text-[#A1A8B3] hover:text-[#F5F7FA]'
+                                    : 'bg-white border-[#1a1a1a] text-[#1a1a1a] hover:bg-[#e0dcd5]'
+                                }`}
+                        >
+                            <Bookmark
+                                size={11}
+                                className={showOnlyBookmarked ? 'fill-amber-500' : ''}
+                            />
+                            <span className="hidden sm:inline">বুকমার্ক</span>
+                            <span>({toBengaliNumber(bookmarkedIds.size)})</span>
+                        </button>
+
+                        {/* Navigator */}
+                        <button
+                            type="button"
+                            onClick={() => setIsDrawerOpen(true)}
+                            title="সব প্রশ্নের তালিকা থেকে যেকোনো প্রশ্নে যান"
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${isDark
+                                ? 'bg-[#2F80ED]/20 text-[#2F80ED] border border-[#2F80ED]/40 hover:bg-[#2F80ED]/30'
+                                : 'bg-[#1a1a1a] text-white border border-[#1a1a1a] hover:bg-black'
+                                }`}
+                        >
+                            <LayoutGrid size={11} />
+                            নেভিগেটর
+                        </button>
+                    </div>
+
+                    {/* Row 2 — Source tabs + Board/Year + Part chips + Reset */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 mt-2 pt-2 border-t border-inherit">
+                        <div
+                            className={`flex flex-wrap items-center gap-0.5 p-0.5 rounded-lg ${isDark ? 'bg-[#161920]' : 'bg-black/5'
+                                }`}
+                            role="tablist"
+                            aria-label="উৎস অনুযায়ী ফিল্টার"
+                        >
+                            {sourceTabs.map((tab) => (
                                 <button
                                     key={tab.id}
                                     type="button"
+                                    role="tab"
+                                    aria-selected={selectedSourceCategory === tab.id}
                                     onClick={() => setSelectedSourceCategory(tab.id)}
                                     className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${selectedSourceCategory === tab.id
                                         ? isDark
@@ -548,9 +578,29 @@ const ReadingPage: React.FC = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-1.5">
+                            {/* Chapter filter */}
+                            <select
+                                value={selectedChapter}
+                                onChange={(e) => setSelectedChapter(e.target.value)}
+                                aria-label="অধ্যায় নির্বাচন"
+                                title="অধ্যায় অনুযায়ী প্রশ্ন ফিল্টার করুন"
+                                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border outline-none cursor-pointer ${isDark
+                                    ? 'bg-[#161920] border-[#23262D] text-[#F5F7FA]'
+                                    : 'bg-white border-[#1a1a1a] text-[#1a1a1a]'
+                                    }`}
+                            >
+                                <option value="all">অধ্যায়: সকল</option>
+                                {chapters.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        অধ্যায় {toBengaliNumber(c.number)}: {c.name} ({toBengaliNumber(c.count)})
+                                    </option>
+                                ))}
+                            </select>
+
                             <select
                                 value={selectedBoard}
                                 onChange={(e) => setSelectedBoard(e.target.value)}
+                                aria-label="বোর্ড নির্বাচন"
                                 className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border outline-none cursor-pointer ${isDark
                                     ? 'bg-[#161920] border-[#23262D] text-[#F5F7FA]'
                                     : 'bg-white border-[#1a1a1a] text-[#1a1a1a]'
@@ -566,6 +616,7 @@ const ReadingPage: React.FC = () => {
                             <select
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(e.target.value)}
+                                aria-label="সাল নির্বাচন"
                                 className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border outline-none cursor-pointer ${isDark
                                     ? 'bg-[#161920] border-[#23262D] text-[#F5F7FA]'
                                     : 'bg-white border-[#1a1a1a] text-[#1a1a1a]'
@@ -582,86 +633,70 @@ const ReadingPage: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={handleResetFilters}
+                                    title="সব ফিল্টার রিসেট করুন"
                                     className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all ${isDark
                                         ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25'
                                         : 'bg-rose-100 text-rose-800 border border-rose-300 hover:bg-rose-200'
                                         }`}
                                 >
                                     <RotateCcw size={10} />
-                                    <span>রিসেট</span>
+                                    রিসেট
                                 </button>
                             )}
                         </div>
                     </div>
-
-                    {/* Cognitive Filter Chips */}
-                    <div className="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-inherit">
-                        <span
-                            className={`text-[10px] font-semibold mr-0.5 ${isDark ? 'text-[#6B7280]' : 'text-gray-500'
-                                }`}
-                        >
-                            অংশ:
-                        </span>
-                        {(
-                            [
-                                { id: 'all', label: 'সকল' },
-                                { id: 'ক', label: 'ক (জ্ঞান)' },
-                                { id: 'খ', label: 'খ (অনুধাবন)' },
-                                { id: 'গ', label: 'গ (প্রয়োগ)' },
-                                { id: 'ঘ', label: 'ঘ (উচ্চতর)' },
-                            ] as const
-                        ).map((chip) => (
-                            <button
-                                key={chip.id}
-                                type="button"
-                                onClick={() => setActiveCognitiveFilter(chip.id)}
-                                className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${activeCognitiveFilter === chip.id
-                                    ? isDark
-                                        ? 'bg-[#2F80ED]/25 text-[#2F80ED] border border-[#2F80ED]/40 font-bold'
-                                        : 'bg-[#1a1a1a] text-white font-bold'
-                                    : isDark
-                                        ? 'bg-[#161920] text-[#A1A8B3] hover:text-[#F5F7FA]'
-                                        : 'bg-white text-gray-700 border border-[#1a1a1a]'
-                                    }`}
-                            >
-                                {chip.label}
-                            </button>
-                        ))}
-                    </div>
                 </div>
 
-                {/* ── Result Count ───────────────────────────────────────── */}
-                <div className="flex items-center justify-between mb-3 px-1">
-                    <div
+                {/* ── Result summary ─────────────────────────────────── */}
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3 px-0.5">
+                    <p
                         className={`text-[11px] md:text-xs font-semibold ${isDark ? 'text-[#A1A8B3]' : 'text-gray-700'
                             }`}
                     >
-                        দেখাচ্ছে:{' '}
+                        দেখাচ্ছে{' '}
                         <span className="text-[#2F80ED] font-bold">
                             {toBengaliNumber(filteredQuestions.length)}
                         </span>{' '}
-                        টি সৃজনশীল প্রশ্ন
-                        {searchQuery && (
+                        / {toBengaliNumber(totalQuestions)} টি সৃজনশীল প্রশ্ন
+                        {searchQuery.trim() && (
                             <span className="ml-1 text-[10px]">
-                                (অনুসন্ধান: &ldquo;{searchQuery}&rdquo;)
+                                — অনুসন্ধান: &ldquo;{searchQuery}&rdquo;
                             </span>
                         )}
-                    </div>
+                    </p>
+
+                    {studyMode === 'practice' && (
+                        <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${isDark
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/40'
+                                : 'bg-amber-100 text-amber-800 border-amber-400'
+                                }`}
+                        >
+                            <Zap size={10} />
+                            অনুশীলন মোড: উত্তর লুকানো — নিজে ভেবে &ldquo;দেখুন&rdquo; চাপুন
+                        </span>
+                    )}
                 </div>
 
-                {/* ── Question Cards List ─────────────────────────────────── */}
+                {/* ── Question list ──────────────────────────────────── */}
                 {filteredQuestions.length === 0 ? (
                     <div
-                        className={`p-10 text-center rounded-xl border ${isDark ? 'bg-[#111318] border-[#23262D]' : 'bg-white border-2 border-[#1a1a1a]'
+                        className={`p-10 text-center rounded-xl border ${isDark
+                            ? 'bg-[#111318] border-[#23262D]'
+                            : 'bg-white border-2 border-[#1a1a1a]'
                             }`}
                     >
                         <HelpCircle size={36} className="mx-auto text-gray-400 mb-2" />
-                        <h3 className="text-sm md:text-base font-bold mb-1">কোনো প্রশ্ন পাওয়া যায়নি</h3>
+                        <h3 className="text-sm md:text-base font-bold mb-1">
+                            কোনো প্রশ্ন পাওয়া যায়নি
+                        </h3>
                         <p
                             className={`text-xs max-w-sm mx-auto mb-3 ${isDark ? 'text-[#A1A8B3]' : 'text-gray-600'
                                 }`}
                         >
-                            আপনার দেওয়া ফিল্টার বা অনুসন্ধানের সাথে মিল রেখে কোনো প্রশ্ন পাওয়া যায়নি।
+                            {showOnlyBookmarked && bookmarkedIds.size === 0
+                                ? 'এখনো কোনো বুকমার্ক করা প্রশ্ন নেই। প্রশ্নের বুকমার্ক আইকনে ক্লিক করে সেভ করুন।'
+                                : 'আপনার ফিল্টার বা অনুসন্ধানের সাথে মিল রেখে কোনো প্রশ্ন পাওয়া যায়নি।'}
                         </p>
                         <button
                             type="button"
@@ -684,8 +719,6 @@ const ReadingPage: React.FC = () => {
                                 isRead={readIds.has(question.id)}
                                 onToggleBookmark={toggleBookmark}
                                 onToggleRead={toggleRead}
-                                activeCognitiveFilter={activeCognitiveFilter}
-                                searchQuery={searchQuery}
                             />
                         ))}
 
@@ -695,7 +728,7 @@ const ReadingPage: React.FC = () => {
                                     type="button"
                                     onClick={() =>
                                         setDisplayCount((prev) =>
-                                            Math.min(prev + 12, filteredQuestions.length)
+                                            Math.min(prev + PAGE_SIZE, filteredQuestions.length)
                                         )
                                     }
                                     className={`px-5 py-2.5 rounded-lg font-bold text-xs transition-all shadow-md ${isDark
@@ -703,7 +736,11 @@ const ReadingPage: React.FC = () => {
                                         : 'bg-[#1a1a1a] text-white hover:bg-black'
                                         }`}
                                 >
-                                    আরও {toBengaliNumber(Math.min(12, filteredQuestions.length - displayCount))} টি দেখুন (বাকি{' '}
+                                    আরও{' '}
+                                    {toBengaliNumber(
+                                        Math.min(PAGE_SIZE, filteredQuestions.length - displayCount)
+                                    )}{' '}
+                                    টি দেখুন (বাকি{' '}
                                     {toBengaliNumber(filteredQuestions.length - displayCount)}টি)
                                 </button>
                             </div>
@@ -712,7 +749,23 @@ const ReadingPage: React.FC = () => {
                 )}
             </div>
 
-            {/* ── Question Navigator Drawer ─────────────────────────── */}
+            {/* ── Back to top ────────────────────────────────────────── */}
+            {showScrollTop && (
+                <button
+                    type="button"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    aria-label="পৃষ্ঠার শুরুতে যান"
+                    title="উপরে যান"
+                    className={`fixed bottom-5 right-5 z-40 p-2.5 rounded-full transition-all ${isDark
+                        ? 'bg-[#161920] border border-[#2F80ED]/50 text-[#2F80ED] shadow-lg shadow-black/40 hover:bg-[#1A1E27]'
+                        : 'bg-[#1a1a1a] text-white border-2 border-[#1a1a1a] shadow-[3px_3px_0px_0px_#1a1a1a] hover:bg-black'
+                        }`}
+                >
+                    <ArrowUp size={16} />
+                </button>
+            )}
+
+            {/* ── Question Navigator Drawer ──────────────────────────── */}
             <QuestionDrawer
                 isOpen={isDrawerOpen}
                 onClose={() => setIsDrawerOpen(false)}

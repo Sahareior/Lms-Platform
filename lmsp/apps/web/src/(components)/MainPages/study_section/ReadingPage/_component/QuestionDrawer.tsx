@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, CheckCircle2, Bookmark, Search, ArrowRight, LayoutGrid } from 'lucide-react';
 import type { CreativeQuestion } from '../tools/types';
 import { toBengaliNumber, getCleanBoardName } from '../tools/bengaliUtils';
@@ -59,6 +59,24 @@ export const QuestionDrawer: React.FC<QuestionDrawerProps> = ({
       }),
     [questions, filter, search, readIds, bookmarkedIds]
   );
+
+  // Close on Escape and lock background scroll while open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

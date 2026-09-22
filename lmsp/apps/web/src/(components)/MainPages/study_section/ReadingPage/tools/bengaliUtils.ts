@@ -60,3 +60,36 @@ export const EDUCATION_BOARDS = [
 ];
 
 export const YEARS = ['সকল সাল', '২০২৫', '২০২৪', '২০২৩', '২০২০', '২০১৯', '২০১৮', '২০১৭', '২০১৬'];
+
+/** A distinct chapter derived from the question bank. */
+export interface ChapterInfo {
+  id: string;
+  number: number;
+  name: string;
+  count: number;
+}
+
+/**
+ * Derives the list of unique chapters (ordered by chapter number) from the
+ * question bank, with per-chapter question counts. Falls back to the
+ * chapterNumber as id when chapterId is missing.
+ */
+export function getChapters(questions: CreativeQuestion[]): ChapterInfo[] {
+  const map = new Map<string, ChapterInfo>();
+  for (const q of questions) {
+    const id = q.chapterId || String(q.chapterNumber ?? '');
+    if (!id) continue;
+    const existing = map.get(id);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      map.set(id, {
+        id,
+        number: q.chapterNumber ?? 0,
+        name: q.chapter || '',
+        count: 1,
+      });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.number - b.number);
+}
