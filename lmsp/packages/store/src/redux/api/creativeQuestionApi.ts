@@ -29,6 +29,7 @@ export interface CQQuestion {
     source?: CQSource;
     type?: string;
     number: number;
+    imageNeeded?: boolean;
     stimulus?: string;
     stimulusBlocks?: Array<{ kind?: string; value: string }>;
     parts: CQPart[];
@@ -50,6 +51,9 @@ export interface CQQuestionSetSummary {
     title?: string;
     description?: string;
     questionCount: number;
+    imageNeededCount?: number;
+    emptyAnswerCount?: number;
+    emptyQuestionTextCount?: number;
     chapters: CQChapter[];
     createdAt?: string;
     updatedAt?: string;
@@ -78,6 +82,24 @@ export interface UploadCQSetResponse {
     message: string;
     setId: string;
     questionCount: number;
+}
+
+export type CQImportMode = 'upsert' | 'skip' | 'error' | 'replace';
+
+export interface ImportCQQuestionsRequest {
+    setId: string;
+    mode?: CQImportMode;
+    file?: File;
+    data?: CQQuestion[];
+}
+
+export interface ImportCQQuestionsResponse {
+    message: string;
+    addedCount: number;
+    updatedCount: number;
+    skippedCount: number;
+    totalQuestions: number;
+    set?: CQQuestionSet;
 }
 
 /** A structured validation error from the server. */
@@ -200,6 +222,33 @@ const creativeQuestionApi = api.injectEndpoints({
             }),
             invalidatesTags: ['CreativeQuestion'],
         }),
+
+        importCreativeQuestions: build.mutation<
+            ImportCQQuestionsResponse,
+            ImportCQQuestionsRequest
+        >({
+            query: ({ setId, mode = 'upsert', file, data }) => {
+                if (file) {
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    fd.append('mode', mode);
+                    return {
+                        url: `/creative-questions/${setId}/import`,
+                        method: 'POST',
+                        body: fd,
+                    };
+                }
+                return {
+                    url: `/creative-questions/${setId}/import`,
+                    method: 'POST',
+                    body: { mode, data },
+                };
+            },
+            invalidatesTags: (_r, _e, { setId }) => [
+                'CreativeQuestion',
+                { type: 'CreativeQuestion', id: setId },
+            ],
+        }),
     }),
     overrideExisting: false,
 });
@@ -212,4 +261,5 @@ export const {
     useUpdateCreativeQuestionMutation,
     useDeleteCreativeQuestionMutation,
     useDeleteCreativeQuestionSetMutation,
+    useImportCreativeQuestionsMutation,
 } = creativeQuestionApi;

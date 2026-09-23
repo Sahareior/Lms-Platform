@@ -9,6 +9,7 @@ import {
     updateCreativeQuestion,
     deleteCreativeQuestion,
     deleteCreativeQuestionSet,
+    importCreativeQuestions,
 } from '../controller/CreativeQuestionController.js';
 
 const router = express.Router();
@@ -23,8 +24,9 @@ const upload = multer({
 router.get('/', getCreativeQuestionSets);
 router.get('/:setId', getCreativeQuestionSetById);
 
-// ─── Admin: upload / edit / delete ────────────────────────────
+// ─── Admin: upload / edit / delete / import ───────────────────
 router.post('/upload', authenticate, requireRole('admin'), upload.single('file'), uploadCreativeQuestionSet);
+router.post('/:setId/import', authenticate, requireRole('admin'), upload.single('file'), importCreativeQuestions);
 router.put('/:setId', authenticate, requireRole('admin'), updateCreativeQuestionSet);
 router.put('/:setId/question/:questionId', authenticate, requireRole('admin'), updateCreativeQuestion);
 router.delete('/:setId/question/:questionId', authenticate, requireRole('admin'), deleteCreativeQuestion);

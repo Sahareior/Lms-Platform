@@ -276,7 +276,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
           <div
             className={`relative p-3 md:p-4  transition-all ${isDark
               ? 'bg-gradient-to-br from-[#161920] to-[#12141a] border-[#2A2E39]'
-              : 'bg-[#faf8f5] border-t border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
+              : 'bg-yellow-100 border-t border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
               }`}
           >
             <div className="flex items-center gap-2 mb-2">
@@ -297,7 +297,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
             </div>
 
             <p
-              className={`font-medium whitespace-pre-line text-justify select-text ${sizeClasses.stimulus} ${isDark ? 'text-[#E5E9F0]' : 'text-[#1a1a1a]'
+              className={`font-medium  whitespace-pre-line text-justify select-text ${sizeClasses.stimulus} ${isDark ? 'text-[#E5E9F0]' : 'text-[#1a1a1a]'
                 }`}
             >
               {question.stimulus}

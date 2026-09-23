@@ -464,6 +464,7 @@ export {
   useUpdateCreativeQuestionMutation,
   useDeleteCreativeQuestionMutation,
   useDeleteCreativeQuestionSetMutation,
+  useImportCreativeQuestionsMutation,
 } from './redux/api/creativeQuestionApi';
 export type {
   CQQuestion,
@@ -472,8 +473,11 @@ export type {
   CQChapter,
   CQPart,
   CQSource,
+  CQImportMode,
   UploadCQSetRequest,
   UploadCQSetResponse,
+  ImportCQQuestionsRequest,
+  ImportCQQuestionsResponse,
   CQValidationError,
 } from './redux/api/creativeQuestionApi';
 

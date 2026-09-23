@@ -21,7 +21,9 @@ import {
   DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
+  ExclamationCircleOutlined,
   FileTextOutlined,
+  PictureOutlined,
   PlusOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
@@ -35,6 +37,7 @@ import {
   useDeleteCreativeQuestionSetMutation,
   type CQQuestionSetSummary,
 } from '@my-monorepo/store';
+import ImportQuestionsModal from './ImportQuestionsModal';
 
 const { Text, Title } = Typography;
 const { Dragger } = Upload;
@@ -81,6 +84,13 @@ const CreativeQuestions: React.FC = () => {
 
   // ── Upload format guide modal ──
   const [guideOpen, setGuideOpen] = useState(false);
+
+  // ── Quick upload JSON modal state ──
+  const [importTarget, setImportTarget] = useState<CQQuestionSetSummary | null>(null);
+
+  // ── Filter states ──
+  const [filterNeedImageOnly, setFilterNeedImageOnly] = useState(false);
+  const [filterEmptyAnsOnly, setFilterEmptyAnsOnly] = useState(false);
 
   const versionOptions = useMemo(
     () => examVersions.filter((v) => !uploadExam || v.exam === uploadExam),
@@ -208,10 +218,23 @@ const CreativeQuestions: React.FC = () => {
       },
       {
         title: 'Questions',
-        dataIndex: 'questionCount',
         key: 'questionCount',
-        width: 110,
-        render: (n: number) => <Tag color="blue">{n}</Tag>,
+        width: 220,
+        render: (_: unknown, record: CQQuestionSetSummary) => (
+          <Space size={4} wrap>
+            <Tag color="blue">{record.questionCount}</Tag>
+            {(record.emptyAnswerCount ?? 0) > 0 && (
+              <Tag color="error" icon={<ExclamationCircleOutlined />}>
+                {record.emptyAnswerCount} empty ans
+              </Tag>
+            )}
+            {(record.imageNeededCount ?? 0) > 0 && (
+              <Tag color="warning" icon={<PictureOutlined />}>
+                {record.imageNeededCount} need image
+              </Tag>
+            )}
+          </Space>
+        ),
       },
       {
         title: 'Uploaded',
@@ -223,7 +246,7 @@ const CreativeQuestions: React.FC = () => {
       {
         title: 'Actions',
         key: 'actions',
-        width: 200,
+        width: 240,
         render: (_: unknown, record: CQQuestionSetSummary) => (
           <Space>
             <Button
@@ -233,6 +256,13 @@ const CreativeQuestions: React.FC = () => {
               onClick={() => navigate(`/admin/creative-questions/${record._id}`)}
             >
               Edit
+            </Button>
+            <Button
+              size="small"
+              icon={<CloudUploadOutlined />}
+              onClick={() => setImportTarget(record)}
+            >
+              Upload JSON
             </Button>
             <Popconfirm
               title="Delete this entire question set?"
@@ -248,6 +278,24 @@ const CreativeQuestions: React.FC = () => {
     ],
     [navigate, handleDeleteSet]
   );
+
+  const totalImageNeededCount = useMemo(
+    () => sets.reduce((acc, s) => acc + (s.imageNeededCount || 0), 0),
+    [sets]
+  );
+
+  const totalEmptyAnsCount = useMemo(
+    () => sets.reduce((acc, s) => acc + (s.emptyAnswerCount || 0), 0),
+    [sets]
+  );
+
+  const displayedSets = useMemo(() => {
+    return sets.filter((s) => {
+      if (filterEmptyAnsOnly && (s.emptyAnswerCount || 0) === 0) return false;
+      if (filterNeedImageOnly && (s.imageNeededCount || 0) === 0) return false;
+      return true;
+    });
+  }, [sets, filterEmptyAnsOnly, filterNeedImageOnly]);
 
   return (
     <div>
@@ -269,10 +317,30 @@ const CreativeQuestions: React.FC = () => {
             Test-paper sets used by the Reading page — classified by exam, exam version and subject.
           </Text>
         </div>
-        <Space>
+        <Space wrap>
           <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={isFetching}>
             Refresh
           </Button>
+          {totalEmptyAnsCount > 0 && (
+            <Button
+              type={filterEmptyAnsOnly ? 'primary' : 'default'}
+              danger
+              icon={<ExclamationCircleOutlined />}
+              onClick={() => setFilterEmptyAnsOnly(!filterEmptyAnsOnly)}
+            >
+              {filterEmptyAnsOnly ? 'Show All Sets' : `Empty Ans (${totalEmptyAnsCount})`}
+            </Button>
+          )}
+          {totalImageNeededCount > 0 && (
+            <Button
+              type={filterNeedImageOnly ? 'primary' : 'default'}
+              style={filterNeedImageOnly ? { background: '#fa8c16', borderColor: '#fa8c16' } : {}}
+              icon={<PictureOutlined />}
+              onClick={() => setFilterNeedImageOnly(!filterNeedImageOnly)}
+            >
+              {filterNeedImageOnly ? 'Show All Sets' : `Need Images (${totalImageNeededCount})`}
+            </Button>
+          )}
           <Button icon={<FileTextOutlined />} onClick={() => setGuideOpen(true)}>
             Format Guide
           </Button>
@@ -286,10 +354,16 @@ const CreativeQuestions: React.FC = () => {
         <Table
           rowKey="_id"
           columns={columns}
-          dataSource={sets}
+          dataSource={displayedSets}
           loading={isLoading}
           pagination={{ pageSize: 10, showSizeChanger: false }}
-          locale={{ emptyText: 'No question sets uploaded yet' }}
+          locale={{
+            emptyText: filterEmptyAnsOnly
+              ? 'No question sets currently have questions with empty answers'
+              : filterNeedImageOnly
+              ? 'No question sets currently have questions needing images'
+              : 'No question sets uploaded yet',
+          }}
         />
       </Card>
 
@@ -470,6 +544,17 @@ const CreativeQuestions: React.FC = () => {
           </Descriptions.Item>
         </Descriptions>
       </Modal>
+
+      {/* ── Import questions modal ── */}
+      {importTarget && (
+        <ImportQuestionsModal
+          open={!!importTarget}
+          onClose={() => setImportTarget(null)}
+          setId={importTarget._id}
+          setTitle={emptySetLabel(importTarget)}
+          onSuccess={() => refetch()}
+        />
+      )}
     </div>
   );
 };

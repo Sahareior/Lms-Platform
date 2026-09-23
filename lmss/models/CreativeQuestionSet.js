@@ -114,6 +114,10 @@ const creativeQuestionSetSchema = new mongoose.Schema(
                             required: true,
                             min: 1,
                         },
+                        imageNeeded: {
+                            type: Boolean,
+                            default: false,
+                        },
                         stimulus: {
                             type: String,
                             default: "",
