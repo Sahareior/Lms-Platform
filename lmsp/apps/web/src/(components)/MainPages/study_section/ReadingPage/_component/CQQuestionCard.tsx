@@ -337,9 +337,9 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
                     : 'bg-[#faf8f5] border-t border-[#1a1a1a]'
                     }`}
                 >
-                  <div className="p-3 md:p-3.5">
+                  <div className="py-4 md:px-3 px-1 ">
                     <div className="flex items-start justify-between gap-2.5">
-                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                      <div className="flex items-start gap-2 flex-1 ">
                         {/* Part Label */}
                         <div
                           className={`shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-sm border-2 ${isDark
@@ -350,7 +350,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
                           {part.label}
                         </div>
 
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 w-full">
                           <div className="flex flex-wrap items-center gap-1.5 mb-1">
                             <span
                               className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark
@@ -394,7 +394,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
                           </h3>
                         </div>
                       </div>
-
+{/* gh */}
                       <button
                         type="button"
                         onClick={() => togglePartAnswer(part.label)}

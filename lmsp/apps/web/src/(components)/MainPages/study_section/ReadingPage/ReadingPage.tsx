@@ -802,7 +802,7 @@ const ReadingPage: React.FC = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="space-y-4">
+                    <div className="md:space-y-24 space-y-16">
                         {displayedQuestions.map((question, index) => (
                             <CQQuestionCard
                                 key={question.id}

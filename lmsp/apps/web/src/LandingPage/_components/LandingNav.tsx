@@ -5,7 +5,7 @@ import { gradientBtn } from "../landingTools/landingTools";
 import { useInstallPrompt } from "../../hooks/useInstallPrompt";
 import { useTheme } from "../../theme/ThemeContext";
 
-const navLinks = ["Home", "Features", "Courses", "Pricing", "About", "Contact"];
+const navLinks = ["Home", "Features"];
 
 const LandingNav = () => {
   const [isOpen, setIsOpen] = useState(false);
