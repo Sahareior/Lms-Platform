@@ -14,10 +14,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { message } from 'antd';
 import {
     useGetCreativeQuestionSetsQuery,
-    useGetCreativeQuestionSetByIdQuery,
+    useCQSetQuestions,
     type CQQuestionSetSummary,
 } from '@my-monorepo/store';
-import testPaperRaw from './testPaper.json';
 import type { CreativeQuestion, FontSize, SourceCategory, StudyMode } from './tools/types';
 import {
     toBengaliNumber,
@@ -30,10 +29,18 @@ import CQQuestionCard from './_component/CQQuestionCard';
 import QuestionDrawer from './_component/QuestionDrawer';
 import { useTheme } from '../../../../theme/ThemeContext';
 
-/** Offline fallback: the original static test paper, used when the API is unreachable. */
-const fallbackQuestions = testPaperRaw as unknown as CreativeQuestion[];
+// Offline fallback: the original static test paper, used only when the API is
+// unreachable. Lazily imported so ~1 MB of JSON stays out of the main bundle.
+let fallbackQuestions: CreativeQuestion[] | null = null;
+const loadFallbackQuestions = async (): Promise<CreativeQuestion[]> => {
+    if (fallbackQuestions) return fallbackQuestions;
+    const mod = await import('./testPaper.json');
+    fallbackQuestions = (mod.default ?? mod) as unknown as CreativeQuestion[];
+    return fallbackQuestions;
+};
 
-const PAGE_SIZE = 12;
+/** Questions rendered per page (client-side pagination). */
+const PAGE_SIZE = 50;
 const PREFS_KEY = 'lms_cq_prefs';
 
 /** Reading preferences (font size + study mode) persisted across visits. */
@@ -110,18 +117,40 @@ const ReadingPage: React.FC = () => {
         return sets.find((s) => s._id === selectedSetId) ?? sets[0];
     }, [questionSets, selectedSetId]);
 
+    // Paged fetch: first 100 questions render immediately, remaining pages
+    // load in the background and merge in server order.
     const {
         data: activeSetData,
+        questions: setQuestions,
         isLoading: setLoading,
         isError: setLoadError,
-    } = useGetCreativeQuestionSetByIdQuery(activeSet?._id ?? '', {
-        skip: !activeSet,
-    });
+    } = useCQSetQuestions(activeSet?._id);
 
     const usingFallback = !setsLoading && !setLoading && (!activeSetData || setLoadError);
-    const rawQuestions = (activeSetData?.questions ??
-        (usingFallback ? fallbackQuestions : [])) as unknown as CreativeQuestion[];
+
+    /* Offline fallback is fetched on demand (keeps it out of the main bundle). */
+    const [fallbackQuestions, setFallbackQuestions] = useState<CreativeQuestion[]>([]);
+    useEffect(() => {
+        if (!usingFallback) return;
+        let cancelled = false;
+        loadFallbackQuestions()
+            .then((qs) => {
+                if (!cancelled) setFallbackQuestions(qs);
+            })
+            .catch(() => {
+                if (!cancelled) setFallbackQuestions([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [usingFallback]);
+
+    const rawQuestions = (
+        setQuestions.length > 0 ? setQuestions : fallbackQuestions
+    ) as unknown as CreativeQuestion[];
     const questionsReady = !setsLoading && !setLoading && rawQuestions.length > 0;
+    /* Authoritative total from the server (accurate even before all pages land). */
+    const serverTotal = activeSetData?.totalQuestions ?? 0;
 
     const handleSelectSet = useCallback(
         (setId: string) => {
@@ -150,7 +179,7 @@ const ReadingPage: React.FC = () => {
 
     /* ── UI state ── */
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+    const [page, setPage] = useState(1);
     const [showScrollTop, setShowScrollTop] = useState(false);
 
     /* ── Persisted progress (bookmarks + read) ── */
@@ -187,6 +216,12 @@ const ReadingPage: React.FC = () => {
         const onScroll = () => setShowScrollTop(window.scrollY > 800);
         window.addEventListener('scroll', onScroll, { passive: true });
         return () => window.removeEventListener('scroll', onScroll);
+    }, []);
+
+    /* ── Jump back to the top when the page changes ── */
+    const handlePageChange = useCallback((next: number) => {
+        setPage(next);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }, []);
 
     const toggleBookmark = useCallback((id: string) => {
@@ -282,7 +317,7 @@ const ReadingPage: React.FC = () => {
     ]);
 
     useEffect(() => {
-        setDisplayCount(PAGE_SIZE);
+        setPage(1);
     }, [
         searchQuery,
         selectedSourceCategory,
@@ -292,9 +327,16 @@ const ReadingPage: React.FC = () => {
         showOnlyBookmarked,
     ]);
 
+    /* ── Client-side pagination: 100 questions per page ── */
+    const pageCount = Math.max(1, Math.ceil(filteredQuestions.length / PAGE_SIZE));
+    const safePage = Math.min(page, pageCount);
     const displayedQuestions = useMemo(
-        () => filteredQuestions.slice(0, displayCount),
-        [filteredQuestions, displayCount]
+        () =>
+            filteredQuestions.slice(
+                (safePage - 1) * PAGE_SIZE,
+                safePage * PAGE_SIZE
+            ),
+        [filteredQuestions, safePage]
     );
 
     /* ── Reset filters ── */
@@ -325,20 +367,20 @@ const ReadingPage: React.FC = () => {
 
             const idx = filteredQuestions.findIndex((q) => q.id === id);
             if (idx >= 0) {
-                setDisplayCount(Math.max(displayCount, idx + PAGE_SIZE));
-                setTimeout(scrollNow, 120);
+                setPage(Math.floor(idx / PAGE_SIZE) + 1);
+                setTimeout(scrollNow, 150);
             } else {
                 handleResetFilters();
                 const rawIdx = rawQuestions.findIndex((q) => q.id === id);
-                setDisplayCount(Math.max(PAGE_SIZE, rawIdx + PAGE_SIZE));
-                setTimeout(scrollNow, 150);
+                setPage(Math.floor(rawIdx / PAGE_SIZE) + 1);
+                setTimeout(scrollNow, 200);
             }
         },
-        [rawQuestions, filteredQuestions, displayCount, handleResetFilters]
+        [rawQuestions, filteredQuestions, handleResetFilters]
     );
 
     /* ── Stats ── */
-    const totalQuestions = rawQuestions.length;
+    const totalQuestions = serverTotal > 0 ? serverTotal : rawQuestions.length;
 
     const { countBoard, countCollege, countCadet } = useMemo(() => {
         let b = 0;
@@ -415,7 +457,7 @@ const ReadingPage: React.FC = () => {
                 backgroundSize: isDark ? undefined : '16px 16px',
             }}
         >
-            <div className="max-w-8xl mx-auto px-3 sm:px-2 lg:px-2 pt-3 md:pt-4">
+            <div className="max-w-8xl mx-auto px-2  pt-3 md:pt-4">
                 {/* ── Breadcrumb ─────────────────────────────────────── */}
                 <div className="flex items-center gap-1.5 text-[11px] mb-2 font-medium">
                     <button
@@ -748,11 +790,12 @@ const ReadingPage: React.FC = () => {
                         className={`text-[11px] md:text-xs font-semibold ${isDark ? 'text-[#A1A8B3]' : 'text-gray-700'
                             }`}
                     >
-                        দেখাচ্ছে{' '}
+                        পৃষ্ঠা {toBengaliNumber(safePage)}/{toBengaliNumber(pageCount)} — দেখাচ্ছে{' '}
                         <span className="text-[#2F80ED] font-bold">
-                            {toBengaliNumber(filteredQuestions.length)}
+                            {toBengaliNumber(displayedQuestions.length)}
                         </span>{' '}
-                        / {toBengaliNumber(totalQuestions)} টি সৃজনশীল প্রশ্ন
+                        / {toBengaliNumber(filteredQuestions.length)} (মোট{' '}
+                        {toBengaliNumber(totalQuestions)}) টি প্রশ্ন
                         {searchQuery.trim() && (
                             <span className="ml-1 text-[10px]">
                                 — অনুসন্ধান: &ldquo;{searchQuery}&rdquo;
@@ -802,7 +845,7 @@ const ReadingPage: React.FC = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="space-y-4">
+                    <div className="md:space-y-24 space-y-16">
                         {displayedQuestions.map((question, index) => (
                             <CQQuestionCard
                                 key={question.id}
@@ -817,26 +860,38 @@ const ReadingPage: React.FC = () => {
                             />
                         ))}
 
-                        {displayCount < filteredQuestions.length && (
-                            <div className="text-center pt-2">
+                        {/* ── Pagination: 100 questions per page ── */}
+                        {pageCount > 1 && (
+                            <div className="flex items-center justify-center gap-2 pt-4 pb-2">
                                 <button
                                     type="button"
-                                    onClick={() =>
-                                        setDisplayCount((prev) =>
-                                            Math.min(prev + PAGE_SIZE, filteredQuestions.length)
-                                        )
-                                    }
-                                    className={`px-5 py-2.5 rounded-lg font-bold text-xs transition-all shadow-md ${isDark
-                                        ? 'bg-[#161920] border border-[#23262D] text-[#F5F7FA] hover:bg-[#1A1E27] hover:border-[#2F80ED]/50'
+                                    disabled={safePage <= 1}
+                                    onClick={() => handlePageChange(Math.max(1, safePage - 1))}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${isDark
+                                        ? 'bg-[#161920] border border-[#23262D] text-[#F5F7FA] hover:bg-[#1A1E27]'
                                         : 'bg-[#1a1a1a] text-white hover:bg-black'
                                         }`}
                                 >
-                                    আরও{' '}
-                                    {toBengaliNumber(
-                                        Math.min(PAGE_SIZE, filteredQuestions.length - displayCount)
-                                    )}{' '}
-                                    টি দেখুন (বাকি{' '}
-                                    {toBengaliNumber(filteredQuestions.length - displayCount)}টি)
+                                    ‹ পূর্ববর্তী
+                                </button>
+                                <span
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold ${isDark
+                                        ? 'bg-[#2F80ED]/15 text-[#2F80ED] border border-[#2F80ED]/30'
+                                        : 'bg-white border-2 border-[#1a1a1a]'
+                                        }`}
+                                >
+                                    {toBengaliNumber(safePage)} / {toBengaliNumber(pageCount)}
+                                </span>
+                                <button
+                                    type="button"
+                                    disabled={safePage >= pageCount}
+                                    onClick={() => handlePageChange(Math.min(pageCount, safePage + 1))}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${isDark
+                                        ? 'bg-[#161920] border border-[#23262D] text-[#F5F7FA] hover:bg-[#1A1E27]'
+                                        : 'bg-[#1a1a1a] text-white hover:bg-black'
+                                        }`}
+                                >
+                                    পরবর্তী ›
                                 </button>
                             </div>
                         )}

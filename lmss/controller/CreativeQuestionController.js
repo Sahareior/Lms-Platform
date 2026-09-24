@@ -15,6 +15,38 @@ const MAX_PARTS_PER_QUESTION = 8;
 const isNonEmptyString = (v) => typeof v === 'string' && v.trim().length > 0;
 
 /**
+ * Validates a CQ image object ({ url, caption? }). Returns an error string or
+ * null when the image is well-formed.
+ */
+const validateCQImage = (img, at) => {
+    if (!img || typeof img !== 'object' || Array.isArray(img)) {
+        return `${at}: must be an object with a "url" string`;
+    }
+    if (typeof img.url !== 'string' || !img.url.trim()) {
+        return `${at}: "url" is required (string)`;
+    }
+    if (img.caption !== undefined && img.caption !== null && typeof img.caption !== 'string') {
+        return `${at}: "caption" must be a string`;
+    }
+    return null;
+};
+
+/**
+ * Validates an optional array of CQ images. Returns a list of errors (empty
+ * when the field is absent/null or the array is well-formed).
+ */
+const validateCQImageArray = (arr, at) => {
+    if (arr === undefined || arr === null) return [];
+    if (!Array.isArray(arr)) return [`${at}: must be an array of { url, caption? } objects`];
+    const errors = [];
+    arr.forEach((img, i) => {
+        const err = validateCQImage(img, `${at}[${i}]`);
+        if (err) errors.push(err);
+    });
+    return errors;
+};
+
+/**
  * Validates an uploaded creative-question payload (an array of question
  * objects) and returns a list of human-readable errors. An empty list means
  * the payload is accepted.
@@ -73,10 +105,20 @@ export const validateCreativeQuestionPayload = (payload) => {
             }
         }
 
+        // imageNeeded: optional boolean
+        if (q.imageNeeded !== undefined && q.imageNeeded !== null && typeof q.imageNeeded !== 'boolean') {
+            errors.push(`${at}: "imageNeeded" must be a boolean (true or false)`);
+        }
+
         // stimulus: optional string
         if (q.stimulus !== undefined && q.stimulus !== null && typeof q.stimulus !== 'string') {
             errors.push(`${at}: "stimulus" must be a string`);
         }
+
+        // stimulusImages: optional array of { url, caption? }
+        errors.push(
+            ...validateCQImageArray(q.stimulusImages, `${at}.stimulusImages`)
+        );
 
         // stimulusBlocks: optional array of objects (shape varies: text blocks
         // use {kind,value}, image blocks use {kind,ref,description,labels}).
@@ -118,6 +160,11 @@ export const validateCreativeQuestionPayload = (payload) => {
                 if (p.answer !== undefined && p.answer !== null && typeof p.answer !== 'string') {
                     errors.push(`${atPart}: "answer" must be a string`);
                 }
+                // questionImages / answerImages: optional arrays of { url, caption? }
+                errors.push(
+                    ...validateCQImageArray(p.questionImages, `${atPart}.questionImages`),
+                    ...validateCQImageArray(p.answerImages, `${atPart}.answerImages`)
+                );
                 if (p.modelAnswers !== undefined && p.modelAnswers !== null) {
                     if (!Array.isArray(p.modelAnswers) || p.modelAnswers.some((m) => typeof m !== 'string')) {
                         errors.push(`${atPart}: "modelAnswers" must be an array of strings`);
@@ -181,6 +228,79 @@ export const getCreativeQuestionSets = async (req, res) => {
                     title: 1,
                     description: 1,
                     questionCount: { $size: { $ifNull: ['$questions', []] } },
+                    imageNeededCount: {
+                        $size: {
+                            $filter: {
+                                input: { $ifNull: ['$questions', []] },
+                                as: 'q',
+                                cond: { $eq: ['$$q.imageNeeded', true] },
+                            },
+                        },
+                    },
+                    emptyAnswerCount: {
+                        $size: {
+                            $filter: {
+                                input: { $ifNull: ['$questions', []] },
+                                as: 'q',
+                                cond: {
+                                    $or: [
+                                        { $eq: [{ $size: { $ifNull: ['$$q.parts', []] } }, 0] },
+                                        {
+                                            $gt: [
+                                                {
+                                                    $size: {
+                                                        $filter: {
+                                                            input: { $ifNull: ['$$q.parts', []] },
+                                                            as: 'p',
+                                                            cond: {
+                                                                $or: [
+                                                                    { $eq: [{ $ifNull: ['$$p.answer', ''] }, ''] },
+                                                                    { $eq: [{ $trim: { input: { $ifNull: ['$$p.answer', ''] } } }, ''] },
+                                                                ],
+                                                            },
+                                                        },
+                                                    },
+                                                },
+                                                0,
+                                            ],
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    emptyQuestionTextCount: {
+                        $size: {
+                            $filter: {
+                                input: { $ifNull: ['$questions', []] },
+                                as: 'q',
+                                cond: {
+                                    $or: [
+                                        { $eq: [{ $size: { $ifNull: ['$$q.parts', []] } }, 0] },
+                                        {
+                                            $gt: [
+                                                {
+                                                    $size: {
+                                                        $filter: {
+                                                            input: { $ifNull: ['$$q.parts', []] },
+                                                            as: 'p',
+                                                            cond: {
+                                                                $or: [
+                                                                    { $eq: [{ $ifNull: ['$$p.text', ''] }, ''] },
+                                                                    { $eq: [{ $trim: { input: { $ifNull: ['$$p.text', ''] } } }, ''] },
+                                                                ],
+                                                            },
+                                                        },
+                                                    },
+                                                },
+                                                0,
+                                            ],
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
                     chapters: {
                         $setUnion: {
                             $map: {
@@ -206,7 +326,12 @@ export const getCreativeQuestionSets = async (req, res) => {
 
 /**
  * GET /creative-questions/:setId
- * Public: one full set (all questions) with exam/version/subject populated.
+ * Public: one set with exam/version/subject populated.
+ *
+ * Optional pagination: ?page=1&limit=100 (limit capped at 500) returns only a
+ * slice of the questions plus pagination metadata:
+ *   { ..., questions, totalQuestions, page, limit, totalPages, hasNextPage }
+ * Without pagination params the full set is returned (legacy behaviour).
  */
 export const getCreativeQuestionSetById = async (req, res) => {
     try {
@@ -215,16 +340,63 @@ export const getCreativeQuestionSetById = async (req, res) => {
             return res.status(400).json({ message: 'Invalid set id' });
         }
 
-        const set = await CreativeQuestionSet.findById(setId)
-            .populate('exam', 'name category')
-            .populate('examVersion', 'examVersion')
-            .populate('subject', 'name');
+        // ── Legacy mode: no pagination params → full set (unchanged) ──
+        const hasPageParams = req.query.page !== undefined || req.query.limit !== undefined;
+        if (!hasPageParams) {
+            const set = await CreativeQuestionSet.findById(setId)
+                .populate('exam', 'name category')
+                .populate('examVersion', 'examVersion')
+                .populate('subject', 'name');
 
-        if (!set) {
+            if (!set) {
+                return res.status(404).json({ message: 'Creative question set not found' });
+            }
+
+            return res.status(200).json(set);
+        }
+
+        // ── Paginated mode ──
+        // The questions array can approach 1 MB, so never load it whole just
+        // to serve 100 questions: fetch the metadata doc (questions excluded)
+        // and the requested slice ($slice) in parallel.
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 100));
+
+        const [metaDoc, sliceDocs] = await Promise.all([
+            CreativeQuestionSet.findById(setId, { questions: 0 })
+                .populate('exam', 'name category')
+                .populate('examVersion', 'examVersion')
+                .populate('subject', 'name')
+                .lean(),
+            CreativeQuestionSet.aggregate([
+                { $match: { _id: new mongoose.Types.ObjectId(setId) } },
+                {
+                    $project: {
+                        questions: { $slice: ['$questions', (page - 1) * limit, limit] },
+                        totalQuestions: { $size: { $ifNull: ['$questions', []] } },
+                    },
+                },
+            ]),
+        ]);
+
+        if (!metaDoc) {
             return res.status(404).json({ message: 'Creative question set not found' });
         }
 
-        res.status(200).json(set);
+        const totalQuestions = sliceDocs[0]?.totalQuestions ?? 0;
+        const totalPages = Math.ceil(totalQuestions / limit);
+
+        res.status(200).json({
+            ...metaDoc,
+            questionCount: totalQuestions,
+            questions: sliceDocs[0]?.questions ?? [],
+            totalQuestions,
+            page,
+            limit,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1,
+        });
     } catch (err) {
         console.error('getCreativeQuestionSetById error:', err);
         res.status(500).json({ message: 'Unable to fetch creative question set' });
@@ -406,7 +578,7 @@ export const updateCreativeQuestionSet = async (req, res) => {
  * PUT /creative-questions/:setId/question/:questionId
  * Admin: edit a single creative question inside the set.
  * Body may contain any of: id, chapterId, chapterNumber, chapter, source,
- * number, stimulus, stimulusBlocks, parts, answerNotes.
+ * number, stimulus, stimulusBlocks, stimulusImages, parts, answerNotes.
  */
 export const updateCreativeQuestion = async (req, res) => {
     try {
@@ -434,8 +606,10 @@ export const updateCreativeQuestion = async (req, res) => {
             'source',
             'type',
             'number',
+            'imageNeeded',
             'stimulus',
             'stimulusBlocks',
+            'stimulusImages',
             'parts',
             'answerNotes',
         ];
@@ -526,3 +700,137 @@ export const deleteCreativeQuestionSet = async (req, res) => {
         res.status(500).json({ message: 'Unable to delete creative question set' });
     }
 };
+
+/**
+ * POST /creative-questions/:setId/import
+ * Admin: import questions into an existing creative question set.
+ * Supports multipart file upload (field "file") or JSON body ({ data: [...] or questions: [...] }).
+ * Query or body param `mode`:
+ *   - 'upsert' (default): updates existing questions with matching `id`, appends new questions.
+ *   - 'skip': appends new questions, skips questions whose `id` already exists.
+ *   - 'error': rejects import if any question `id` already exists in this set.
+ *   - 'replace': replaces all questions in this set with the imported questions.
+ */
+export const importCreativeQuestions = async (req, res) => {
+    try {
+        const { setId } = req.params;
+        if (!isValidObjectId(setId)) {
+            return res.status(400).json({ message: 'Invalid set id' });
+        }
+
+        const set = await CreativeQuestionSet.findById(setId);
+        if (!set) {
+            return res.status(404).json({ message: 'Creative question set not found' });
+        }
+
+        let payload;
+        const mode = req.body?.mode || req.query?.mode || 'upsert';
+        const validModes = ['upsert', 'skip', 'error', 'replace'];
+        if (!validModes.includes(mode)) {
+            return res.status(400).json({ message: `Invalid import mode. Must be one of: ${validModes.join(', ')}` });
+        }
+
+        if (req.file) {
+            try {
+                payload = JSON.parse(req.file.buffer.toString('utf8'));
+            } catch (parseErr) {
+                return res.status(400).json({
+                    message: 'The uploaded file is not valid JSON',
+                    error: parseErr.message,
+                });
+            }
+        } else {
+            payload = req.body?.data ?? req.body?.questions;
+        }
+
+        // Allow single-question object payload: normalize to [payload]
+        if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+            payload = [payload];
+        }
+
+        // Validate format
+        const errors = validateCreativeQuestionPayload(payload);
+        if (errors.length > 0) {
+            return res.status(400).json({
+                message: 'Invalid creative questions format',
+                errors,
+                errorCount: errors.length,
+            });
+        }
+
+        // Handle conflict modes
+        let addedCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+
+        if (mode === 'replace') {
+            set.questions = payload;
+            addedCount = payload.length;
+        } else {
+            const existingQuestions = set.questions || [];
+            const existingIdMap = new Map();
+            existingQuestions.forEach((q, idx) => {
+                existingIdMap.set(q.id, idx);
+            });
+
+            if (mode === 'error') {
+                const conflictingIds = payload
+                    .map((q) => q.id)
+                    .filter((id) => existingIdMap.has(id));
+
+                if (conflictingIds.length > 0) {
+                    return res.status(400).json({
+                        message: `Duplicate question IDs detected in strict mode: ${conflictingIds.join(', ')}`,
+                        conflictingIds,
+                    });
+                }
+            }
+
+            // Copy existing questions array
+            const currentQuestions = existingQuestions.map((q) => (q.toObject ? q.toObject() : q));
+
+            payload.forEach((incomingQ) => {
+                if (existingIdMap.has(incomingQ.id)) {
+                    if (mode === 'upsert') {
+                        const targetIdx = existingIdMap.get(incomingQ.id);
+                        currentQuestions[targetIdx] = incomingQ;
+                        updatedCount++;
+                    } else if (mode === 'skip') {
+                        skippedCount++;
+                    }
+                } else {
+                    currentQuestions.push(incomingQ);
+                    existingIdMap.set(incomingQ.id, currentQuestions.length - 1);
+                    addedCount++;
+                }
+            });
+
+            set.questions = currentQuestions;
+        }
+
+        await set.save();
+        await invalidatePrefix(CACHE_PREFIX);
+
+        const updatedSet = await CreativeQuestionSet.findById(setId)
+            .populate('exam', 'name category')
+            .populate('examVersion', 'examVersion')
+            .populate('subject', 'name');
+
+        res.status(200).json({
+            message: `Successfully imported questions: ${addedCount} added, ${updatedCount} updated, ${skippedCount} skipped`,
+            addedCount,
+            updatedCount,
+            skippedCount,
+            totalQuestions: updatedSet.questions.length,
+            set: updatedSet,
+        });
+    } catch (err) {
+        console.error('importCreativeQuestions error:', err);
+        if (err.name === 'ValidationError') {
+            const messages = Object.values(err.errors).map((e) => e.message);
+            return res.status(400).json({ message: 'Validation failed', errors: messages });
+        }
+        res.status(500).json({ message: err.message || 'Unable to import questions' });
+    }
+};
+

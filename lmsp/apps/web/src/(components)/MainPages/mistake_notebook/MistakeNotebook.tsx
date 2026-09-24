@@ -153,7 +153,7 @@ function NotebookCard({ item, accent, isDark }: { item: NotebookItem; accent: st
             )}
 
             {item.providedAnswer && item.correctAnswer && isRight && (
-              <p className="text-[11px] text-[#1a1a1a] font-bold font-serif">
+              <p className="text-[15px] text-[#1a1a1a] font-bold font-serif">
                 <span>You answered this correctly.</span>
               </p>
             )}

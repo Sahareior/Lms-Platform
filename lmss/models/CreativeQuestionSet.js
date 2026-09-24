@@ -1,5 +1,24 @@
 import mongoose from "mongoose";
 
+// An image attached to a stimulus, part question or part answer. Stored as a
+// Cloudinary URL (uploaded via the signed direct-upload flow) plus an optional
+// Bengali caption rendered under the image.
+const cqImageSchema = new mongoose.Schema(
+    {
+        url: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+        caption: {
+            type: String,
+            default: "",
+            trim: true,
+        },
+    },
+    { _id: false }
+);
+
 // One ক/খ/গ/ঘ sub-question of a সৃজনশীল (creative) question.
 const cqPartSchema = new mongoose.Schema(
     {
@@ -25,6 +44,17 @@ const cqPartSchema = new mongoose.Schema(
         answer: {
             type: String,
             default: "",
+        },
+        // Images shown with the question text (e.g. a figure/diagram the
+        // student must look at) and images revealed with the answer (e.g. a
+        // solution diagram). Empty/undefined = no images.
+        questionImages: {
+            type: [cqImageSchema],
+            default: undefined,
+        },
+        answerImages: {
+            type: [cqImageSchema],
+            default: undefined,
         },
         modelAnswers: {
             type: [String],
@@ -114,12 +144,22 @@ const creativeQuestionSetSchema = new mongoose.Schema(
                             required: true,
                             min: 1,
                         },
+                        imageNeeded: {
+                            type: Boolean,
+                            default: false,
+                        },
                         stimulus: {
                             type: String,
                             default: "",
                         },
                         stimulusBlocks: {
                             type: [stimulusBlocksSchema],
+                            default: undefined,
+                        },
+                        // Images rendered inside the উদ্দীপক box (tables,
+                        // diagrams, scanned figures, ...).
+                        stimulusImages: {
+                            type: [cqImageSchema],
                             default: undefined,
                         },
                         parts: {

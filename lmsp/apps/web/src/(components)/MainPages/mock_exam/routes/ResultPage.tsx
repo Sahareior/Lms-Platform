@@ -344,7 +344,7 @@ const ResultPage = () => {
                         </span>
                       </div>
 
-                      <div className="text-xl font-medium leading-relaxed text-[#1a1a1a] mb-4 font-serif">
+                      <div className="text-[21px] font-semibold leading-relaxed text-[#1a1a1a] mb-4 font-serif">
                         <FormattedQuestion text={q.question} />
                       </div>
 
@@ -374,7 +374,7 @@ const ResultPage = () => {
                                 {getBengaliLetter(optIndex)}
                               </span>
                               <span
-                                className={`text-[15px] font-serif ${
+                                className={`text-[18px] font-serif ${
                                   isRight
                                     ? "text-[#1a1a1a] font-bold"
                                     : isSelected

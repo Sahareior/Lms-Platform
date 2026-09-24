@@ -247,7 +247,9 @@ const AdminDashboardInner: React.FC = () => {
           collapsed={collapsed}
           width={240}
           style={{
-            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
             height: '100vh',
             position: 'fixed',
             left: 0,
@@ -309,6 +311,9 @@ const AdminDashboardInner: React.FC = () => {
             style={{
               background: 'transparent',
               borderRight: 0,
+              flex: 1,
+              overflowY: 'auto',
+              overflowX: 'hidden',
               marginTop: 8,
             }}
           />
@@ -316,12 +321,10 @@ const AdminDashboardInner: React.FC = () => {
           {/* Back to app button */}
           <div
             style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              padding: '16px',
+              padding: '12px 16px 16px',
               borderTop: `1px solid ${sidebarBorder}`,
+              background: sidebarBg,
+              flexShrink: 0,
             }}
           >
             <Button
@@ -332,8 +335,9 @@ const AdminDashboardInner: React.FC = () => {
                 color: textSecondary,
                 width: '100%',
                 textAlign: 'left',
-                padding: '8px 16px',
+                padding: '8px 12px',
                 height: 'auto',
+                borderRadius: 10,
               }}
             >
               {!collapsed && 'Back to App'}
@@ -397,7 +401,7 @@ const AdminDashboardInner: React.FC = () => {
           <Content style={{ padding: '1rem', flex: 1 }}>
             <div
               data-scroll-container
-              className="h-full overflow-y-auto border rounded-2xl p-1"
+              className="h-[80vh] overflow-y-auto border rounded-2xl p-1"
               style={{
                 background: contentBg,
                 borderColor: contentBorder,

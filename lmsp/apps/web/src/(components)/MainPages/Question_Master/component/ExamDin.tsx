@@ -459,7 +459,7 @@ export default function ExamDin() {
         }}
       >
         <div className="sticky -top-1 z-30 border-b border-[#d8d4cb] bg-[#f2efe9] shadow-[0_3px_0px_0px_#1a1a1a]">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="max-w-8xl mx-auto px-4 sm:px-6">
             <div className="flex items-center justify-between pb-4 gap-4 pt-4">
               {!isSubmitted && (
                 <div className="relative">
@@ -557,7 +557,7 @@ export default function ExamDin() {
         )}
 
         {/* Questions */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-8 space-y-6">
           {questions.map((q, qIdx) => {
             const { isWrong } = getQuestionState(q.id);
             const isSelected = selected[q.id] !== undefined;
@@ -573,7 +573,7 @@ export default function ExamDin() {
                 </div>
 
                 <div className="p-6 sm:p-8 pt-4">
-                  <div className="text-[#1a1a1a] text-base leading-relaxed font-medium mb-5">
+                  <div className="text-[#1a1a1a] text-[21px] leading-relaxed font-semibold mb-5">
                     <FormattedQuestion text={q.question} />
                   </div>
 
@@ -635,7 +635,7 @@ export default function ExamDin() {
                           </div>
 
                           <span
-                            className={`text-base font-medium flex-1 font-serif ${
+                            className={`text-[18px] font-semibold flex-1 font-serif ${
                               showCorrectAnswer
                                 ? "text-[#1a1a1a] font-bold"
                                 : isWrongSelection
@@ -662,7 +662,7 @@ export default function ExamDin() {
 
         {/* Bottom Action Bar */}
         <div className="sticky -bottom-1 z-30 bg-[#f2efe9] border-t-2 border-[#1a1a1a] shadow-[0_-2px_0px_0px_#1a1a1a]">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="max-w-8xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3 text-sm text-[#4a4a4a] font-serif">
               <Flag size={14} />
               <span>
@@ -673,14 +673,14 @@ export default function ExamDin() {
             </div>
 
             <div className="flex items-center gap-3">
-              {!isSubmitted && (
+              {/* {!isSubmitted && (
                 <button
                   onClick={handleReset}
                   className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold bg-[#f2efe9] text-[#4a4a4a] border border-[#d8d4cb] hover:shadow-[2px_2px_0px_0px_#1a1a1a] hover:text-[#1a1a1a] transition font-serif shadow-[1px_1px_0px_0px_#1a1a1a]"
                 >
                   <RefreshCw size={14} /> Reset
                 </button>
-              )}
+              )} */}
               <button
                 onClick={() => handleSubmit(false)}
                 disabled={isSubmitted}
@@ -712,7 +712,7 @@ export default function ExamDin() {
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
       <div className="sticky -top-10 z-30 border-b bg-[#111318] border-[#23262D]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between pb-4 gap-4">
             {!isSubmitted && (
               <div className="relative">
@@ -811,7 +811,7 @@ export default function ExamDin() {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {questions.map((q, qIdx) => {
           const { isWrong } = getQuestionState(q.id);
           const isSelected = selected[q.id] !== undefined;
@@ -822,7 +822,7 @@ export default function ExamDin() {
               <div className="px-4 py-1 text-xs font-semibold text-[#9B51E0]">Question {q.id}</div>
 
               <div className="p-6 sm:p-8 pt-4">
-                <div className="text-[#F5F7FA] text-base leading-relaxed font-medium mb-5">
+                <div className="text-[#F5F7FA] text-[21px] leading-relaxed font-semibold mb-5">
                   <FormattedQuestion text={q.question} />
                 </div>
 
@@ -881,7 +881,7 @@ export default function ExamDin() {
                         </div>
 
                         <span
-                          className={`text-base font-medium flex-1 ${
+                          className={`text-[18px] font-medium flex-1 ${
                             isCorrectOption
                               ? "text-[#00E5B3]"
                               : isOptionSelected && isWrong
@@ -907,7 +907,7 @@ export default function ExamDin() {
       </div>
 
       <div className="sticky -bottom-1 z-30 bg-[#111318] border-t border-[#23262D]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-sm text-[#A1A8B3]">
             <Flag size={14} />
             <span>
