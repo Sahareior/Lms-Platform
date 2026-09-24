@@ -292,7 +292,7 @@ export default function QuestionMaster() {
       } : undefined}
     >
       <div className={`sticky -top-1 z-20 border-b backdrop-blur-xl ${isDark ? 'bg-[#111318]/95 border-[#23262D]' : 'bg-[#f2efe9]/95 border-[#d8d4cb] shadow-[0_3px_0px_0px_#1a1a1a]'}`}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <button
@@ -345,7 +345,7 @@ export default function QuestionMaster() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-5 pb-24">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 py-6 space-y-5 pb-24">
         {typeChips.length > 0 && (
           <div className={`flex items-center gap-2 flex-wrap pb-2 border-b ${isDark ? 'border-[#23262D]/60' : 'border-[#d8d4cb]'}`}>
             <div className={`flex items-center gap-1.5 text-xs mr-2 ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif'}`}>

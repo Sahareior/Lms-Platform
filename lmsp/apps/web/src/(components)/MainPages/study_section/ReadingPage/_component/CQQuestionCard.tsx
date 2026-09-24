@@ -13,7 +13,13 @@ import {
   Building2,
   Check,
 } from 'lucide-react';
-import type { CreativeQuestion, FontSize, QuestionPart, StudyMode } from '../tools/types';
+import type {
+  CreativeQuestion,
+  FontSize,
+  QuestionImage,
+  QuestionPart,
+  StudyMode,
+} from '../tools/types';
 import { toBengaliNumber, getCleanBoardName, getSourceCategory } from '../tools/bengaliUtils';
 import { useTheme } from '../../../../../theme/ThemeContext';
 import { message } from 'antd';
@@ -54,32 +60,66 @@ const cognitiveBadgeStyles: Record<
     light: 'bg-[#e0dcd5] text-[#1a1a1a] border-[#1a1a1a]',
     lightAccent: '#b91c1c',
   },
+};/** Shared renderer for question/stimulus/answer images with optional caption. */
+const QuestionImageList: React.FC<{ images?: QuestionImage[]; isDark: boolean }> = ({
+  images,
+  isDark,
+}) => {
+  if (!images || images.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2.5 my-2">
+      {images.map((img, i) => (
+        <figure key={i} className="m-0">
+          <img
+            src={img.url}
+            alt={img.caption || `চিত্র ${i + 1}`}
+            loading="lazy"
+            className={`max-w-full rounded-lg border ${isDark
+              ? 'border-[#2A2E39] bg-[#0B0D12]'
+              : 'border-[#1a1a1a] bg-white shadow-[2px_2px_0px_0px_#1a1a1a]'
+              }`}
+            style={{ maxHeight: 320, objectFit: 'contain' }}
+          />
+          {img.caption && img.caption.trim() && (
+            <figcaption
+              className={`mt-1 text-[11px] text-center ${isDark ? 'text-[#A1A8B3]' : 'text-[#333] font-serif'
+                }`}
+            >
+              {img.caption}
+            </figcaption>
+          )}
+        </figure>
+      ))}
+    </div>
+  );
 };
 
-const fontSizesMap: Record<
-  FontSize,
-  { qText: string; ansText: string; stimulus: string }
-> = {
+const fontSizesMap: Record<FontSize, { qText: string; ansText: string; stimulus: string }> = {
+  // A- : noticeably smaller than base on all screen sizes
   sm: {
-    qText: 'text-sm md:text-base leading-relaxed',
-    ansText: 'text-xs md:text-sm leading-relaxed',
-    stimulus: 'text-xs md:text-sm leading-relaxed',
+    qText: 'text-[13px] md:text-[15px] leading-relaxed',
+    ansText: 'text-[11px] md:text-[13px] leading-relaxed',
+    stimulus: 'text-[11px] md:text-[13px] leading-relaxed',
   },
 
+  // A (default)
   base: {
     qText: 'text-[17px] md:text-[19px] leading-relaxed',
-    ansText: 'text-[16px] md:text-[18px] leading-relaxed',
-    stimulus: 'text-[13px] md:text-[16px] leading-relaxed',
+    ansText: 'text-[15px] md:text-[17px] leading-relaxed',
+    stimulus: 'text-[14px] md:text-[16px] leading-relaxed',
   },
 
+  // A+ : noticeably larger than base on all screen sizes
   lg: {
     qText: 'text-[21px] md:text-[24px] leading-loose',
     ansText: 'text-[19px] md:text-[22px] leading-loose',
-    stimulus: 'text-[16px] md:text-[19px] leading-loose',
+    stimulus: 'text-[17px] md:text-[20px] leading-loose',
   },
 };
 
-export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
+// Memoized: search typing / filter tweaks re-render the list container, but
+// unchanged questions no longer re-render every card.
+const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
   question,
   index,
   studyMode,
@@ -270,7 +310,7 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
         </div>
       </div>
 
-      <div className="py-3 space-y-3.5">
+      <div className="py-3 px-3 space-y-3.5">
         {/* ── উদ্দীপক ─────────────────────────────────────────── */}
         {question.stimulus && (
           <div
@@ -297,11 +337,14 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
             </div>
 
             <p
-              className={`font-medium  whitespace-pre-line text-justify select-text ${sizeClasses.stimulus} ${isDark ? 'text-[#E5E9F0]' : 'text-[#1a1a1a]'
+              className={`font-medium whitespace-pre-line text-justify  ${sizeClasses.stimulus} ${isDark ? 'text-[#E5E9F0]' : 'text-[#1a1a1a]'
                 }`}
             >
               {question.stimulus}
             </p>
+
+            {/* উদ্দীপক images */}
+            <QuestionImageList images={question.stimulusImages} isDark={isDark} />
 
             {question.stimulusBlocks && question.stimulusBlocks.length > 0 && (
               <div className="mt-2.5 pt-2.5 border-t border-dashed border-gray-700/40 space-y-1.5">
@@ -337,79 +380,80 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
                     : 'bg-[#faf8f5] border-t border-[#1a1a1a]'
                     }`}
                 >
-                  <div className="py-4 md:px-3 px-1 ">
-                    <div className="flex items-start justify-between gap-2.5">
-                      <div className="flex items-start gap-2 flex-1 ">
-                        {/* Part Label */}
-                        <div
-                          className={`shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-sm border-2 ${isDark
-                            ? badgeStyle.dark
-                            : 'bg-[#1a1a1a] text-[#f2efe9] border-[#1a1a1a] font-black font-serif'
-                            }`}
-                        >
-                          {part.label}
-                        </div>
-
-                        <div className="flex-1 w-full">
-                          <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark
-                                ? badgeStyle.dark
-                                : 'bg-[#e0dcd5] text-[#1a1a1a] border-[#1a1a1a] font-black font-serif uppercase tracking-wider'
-                                }`}
-                            >
-                              {part.cognitiveType ||
-                                (part.label === 'ক'
-                                  ? 'জ্ঞানমূলক'
-                                  : part.label === 'খ'
-                                    ? 'অনুধাবন'
-                                    : part.label === 'গ'
-                                      ? 'প্রয়োগ'
-                                      : 'উচ্চতর দক্ষতা')}
-                            </span>
-                            <span
-                              className={`text-[10px] font-bold ${isDark ? 'text-[#A1A8B3]' : 'text-[#333] font-serif'
-                                }`}
-                            >
-                              [নম্বর:{' '}
-                              {toBengaliNumber(
-                                part.marks ||
-                                (part.label === 'ক'
-                                  ? 1
-                                  : part.label === 'খ'
-                                    ? 2
-                                    : part.label === 'গ'
-                                      ? 3
-                                      : 4)
-                              )}
-                              ]
-                            </span>
-                          </div>
-
-                          <h3
-                            className={`font-semibold select-text ${sizeClasses.qText} ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif'
-                              }`}
-                          >
-                            {part.text}
-                          </h3>
-                        </div>
-                      </div>
-{/* gh */}
-                      <button
-                        type="button"
-                        onClick={() => togglePartAnswer(part.label)}
-                        className={`shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-md text-[14px] transition-all ${isAnswerOpen
-                          ? isDark
-                            ? 'bg-[#2F80ED]/20 text-[#2F80ED] border border-[#2F80ED]/40 font-semibold'
-                            : 'bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] font-black font-serif'
-                          : isDark
-                            ? 'bg-[#1C1F26] text-[#A1A8B3] font-semibold hover:text-[#F5F7FA] hover:bg-[#23262D]'
-                            : 'bg-[#f2efe9] border border-[#1a1a1a] text-[#1a1a1a] font-bold font-serif hover:bg-[#e0dcd5]'
+                  <div className="py-4">
+                    <div className="flex items-start gap-2">
+                      {/* Part Label */}
+                      <div
+                        className={`shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-sm border-2 ${isDark
+                          ? badgeStyle.dark
+                          : 'bg-[#1a1a1a] text-[#f2efe9] border-[#1a1a1a] font-black font-serif'
                           }`}
                       >
-                        <span>{isAnswerOpen ? 'লুকান' : 'দেখুন'}</span>
-                        {isAnswerOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                      </button>
+                        {part.label}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark
+                              ? badgeStyle.dark
+                              : 'bg-[#e0dcd5] text-[#1a1a1a] border-[#1a1a1a] font-black font-serif uppercase tracking-wider'
+                              }`}
+                          >
+                            {part.cognitiveType ||
+                              (part.label === 'ক'
+                                ? 'জ্ঞানমূলক'
+                                : part.label === 'খ'
+                                  ? 'অনুধাবন'
+                                  : part.label === 'গ'
+                                    ? 'প্রয়োগ'
+                                    : 'উচ্চতর দক্ষতা')}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold ${isDark ? 'text-[#A1A8B3]' : 'text-[#333] font-serif'
+                              }`}
+                          >
+                            [নম্বর:{' '}
+                            {toBengaliNumber(
+                              part.marks ||
+                              (part.label === 'ক'
+                                ? 1
+                                : part.label === 'খ'
+                                  ? 2
+                                  : part.label === 'গ'
+                                    ? 3
+                                    : 4)
+                            )}
+                            ]
+                          </span>
+                        </div>
+
+                        <h3
+                          className={`font-semibold select-text mb-2.5 ${sizeClasses.qText} ${isDark ? 'text-[#F5F7FA]' : 'text-[#1a1a1a] font-serif'
+                            }`}
+                        >
+                          {part.text}
+                        </h3>
+
+                        {/* Part question images — always visible with the question */}
+                        <QuestionImageList images={part.questionImages} isDark={isDark} />
+
+                        <button
+                          type="button"
+                          onClick={() => togglePartAnswer(part.label)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[13px] transition-all ${isAnswerOpen
+                            ? isDark
+                              ? 'bg-[#2F80ED]/20 text-[#2F80ED] border border-[#2F80ED]/40 font-semibold'
+                              : 'bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] font-black font-serif'
+                            : isDark
+                              ? 'bg-[#1C1F26] text-[#A1A8B3] font-semibold hover:text-[#F5F7FA] hover:bg-[#23262D]'
+                              : 'bg-[#f2efe9] border border-[#1a1a1a] text-[#1a1a1a] font-bold font-serif hover:bg-[#e0dcd5]'
+                            }`}
+                        >
+                          <span>{isAnswerOpen ? 'লুকান' : 'উত্তর দেখুন'}</span>
+                          {isAnswerOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+                      </div>
                     </div>
 
                     {isAnswerOpen && (
@@ -436,7 +480,10 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
                           >
                             {part.answer}
                           </div>
-                        ) : (
+                        ) : null}
+                        {/* Part answer images — revealed with the answer panel */}
+                        <QuestionImageList images={part.answerImages} isDark={isDark} />
+                        {!part.answer && !part.answerImages?.length && (
                           <div
                             className={`text-[11px] italic py-0.5 ${isDark ? 'text-gray-500' : 'text-[#666] font-serif'
                               }`}
@@ -512,5 +559,9 @@ export const CQQuestionCard: React.FC<CQQuestionCardProps> = ({
     </div>
   );
 };
+
+// Shallow compare is enough — all props are primitives, stable callbacks, or
+// the question object itself (stable identity until its page refetches).
+export const CQQuestionCard = React.memo(CQQuestionCardBase);
 
 export default CQQuestionCard;

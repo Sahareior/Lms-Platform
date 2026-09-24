@@ -229,7 +229,7 @@ export default function LeaderboardCard({ isDark }: { isDark: boolean }) {
       ) : (
         <>
           {/* ── Scrollable leaderboard list ── */}
-          <div className="flex-1 min-h-0 max-h-[340px] overflow-y-auto custom-scrollbar pr-1">
+          <div className="flex-1 min-h-0 max-h-[240px] overflow-y-auto custom-scrollbar pr-1">
             <div className="space-y-1.5">
               {leaderboard.slice(0, 6).map((entry) => {
                 const isMe = entry._id === me?._id;

@@ -459,6 +459,9 @@ export type {
 export {
   useGetCreativeQuestionSetsQuery,
   useGetCreativeQuestionSetByIdQuery,
+  useGetCreativeQuestionSetPageQuery,
+  useLazyGetCreativeQuestionSetPageQuery,
+  useCQSetQuestions,
   useUploadCreativeQuestionSetMutation,
   useUpdateCreativeQuestionSetMutation,
   useUpdateCreativeQuestionMutation,
@@ -469,8 +472,10 @@ export {
 export type {
   CQQuestion,
   CQQuestionSet,
+  CQQuestionSetPage,
   CQQuestionSetSummary,
   CQChapter,
+  CQImage,
   CQPart,
   CQSource,
   CQImportMode,

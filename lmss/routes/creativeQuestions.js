@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 import {
     getCreativeQuestionSets,
     getCreativeQuestionSetById,
@@ -21,8 +22,13 @@ const upload = multer({
 });
 
 // ─── Public: view question sets ───────────────────────────────
-router.get('/', getCreativeQuestionSets);
-router.get('/:setId', getCreativeQuestionSetById);
+// Redis-cached (5 min) — the sets list aggregates over every question and a
+// full set payload can exceed 1 MB, so repeat reads should not hit MongoDB.
+// All mutations already call invalidatePrefix('cache:creative-question').
+const CQ_CACHE = { ttl: 300, keyPrefix: 'cache:creative-question' };
+
+router.get('/', cacheMiddleware(CQ_CACHE), getCreativeQuestionSets);
+router.get('/:setId', cacheMiddleware(CQ_CACHE), getCreativeQuestionSetById);
 
 // ─── Admin: upload / edit / delete / import ───────────────────
 router.post('/upload', authenticate, requireRole('admin'), upload.single('file'), uploadCreativeQuestionSet);

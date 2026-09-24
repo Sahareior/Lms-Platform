@@ -43,34 +43,7 @@ const NavigationHub: React.FC = () => {
         </div>
       </div>
 
-      {/* Switch back to sidebar */}
-      <button
-        onClick={handleSwitchToSidebar}
-        className={`w-full flex items-center justify-between gap-4 rounded-xl px-4 py-3 transition-all ${
-          isDark
-            ? 'border border-[#23262D] bg-[#161920] text-[#F5F7FA] hover:border-[#323742]'
-            : 'border border-[#d8d4cb] bg-[#f2efe9] text-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a] hover:shadow-[2px_2px_0px_0px_#1a1a1a]'
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <span
-            className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-              isDark ? 'bg-[#2F80ED]/10 text-[#2F80ED]' : 'bg-[#e0dcd5] text-[#1a1a1a]'
-            }`}
-          >
-            <Menu size={18} />
-          </span>
-          <div className="text-left">
-            <div className={`text-sm ${isDark ? 'font-bold' : 'font-black font-serif'}`}>
-              Switch back to the sidebar layout
-            </div>
-            <div className={`text-xs ${isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a] font-serif italic'}`}>
-              Prefer the classic side menu? One click restores it.
-            </div>
-          </div>
-        </div>
-        <ArrowRight size={18} className={isDark ? 'text-[#A1A8B3]' : 'text-[#4a4a4a]'} />
-      </button>
+
 
       {/* Navigation grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -15,6 +15,38 @@ const MAX_PARTS_PER_QUESTION = 8;
 const isNonEmptyString = (v) => typeof v === 'string' && v.trim().length > 0;
 
 /**
+ * Validates a CQ image object ({ url, caption? }). Returns an error string or
+ * null when the image is well-formed.
+ */
+const validateCQImage = (img, at) => {
+    if (!img || typeof img !== 'object' || Array.isArray(img)) {
+        return `${at}: must be an object with a "url" string`;
+    }
+    if (typeof img.url !== 'string' || !img.url.trim()) {
+        return `${at}: "url" is required (string)`;
+    }
+    if (img.caption !== undefined && img.caption !== null && typeof img.caption !== 'string') {
+        return `${at}: "caption" must be a string`;
+    }
+    return null;
+};
+
+/**
+ * Validates an optional array of CQ images. Returns a list of errors (empty
+ * when the field is absent/null or the array is well-formed).
+ */
+const validateCQImageArray = (arr, at) => {
+    if (arr === undefined || arr === null) return [];
+    if (!Array.isArray(arr)) return [`${at}: must be an array of { url, caption? } objects`];
+    const errors = [];
+    arr.forEach((img, i) => {
+        const err = validateCQImage(img, `${at}[${i}]`);
+        if (err) errors.push(err);
+    });
+    return errors;
+};
+
+/**
  * Validates an uploaded creative-question payload (an array of question
  * objects) and returns a list of human-readable errors. An empty list means
  * the payload is accepted.
@@ -83,6 +115,11 @@ export const validateCreativeQuestionPayload = (payload) => {
             errors.push(`${at}: "stimulus" must be a string`);
         }
 
+        // stimulusImages: optional array of { url, caption? }
+        errors.push(
+            ...validateCQImageArray(q.stimulusImages, `${at}.stimulusImages`)
+        );
+
         // stimulusBlocks: optional array of objects (shape varies: text blocks
         // use {kind,value}, image blocks use {kind,ref,description,labels}).
         if (q.stimulusBlocks !== undefined && q.stimulusBlocks !== null) {
@@ -123,6 +160,11 @@ export const validateCreativeQuestionPayload = (payload) => {
                 if (p.answer !== undefined && p.answer !== null && typeof p.answer !== 'string') {
                     errors.push(`${atPart}: "answer" must be a string`);
                 }
+                // questionImages / answerImages: optional arrays of { url, caption? }
+                errors.push(
+                    ...validateCQImageArray(p.questionImages, `${atPart}.questionImages`),
+                    ...validateCQImageArray(p.answerImages, `${atPart}.answerImages`)
+                );
                 if (p.modelAnswers !== undefined && p.modelAnswers !== null) {
                     if (!Array.isArray(p.modelAnswers) || p.modelAnswers.some((m) => typeof m !== 'string')) {
                         errors.push(`${atPart}: "modelAnswers" must be an array of strings`);
@@ -284,7 +326,12 @@ export const getCreativeQuestionSets = async (req, res) => {
 
 /**
  * GET /creative-questions/:setId
- * Public: one full set (all questions) with exam/version/subject populated.
+ * Public: one set with exam/version/subject populated.
+ *
+ * Optional pagination: ?page=1&limit=100 (limit capped at 500) returns only a
+ * slice of the questions plus pagination metadata:
+ *   { ..., questions, totalQuestions, page, limit, totalPages, hasNextPage }
+ * Without pagination params the full set is returned (legacy behaviour).
  */
 export const getCreativeQuestionSetById = async (req, res) => {
     try {
@@ -293,16 +340,63 @@ export const getCreativeQuestionSetById = async (req, res) => {
             return res.status(400).json({ message: 'Invalid set id' });
         }
 
-        const set = await CreativeQuestionSet.findById(setId)
-            .populate('exam', 'name category')
-            .populate('examVersion', 'examVersion')
-            .populate('subject', 'name');
+        // ── Legacy mode: no pagination params → full set (unchanged) ──
+        const hasPageParams = req.query.page !== undefined || req.query.limit !== undefined;
+        if (!hasPageParams) {
+            const set = await CreativeQuestionSet.findById(setId)
+                .populate('exam', 'name category')
+                .populate('examVersion', 'examVersion')
+                .populate('subject', 'name');
 
-        if (!set) {
+            if (!set) {
+                return res.status(404).json({ message: 'Creative question set not found' });
+            }
+
+            return res.status(200).json(set);
+        }
+
+        // ── Paginated mode ──
+        // The questions array can approach 1 MB, so never load it whole just
+        // to serve 100 questions: fetch the metadata doc (questions excluded)
+        // and the requested slice ($slice) in parallel.
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 100));
+
+        const [metaDoc, sliceDocs] = await Promise.all([
+            CreativeQuestionSet.findById(setId, { questions: 0 })
+                .populate('exam', 'name category')
+                .populate('examVersion', 'examVersion')
+                .populate('subject', 'name')
+                .lean(),
+            CreativeQuestionSet.aggregate([
+                { $match: { _id: new mongoose.Types.ObjectId(setId) } },
+                {
+                    $project: {
+                        questions: { $slice: ['$questions', (page - 1) * limit, limit] },
+                        totalQuestions: { $size: { $ifNull: ['$questions', []] } },
+                    },
+                },
+            ]),
+        ]);
+
+        if (!metaDoc) {
             return res.status(404).json({ message: 'Creative question set not found' });
         }
 
-        res.status(200).json(set);
+        const totalQuestions = sliceDocs[0]?.totalQuestions ?? 0;
+        const totalPages = Math.ceil(totalQuestions / limit);
+
+        res.status(200).json({
+            ...metaDoc,
+            questionCount: totalQuestions,
+            questions: sliceDocs[0]?.questions ?? [],
+            totalQuestions,
+            page,
+            limit,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1,
+        });
     } catch (err) {
         console.error('getCreativeQuestionSetById error:', err);
         res.status(500).json({ message: 'Unable to fetch creative question set' });
@@ -484,7 +578,7 @@ export const updateCreativeQuestionSet = async (req, res) => {
  * PUT /creative-questions/:setId/question/:questionId
  * Admin: edit a single creative question inside the set.
  * Body may contain any of: id, chapterId, chapterNumber, chapter, source,
- * number, stimulus, stimulusBlocks, parts, answerNotes.
+ * number, stimulus, stimulusBlocks, stimulusImages, parts, answerNotes.
  */
 export const updateCreativeQuestion = async (req, res) => {
     try {
@@ -515,6 +609,7 @@ export const updateCreativeQuestion = async (req, res) => {
             'imageNeeded',
             'stimulus',
             'stimulusBlocks',
+            'stimulusImages',
             'parts',
             'answerNotes',
         ];

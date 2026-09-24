@@ -174,7 +174,7 @@ export default function QuestionTypeSelection() {
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
       <div className="sticky -top-1 z-20 border-b backdrop-blur-xl bg-[#111318]/95 border-[#23262D]">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex items-center gap-3.5">
             <button
               onClick={() => navigate(`/question-center/${examType}`, { state: location.state })}
@@ -202,7 +202,7 @@ export default function QuestionTypeSelection() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 pb-24">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 pb-24">
         <p className="text-sm mb-8 text-center text-[#6B7280]">
           Choose the type of questions you want to practice for{' '}
           <span className="font-semibold text-[#A1A8B3]">{subjectName}</span>

@@ -387,7 +387,7 @@ export default function QuestionView() {
                         {q.id}
                       </span>
                       
-                      <div className="text-base leading-relaxed font-medium flex-1 text-[#1a1a1a]">
+                      <div className="text-xl leading-relaxed font-semibold flex-1 text-[#1a1a1a]">
                         <FormattedQuestion text={q.question} />
                       </div>
                     </div>
@@ -436,7 +436,7 @@ export default function QuestionView() {
                             </div>
 
                             <span
-                              className={`flex-1 text-[15px] font-medium leading-snug transition-colors duration-200 font-serif ${
+                              className={`flex-1 text-[17px] font-semibold leading-snug transition-colors duration-200 font-serif ${
                                 showAsCorrect ? "text-[#1a1a1a] font-bold" : "text-[#4a4a4a]"
                               }`}
                             >
@@ -615,7 +615,7 @@ export default function QuestionView() {
                       {q.id}
                     </span>
                     
-                    <div className="text-base leading-relaxed font-medium flex-1 text-[#F5F7FA]">
+                    <div className="text-[21px] leading-relaxed font-medium flex-1 text-[#F5F7FA]">
                       <FormattedQuestion text={q.question} />
                     </div>
                   </div>
@@ -663,7 +663,7 @@ export default function QuestionView() {
                           </div>
 
                           <span
-                            className={`flex-1 text-base md:text-lg font-medium leading-snug transition-colors duration-200 ${
+                            className={`flex-1 text-base md:text-[18px] font-medium leading-snug transition-colors duration-200 ${
                               showAsCorrect ? "text-[#00E5B3]" : "text-[#C5CDD8]"
                             }`}
                           >

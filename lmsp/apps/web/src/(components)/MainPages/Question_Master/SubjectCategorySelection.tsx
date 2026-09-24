@@ -203,7 +203,7 @@ export default function SubjectCategorySelection() {
         }}
       >
         <div className="sticky -top-1 z-20 border-b border-[#d8d4cb] bg-[#f2efe9]/95 backdrop-blur-xl shadow-[0_3px_0px_0px_#1a1a1a]">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
+          <div className="max-w-8xl mx-auto px-4 sm:px-6 py-5">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-start sm:items-center gap-3.5">
                 <button
@@ -245,7 +245,7 @@ export default function SubjectCategorySelection() {
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-24">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-8 pb-24">
           <div className="mb-6 flex items-center justify-between">
             <p className="text-sm text-[#4a4a4a] font-serif italic">
               Choose a subject under <span className="font-bold text-[#1a1a1a]">{examName}</span> to view question sets and practice model tests.
@@ -411,7 +411,7 @@ export default function SubjectCategorySelection() {
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
       <div className="sticky -top-1 z-20 border-b backdrop-blur-xl bg-[#111318]/95 border-[#23262D]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <button
@@ -453,7 +453,7 @@ export default function SubjectCategorySelection() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-24">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 py-8 pb-24">
         <div className="mb-6 flex items-center justify-between">
           <p className="text-sm text-[#A1A8B3]">
             Choose a subject under <span className="font-semibold text-[#F5F7FA]">{examName}</span> to view question sets and practice model tests.

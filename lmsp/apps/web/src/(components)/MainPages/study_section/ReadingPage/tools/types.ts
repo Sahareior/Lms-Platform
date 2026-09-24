@@ -6,12 +6,22 @@ export interface SourceInfo {
   raw: string;
 }
 
+/** An image attached to a stimulus, part question or part answer. */
+export interface QuestionImage {
+  url: string;
+  caption?: string;
+}
+
 export interface QuestionPart {
   label: string; // 'ক' | 'খ' | 'গ' | 'ঘ'
   text: string;
   marks: number;
   cognitiveType: string; // 'জ্ঞানমূলক' | 'অনুধাবন' | 'প্রয়োগ' | 'উচ্চতর দক্ষতা'
   answer: string;
+  /** Images shown with the question text (figures/diagrams to look at). */
+  questionImages?: QuestionImage[];
+  /** Images revealed together with the answer. */
+  answerImages?: QuestionImage[];
   modelAnswers?: string[];
 }
 
@@ -30,6 +40,8 @@ export interface CreativeQuestion {
   number: number;
   stimulus: string;
   stimulusBlocks?: StimulusBlock[];
+  /** Images rendered inside the উদ্দীপক box. */
+  stimulusImages?: QuestionImage[];
   parts: QuestionPart[];
   answerNotes?: string;
   answerBlocks?: any[];

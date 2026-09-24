@@ -85,7 +85,7 @@ const QuestionCard = React.memo(function QuestionCard({
           )}
         </div>
 
-        <div className="text-[19px] font-medium leading-relaxed text-[#1a1a1a] mb-6 font-serif relative z-10">
+        <div className="text-[21px] font-semibold leading-relaxed text-[#1a1a1a] mb-6 font-serif relative z-10">
           <FormattedQuestion text={q.question} />
         </div>
 
@@ -95,7 +95,7 @@ const QuestionCard = React.memo(function QuestionCard({
             <p className="text-xs font-black uppercase tracking-widest text-[#b91c1c] mb-2 font-serif">
               Scenario / Passage
             </p>
-            <p className="text-sm leading-relaxed text-[#1a1a1a] whitespace-pre-line font-serif">
+            <p className="text-[21px] font-semibold leading-relaxed text-[#1a1a1a] whitespace-pre-line font-serif">
               {q.scenarioText}
             </p>
           </div>
@@ -147,7 +147,7 @@ const QuestionCard = React.memo(function QuestionCard({
                   {getBengaliLetter(optIndex)}
                 </div>
                 <span
-                  className={`text-[15px] font-serif ${
+                  className={`text-[18px] font-semibold font-serif ${
                     isSubmitted && isRightAnswer
                       ? "text-[#1a1a1a] font-bold"
                       : isSubmitted && isSelected && !isRightAnswer

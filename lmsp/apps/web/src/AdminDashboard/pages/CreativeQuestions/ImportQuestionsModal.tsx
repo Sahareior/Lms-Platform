@@ -146,6 +146,41 @@ export const ImportQuestionsModal: React.FC<ImportQuestionsModalProps> = ({
       }
       if (!Array.isArray(q.parts)) {
         issues.push(`${at}: "parts" must be an array of { label, text, answer }`);
+      } else {
+        q.parts.forEach((p: any, pi: number) => {
+          const atPart = `${at}, part #${pi + 1}`;
+          // Image arrays: each entry needs a url; caption is optional string.
+          for (const key of ['questionImages', 'answerImages'] as const) {
+            const arr = p?.[key];
+            if (arr === undefined || arr === null) continue;
+            if (!Array.isArray(arr)) {
+              issues.push(`${atPart}: "${key}" must be an array of { url, caption? }`);
+              continue;
+            }
+            arr.forEach((img: any, ii: number) => {
+              if (!img || typeof img !== 'object' || typeof img.url !== 'string' || !img.url.trim()) {
+                issues.push(`${atPart}: "${key}[${ii}]" must be an object with a "url" string`);
+              } else if (img.caption !== undefined && img.caption !== null && typeof img.caption !== 'string') {
+                issues.push(`${atPart}: "${key}[${ii}].caption" must be a string`);
+              }
+            });
+          }
+        });
+      }
+      // Stimulus images: each entry needs a url; caption is optional string.
+      const sImages = q.stimulusImages;
+      if (sImages !== undefined && sImages !== null) {
+        if (!Array.isArray(sImages)) {
+          issues.push(`${at}: "stimulusImages" must be an array of { url, caption? }`);
+        } else {
+          sImages.forEach((img: any, ii: number) => {
+            if (!img || typeof img !== 'object' || typeof img.url !== 'string' || !img.url.trim()) {
+              issues.push(`${at}: "stimulusImages[${ii}]" must be an object with a "url" string`);
+            } else if (img.caption !== undefined && img.caption !== null && typeof img.caption !== 'string') {
+              issues.push(`${at}: "stimulusImages[${ii}].caption" must be a string`);
+            }
+          });
+        }
       }
     });
     return issues;

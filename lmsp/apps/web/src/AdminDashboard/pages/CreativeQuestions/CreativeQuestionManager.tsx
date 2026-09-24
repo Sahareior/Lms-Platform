@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Card,
@@ -7,6 +7,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Pagination,
   Segmented,
   Select,
   Space,
@@ -32,18 +33,23 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  useGetCreativeQuestionSetByIdQuery,
+  useCQSetQuestions,
   useUpdateCreativeQuestionSetMutation,
   useUpdateCreativeQuestionMutation,
   useDeleteCreativeQuestionMutation,
   type CQQuestion,
   type CQPart,
+  type CQImage,
 } from '@my-monorepo/store';
+import MediaUpload from '../../../reusable/MediaUpload';
 import { useAdminTheme } from '../../ThemeContext';
 import ImportQuestionsModal from './ImportQuestionsModal';
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;
+
+/** Questions listed per page in the manager. */
+const PAGE_SIZE = 100;
 
 /** Form state for one question (all fields editable as plain text). */
 interface QuestionFormState {
@@ -54,6 +60,7 @@ interface QuestionFormState {
   number: number;
   imageNeeded: boolean;
   stimulus: string;
+  stimulusImages: CQImage[];
   board: string;
   year: string;
   questionNo: string;
@@ -64,6 +71,8 @@ interface QuestionFormState {
     marks: number;
     cognitiveType: string;
     answer: string;
+    questionImages: CQImage[];
+    answerImages: CQImage[];
   }>;
 }
 
@@ -83,6 +92,7 @@ const toFormState = (q: CQQuestion): QuestionFormState => ({
   number: q.number,
   imageNeeded: q.imageNeeded ?? false,
   stimulus: q.stimulus ?? '',
+  stimulusImages: q.stimulusImages ?? [],
   board: q.source?.board ?? '',
   year: q.source?.year ?? '',
   questionNo: q.source?.questionNo ?? '',
@@ -93,6 +103,8 @@ const toFormState = (q: CQQuestion): QuestionFormState => ({
     marks: p.marks ?? 0,
     cognitiveType: p.cognitiveType ?? '',
     answer: p.answer ?? '',
+    questionImages: p.questionImages ?? [],
+    answerImages: p.answerImages ?? [],
   })),
 });
 
@@ -104,6 +116,7 @@ const toPayload = (form: QuestionFormState): Partial<CQQuestion> => ({
   number: form.number,
   imageNeeded: form.imageNeeded ?? false,
   stimulus: form.stimulus,
+  stimulusImages: form.stimulusImages,
   source: {
     kind: 'board',
     board: form.board,
@@ -115,12 +128,69 @@ const toPayload = (form: QuestionFormState): Partial<CQQuestion> => ({
   answerNotes: form.answerNotes,
 });
 
+/** A small image editor row: URL preview, caption input, remove button. */
+const CQImageRow: React.FC<{
+  image: CQImage;
+  onCaptionChange: (caption: string) => void;
+  onRemove: () => void;
+  isDark: boolean;
+}> = ({ image, onCaptionChange, onRemove, isDark }) => (
+  <div
+    style={{
+      display: 'flex',
+      gap: 8,
+      alignItems: 'flex-start',
+      padding: 8,
+      borderRadius: 8,
+      border: `1px solid ${isDark ? '#222222' : '#e0dcd5'}`,
+      background: isDark ? '#0d0d0d' : '#faf8f5',
+      marginBottom: 6,
+    }}
+  >
+    <img
+      src={image.url}
+      alt={image.caption || 'Question image'}
+      style={{
+        width: 72,
+        height: 54,
+        objectFit: 'cover',
+        borderRadius: 6,
+        border: `1px solid ${isDark ? '#333' : '#ccc'}`,
+        flexShrink: 0,
+      }}
+    />
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <Input
+        size="small"
+        placeholder="Caption (optional, e.g. চিত্র-১)"
+        value={image.caption ?? ''}
+        onChange={(e) => onCaptionChange(e.target.value)}
+        style={{ background: isDark ? '#111111' : '#ffffff', marginBottom: 4 }}
+      />
+      <Text type="secondary" style={{ fontSize: 11, wordBreak: 'break-all' }}>
+        {image.url}
+      </Text>
+    </div>
+    <Button size="small" danger type="text" icon={<DeleteOutlined />} onClick={onRemove} />
+  </div>
+);
+
 const CreativeQuestionManager: React.FC = () => {
   const { setId } = useParams<{ setId: string }>();
   const navigate = useNavigate();
   const { isDark } = useAdminTheme();
 
-  const { data: set, isLoading, isError, refetch, isFetching } = useGetCreativeQuestionSetByIdQuery(setId ?? '', { skip: !setId });
+  // Paged fetch: first 100 questions render immediately, remaining pages
+  // load in the background and merge in server order.
+  const {
+    data: set,
+    questions: setQuestions,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+    hasAllPages,
+  } = useCQSetQuestions(setId, { skip: !setId });
   const [updateSet] = useUpdateCreativeQuestionSetMutation();
   const [updateQuestion] = useUpdateCreativeQuestionMutation();
   const [deleteQuestion] = useDeleteCreativeQuestionMutation();
@@ -147,7 +217,10 @@ const CreativeQuestionManager: React.FC = () => {
   const [filterChapter, setFilterChapter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const questions = useMemo(() => set?.questions ?? [], [set]);
+  // ── Pagination state (100 questions per page) ──
+  const [page, setPage] = useState(1);
+
+  const questions = setQuestions;
 
   // Helpers to test content completeness
   const hasEmptyAnswer = useCallback((q: CQQuestion) => {
@@ -222,9 +295,20 @@ const CreativeQuestionManager: React.FC = () => {
     setEditing(toFormState(q));
   }, []);
 
+  /* Reset to page 1 whenever filters change. */
+  useEffect(() => {
+    setPage(1);
+  }, [filterStatus, filterChapter, searchQuery]);
+
   const openCreate = useCallback(() => {
     if (questions.length === 0) {
       message.warning('Upload a JSON file first — new questions inherit the chapter of existing ones.');
+      return;
+    }
+    // Adding sends the full questions array back to the server — only safe
+    // once every page has loaded, otherwise unloaded pages would be lost.
+    if (!hasAllPages) {
+      message.warning('Still loading all questions — please try again in a moment.');
       return;
     }
     const first = questions[0];
@@ -237,13 +321,18 @@ const CreativeQuestionManager: React.FC = () => {
       number: Math.max(...questions.map((q) => q.number)) + 1,
       imageNeeded: false,
       stimulus: '',
+      stimulusImages: [],
       board: first.source?.board ?? '',
       year: first.source?.year ?? '',
       questionNo: '',
       answerNotes: '',
-      parts: [emptyPart('ক'), emptyPart('খ'), emptyPart('গ'), emptyPart('ঘ')],
+      parts: [emptyPart('ক'), emptyPart('খ'), emptyPart('গ'), emptyPart('ঘ')].map((p) => ({
+        ...p,
+        questionImages: [],
+        answerImages: [],
+      })),
     });
-  }, [questions]);
+  }, [questions, hasAllPages]);
 
   const handleSave = useCallback(async () => {
     if (!set || !editing) return;
@@ -264,6 +353,14 @@ const CreativeQuestionManager: React.FC = () => {
           data: { questions: [...questions, toPayload(editing) as CQQuestion] },
         }).unwrap();
         message.success('Question added');
+        // Jump to the last page so the newly appended question is visible.
+        const nextCount = set?.totalQuestions ? set.totalQuestions + 1 : questions.length + 1;
+        setPage(Math.max(1, Math.ceil(nextCount / PAGE_SIZE)));
+      } else if (!hasAllPages && !questions.some((q) => q.id === editing.id)) {
+        // Editing a question not in the loaded pages would drop it on save.
+        message.warning('That question is still loading — please try again in a moment.');
+        setSaving(false);
+        return;
       } else {
         await updateQuestion({
           setId: set._id,
@@ -284,7 +381,7 @@ const CreativeQuestionManager: React.FC = () => {
     } finally {
       setSaving(false);
     }
-  }, [set, editing, editingIsNew, questions, updateSet, updateQuestion, refetch]);
+  }, [set, editing, editingIsNew, questions, hasAllPages, updateSet, updateQuestion, refetch]);
 
   const handleDelete = useCallback(async () => {
     if (!set || !deleteTarget) return;
@@ -357,6 +454,15 @@ const CreativeQuestionManager: React.FC = () => {
     return [...map.values()];
   }, [questions]);
 
+  /* ── Pagination slice: 100 questions per page ── */
+  const pageCount = Math.max(1, Math.ceil(filteredQuestions.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pagedQuestions = useMemo(
+    () =>
+      filteredQuestions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filteredQuestions, safePage]
+  );
+
   const updateEditing = (patch: Partial<QuestionFormState>) =>
     setEditing((prev) => (prev ? { ...prev, ...patch } : prev));
 
@@ -411,7 +517,9 @@ const CreativeQuestionManager: React.FC = () => {
             </Title>
             <Space size={4} wrap>
               <Text type="secondary">
-                {questions.length} questions · {chapterOptions.length} chapters
+                {set?.totalQuestions ?? questions.length} questions · {chapterOptions.length}{' '}
+                chapters
+                {pageCount > 1 && ` · page ${safePage}/${pageCount}`}
               </Text>
               {set.examVersion && typeof set.examVersion === 'object' && (
                 <Tag>v{set.examVersion.examVersion}</Tag>
@@ -596,7 +704,7 @@ const CreativeQuestionManager: React.FC = () => {
               </Empty>
             </div>
           )}
-          {filteredQuestions.map((q) => {
+          {pagedQuestions.map((q) => {
             const missingParts = getMissingAnswerParts(q);
             const questionHasEmptyAns = hasEmptyAnswer(q);
             const questionHasEmptyText = hasEmptyQuestionText(q);
@@ -726,6 +834,20 @@ const CreativeQuestionManager: React.FC = () => {
               </div>
             );
           })}
+
+          {/* ── Pagination: 100 questions per page ── */}
+          {pageCount > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12 }}>
+              <Pagination
+                current={safePage}
+                total={filteredQuestions.length}
+                pageSize={PAGE_SIZE}
+                onChange={(p) => setPage(p)}
+                showSizeChanger={false}
+                showQuickJumper
+              />
+            </div>
+          )}
         </div>
       </Card>
 
@@ -822,6 +944,60 @@ const CreativeQuestionManager: React.FC = () => {
                 onChange={(e) => updateEditing({ stimulus: e.target.value })}
                 style={{ background: inputBg }}
               />
+              {/* Stimulus images (উদ্দীপক চিত্র) */}
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: 10,
+                  borderRadius: 8,
+                  border: `1px dashed ${isDark ? '#333' : '#c9c4ba'}`,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text strong style={{ fontSize: 12 }}>
+                    <PictureOutlined /> উদ্দীপক চিত্র (stimulus images)
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    {editing.stimulusImages.length} image(s)
+                  </Text>
+                </div>
+                {editing.stimulusImages.map((img, imgIdx) => (
+                  <CQImageRow
+                    key={imgIdx}
+                    image={img}
+                    isDark={isDark}
+                    onCaptionChange={(caption) =>
+                      updateEditing({
+                        stimulusImages: editing.stimulusImages.map((im, j) =>
+                          j === imgIdx ? { ...im, caption } : im
+                        ),
+                      })
+                    }
+                    onRemove={() =>
+                      updateEditing({
+                        stimulusImages: editing.stimulusImages.filter((_, j) => j !== imgIdx),
+                      })
+                    }
+                  />
+                ))}
+                <MediaUpload
+                  type="image"
+                  label="Add stimulus image"
+                  value={undefined}
+                  onChange={(url) =>
+                    updateEditing({
+                      stimulusImages: [...editing.stimulusImages, { url, caption: '' }],
+                    })
+                  }
+                />
+              </div>
             </div>
 
             {/* Image needed toggle switch */}
@@ -924,6 +1100,90 @@ const CreativeQuestionManager: React.FC = () => {
                     onChange={(e) => updatePart(i, { answer: e.target.value })}
                     style={{ background: inputBg }}
                   />
+                  {/* Question images (প্রশ্নের চিত্র) — always visible to students */}
+                  <div
+                    style={{
+                      marginTop: 10,
+                      padding: 10,
+                      borderRadius: 8,
+                      border: `1px dashed ${isDark ? '#333' : '#c9c4ba'}`,
+                    }}
+                  >
+                    <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                      <PictureOutlined /> প্রশ্নের চিত্র (question images)
+                    </Text>
+                    {p.questionImages.map((img, imgIdx) => (
+                      <CQImageRow
+                        key={imgIdx}
+                        image={img}
+                        isDark={isDark}
+                        onCaptionChange={(caption) =>
+                          updatePart(i, {
+                            questionImages: p.questionImages.map((im, j) =>
+                              j === imgIdx ? { ...im, caption } : im
+                            ),
+                          })
+                        }
+                        onRemove={() =>
+                          updatePart(i, {
+                            questionImages: p.questionImages.filter((_, j) => j !== imgIdx),
+                          })
+                        }
+                      />
+                    ))}
+                    <MediaUpload
+                      type="image"
+                      label="Add question image"
+                      value={undefined}
+                      onChange={(url) =>
+                        updatePart(i, {
+                          questionImages: [...p.questionImages, { url, caption: '' }],
+                        })
+                      }
+                    />
+                  </div>
+                  {/* Answer images (উত্তরের চিত্র) — shown when answer is revealed */}
+                  <div
+                    style={{
+                      marginTop: 8,
+                      padding: 10,
+                      borderRadius: 8,
+                      border: `1px dashed ${isDark ? '#333' : '#c9c4ba'}`,
+                    }}
+                  >
+                    <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                      <PictureOutlined /> উত্তরের চিত্র (answer images)
+                    </Text>
+                    {p.answerImages.map((img, imgIdx) => (
+                      <CQImageRow
+                        key={imgIdx}
+                        image={img}
+                        isDark={isDark}
+                        onCaptionChange={(caption) =>
+                          updatePart(i, {
+                            answerImages: p.answerImages.map((im, j) =>
+                              j === imgIdx ? { ...im, caption } : im
+                            ),
+                          })
+                        }
+                        onRemove={() =>
+                          updatePart(i, {
+                            answerImages: p.answerImages.filter((_, j) => j !== imgIdx),
+                          })
+                        }
+                      />
+                    ))}
+                    <MediaUpload
+                      type="image"
+                      label="Add answer image"
+                      value={undefined}
+                      onChange={(url) =>
+                        updatePart(i, {
+                          answerImages: [...p.answerImages, { url, caption: '' }],
+                        })
+                      }
+                    />
+                  </div>
                   {editing.parts.length > 1 && (
                     <Button
                       size="small"

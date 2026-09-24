@@ -59,7 +59,7 @@ export default function ExamCategorySelection() {
         }}
       >
         <div className="backdrop-blur-xl border-b border-[#d8d4cb] bg-[#f2efe9]/95 shadow-[0_3px_0px_0px_#1a1a1a]">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+          <div className="max-w-8xl mx-auto px-4 sm:px-6 py-6">
             <div className="text-center">
               <div className="inline-flex items-center gap-1.5 text-[10px] font-black px-3.5 py-1.5 rounded-full uppercase tracking-widest mb-4 border border-[#1a1a1a] bg-[#f2efe9] text-[#1a1a1a] font-serif">
                 <Star size={11} className="fill-[#1a1a1a]" />
@@ -77,7 +77,7 @@ export default function ExamCategorySelection() {
         </div>
 
         {/* Content */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-8 pb-20">
           {/* Loading state */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -179,7 +179,7 @@ export default function ExamCategorySelection() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 py-8 pb-20">
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 size={36} className="text-[#9B51E0] animate-spin" />
