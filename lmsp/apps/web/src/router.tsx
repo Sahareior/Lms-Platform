@@ -113,7 +113,7 @@ const router = createBrowserRouter([
       </Suspense>
     ),
   },
-  // Old /landing URL → redirect to the new home
+  // Old /landing URL → redirect to the new homei wana consistance padding md:p-4 p-1 to all my pages
   {
     path: '/landing',
     element: <Navigate to="/" replace />,

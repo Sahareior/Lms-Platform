@@ -302,10 +302,10 @@ const ExplanationView: React.FC<{ raw: string; isDark: boolean }> = ({ raw, isDa
               return (
                 <div
                   key={idx}
-                  className="bg-[#f2efe9] border border-[#d8d4cb] rounded-md p-4 md:p-5 shadow-[2px_2px_0px_0px_#1a1a1a]"
+                  className="bg-[#f2efe9]  rounded-md p-4 md:p-5 shadow-[2px_2px_0px_0px_#1a1a1a]"
                 >
                   <div className="flex items-center gap-2.5 mb-2">
-                    <div className="w-8 h-8 shrink-0 rounded-md bg-[#1a1a1a] border border-[#1a1a1a] flex items-center justify-center text-[#f2efe9]">
+                    <div className="w-8 h-8 shrink-0 rounded-md bg-[#1a1a1a]  flex items-center justify-center text-[#f2efe9]">
                       <Lightbulb size={17} />
                     </div>
                     <div>
@@ -814,7 +814,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
               <p className="text-sm text-[#4a4a4a] font-serif italic">Detailed Explanation</p>
             </div>
           </div>
-          <div className="bg-[#f7f3ec] border border-[#d8d4cb] rounded-md p-4 shadow-[1px_1px_0px_0px_#1a1a1a]">
+          <div className="bg-[#f7f3ec]  rounded-md  shadow-[1px_1px_0px_0px_#1a1a1a]">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-4 space-y-3">
                 <Loader2 size={24} className="text-[#b91c1c] animate-spin" />
@@ -991,7 +991,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
     return (
       <div className="space-y-5">
-        <div className="bg-[#00E5B3]/5 border border-[#00E5B3]/20 rounded-xl p-5">
+        <div className="bg-[#00E5B3]/5 border border-[#00E5B3]/20 rounded-xl p-1">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-full bg-[#00E5B3]/10 border border-[#00E5B3]/30 flex items-center justify-center">
               <CheckCircle size={22} className="text-[#00E5B3]" />
@@ -1005,7 +1005,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#9B51E0]/5 border border-[#9B51E0]/20 rounded-xl p-5">
+        <div className="bg-[#9B51E0]/5 border border-[#9B51E0]/20 rounded-xl p-1">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-full bg-[#9B51E0]/10 border border-[#9B51E0]/30 flex items-center justify-center">
               <BookOpen size={20} className="text-[#9B51E0]" />
