@@ -100,21 +100,30 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
     return <Navigate to="/dashboard" replace />;
   }
 
-  /* ── 4. Wait for fresh /auth/me before onboarding check ── */
-  if (isUserLoading) {
+  /* ── 4. Use effective user (cached/persisted or freshly fetched) ── */
+  const effectiveUser = userData || user;
+
+  // Only block if we have no user data at all and are currently fetching
+  if (!effectiveUser && isUserLoading) {
     return <SessionLoading message="Loading your profile…" />;
   }
 
   /* ── 5. First-time onboarding gate ─────────────────────── */
-  const isStudent = userData?.role !== 'admin';
+  const isStudent = effectiveUser?.role !== 'admin';
   const hasNoExams = !(
-    userData?.selectedExams && userData.selectedExams.length > 0
+    effectiveUser?.selectedExams && effectiveUser.selectedExams.length > 0
   );
+
+  // If user has no exams according to local cache, wait for fresh /auth/me
+  // before jumping to /onboarding to avoid false redirects.
+  if (hasNoExams && isUserLoading) {
+    return <SessionLoading message="Loading your profile…" />;
+  }
 
   // Only redirect when the user document actually loaded — this avoids
   // bouncing students to /onboarding on a failed /auth/me request.
   if (
-    userData &&
+    effectiveUser &&
     isStudent &&
     hasNoExams &&
     location.pathname !== '/onboarding'

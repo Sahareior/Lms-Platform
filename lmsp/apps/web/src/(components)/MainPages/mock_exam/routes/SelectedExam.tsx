@@ -219,10 +219,10 @@ const SelectedExam = () => {
   return (
     <div>
       {location.pathname === "/mock-exam/selected-exam" ? (
-        <div className={`min-h-screen py-4 sm:py-6 md:py-8 px-3 sm:px-4 md:px-6 lg:px-8 ${
+        <div className={`min-h-screen py-4 sm:py-6 md:py-8 md:px-4 px-1 ${
           isDark ? "bg-[#0B0D12] text-[#F5F7FA]" : "bg-[#e8e4db] text-[#1a1a1a]"
         }`}>
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-6xl  mx-auto">
             {/* Back button */}
             <button
               onClick={() => navigate("/mock-exam")}
@@ -237,7 +237,7 @@ const SelectedExam = () => {
             </button>
 
             {/* Header */}
-            <div className="mb-6 sm:mb-8">
+            <div className="mb-6 md:px-6 sm:mb-8">
               <h1 className={`text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight mb-1 ${
                 isDark ? "" : "font-serif font-black text-[#1a1a1a]"
               }`}>
@@ -276,7 +276,7 @@ const SelectedExam = () => {
               </div>
             ) : (
               /* Exam list */
-              <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-3  sm:space-y-4">
                 {availableExams.map((scheduled: ScheduleExam) => {
                   const isParticipated = isExamParticipated(scheduled);
                   const isOngoing = !isParticipated && isExamOngoing(scheduled);

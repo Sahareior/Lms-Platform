@@ -22,7 +22,7 @@ const LandingFooter = () => {
             {/* Brand */}
             <div className="max-w-[300px]">
               <Link to="/" aria-label="Geneseon home" className="inline-flex items-center gap-2.5 mb-4">
-                <img className="w-9" src="/logo1.png" alt="" />
+                <img className="w-9" src="/logo1.webp" alt="" />
                 <span className="text-sm font-black tracking-[0.3em] text-[#1a1a1a] font-serif">
                   GENESEON
                 </span>
@@ -89,7 +89,7 @@ const LandingFooter = () => {
           {/* Brand */}
           <div className="max-w-[300px]">
             <Link to="/" aria-label="Geneseon home" className="inline-flex items-center gap-2.5 mb-4">
-              <img className="w-9" src="/logo1.png" alt="" />
+              <img className="w-9" src="/logo1.webp" alt="" />
               <span className="text-sm font-medium tracking-[0.3em] text-white">
                 GENESEON
               </span>

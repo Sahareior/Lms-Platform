@@ -310,18 +310,18 @@ const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
         </div>
       </div>
 
-      <div className="py-3 px-3 space-y-3.5">
+      <div className="py-3  space-y-3.5">
         {/* ── উদ্দীপক ─────────────────────────────────────────── */}
         {question.stimulus && (
           <div
-            className={`relative p-3 md:p-4  transition-all ${isDark
+            className={`relative p-3 md:p-4 transition-all ${isDark
               ? 'bg-gradient-to-br from-[#161920] to-[#12141a] border-[#2A2E39]'
-              : 'bg-yellow-100 border-t border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
+              : 'bg-slate-100 border-t border-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
               }`}
           >
             <div className="flex items-center gap-2 mb-2">
               <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest ${isDark
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[14px] uppercase tracking-widest ${isDark
                   ? 'bg-indigo-500/20 text-indigo-400 font-bold'
                   : 'bg-[#1a1a1a] text-[#f2efe9] font-black font-serif'
                   }`}
@@ -329,7 +329,7 @@ const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
                 উদ্দীপক
               </span>
               <span
-                className={`text-[11px] ${isDark ? 'text-[#6B7280]' : 'text-[#333] font-serif'
+                className={`text-[14px] ${isDark ? 'text-[#6B7280]' : 'text-[#333] font-serif'
                   }`}
               >
                 মনোযোগ সহকারে পড়ে উত্তর দাও:
@@ -375,7 +375,7 @@ const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
               return (
                 <div
                   key={part.label}
-                  className={` border-t space-y-1 transition-all ${isDark
+                  className={`border-t px-3 md:px-4 space-y-1 transition-all ${isDark
                     ? 'bg-[#141720] border-[#23262D] hover:border-[#2C313C]'
                     : 'bg-[#faf8f5] border-t border-[#1a1a1a]'
                     }`}
@@ -395,7 +395,7 @@ const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5 mb-1">
                           <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark
+                            className={`text-[14px] px-1.5 py-0.5 rounded border ${isDark
                               ? badgeStyle.dark
                               : 'bg-[#e0dcd5] text-[#1a1a1a] border-[#1a1a1a] font-black font-serif uppercase tracking-wider'
                               }`}
@@ -410,7 +410,7 @@ const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
                                     : 'উচ্চতর দক্ষতা')}
                           </span>
                           <span
-                            className={`text-[10px] font-bold ${isDark ? 'text-[#A1A8B3]' : 'text-[#333] font-serif'
+                            className={`text-[14px] font-bold ${isDark ? 'text-[#A1A8B3]' : 'text-[#333] font-serif'
                               }`}
                           >
                             [নম্বর:{' '}
@@ -441,12 +441,12 @@ const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
                         <button
                           type="button"
                           onClick={() => togglePartAnswer(part.label)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[13px] transition-all ${isAnswerOpen
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[15px] transition-all ${isAnswerOpen
                             ? isDark
-                              ? 'bg-[#2F80ED]/20 text-[#2F80ED] border border-[#2F80ED]/40 font-semibold'
+                              ? 'bg-[#2F80ED]/20 text-[#2F80ED] border border-[#2F80ED]/40 font-medium'
                               : 'bg-[#1a1a1a] text-[#f2efe9] border border-[#1a1a1a] font-black font-serif'
                             : isDark
-                              ? 'bg-[#1C1F26] text-[#A1A8B3] font-semibold hover:text-[#F5F7FA] hover:bg-[#23262D]'
+                              ? 'bg-[#1C1F26] text-[#A1A8B3] font-medium hover:text-[#F5F7FA] hover:bg-[#23262D]'
                               : 'bg-[#f2efe9] border border-[#1a1a1a] text-[#1a1a1a] font-bold font-serif hover:bg-[#e0dcd5]'
                             }`}
                         >
@@ -463,15 +463,7 @@ const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
                           : 'bg-[#f2efe9] border border-[#1a1a1a] text-[#1a1a1a]'
                           }`}
                       >
-                        <div
-                          className={`flex items-center gap-1 mb-1.5 text-[10px] uppercase tracking-widest ${isDark
-                            ? 'text-[#00E5B3] font-bold'
-                            : 'text-[#b91c1c] font-black font-serif'
-                            }`}
-                        >
-                          <CheckCircle2 size={11} />
-                          <span>উত্তর</span>
-                        </div>
+                       
 
                         {part.answer ? (
                           <div
@@ -508,9 +500,9 @@ const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
         )}
 
         {/* ── Answer Notes ───────────────────────────────────── */}
-        {question.answerNotes && question.answerNotes.trim().length > 0 && (
+        {/* {question.answerNotes && question.answerNotes.trim().length > 0 && (
           <div
-            className={`rounded-lg border p-3 transition-all ${isDark
+            className={`rounded-lg border p-3 md:p-4 transition-all ${isDark
               ? 'bg-[#161920] border-indigo-500/30 text-[#E5E9F0]'
               : 'bg-[#faf8f5] border-2 border-[#1a1a1a] text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]'
               }`}
@@ -554,7 +546,7 @@ const CQQuestionCardBase: React.FC<CQQuestionCardProps> = ({
               </div>
             )}
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );

@@ -5,7 +5,8 @@ import { SharedProviders, configureApi } from '@my-monorepo/store'
 import AuthInitializer from './auth/AuthInitializer'
 import router from './router'
 import './index.css'
-import SmoothScroll from './tools/SmoothScroll'
+// SmoothScroll (Lenis+GSAP) removed: the 60fps rAF loop was causing
+// navigation delays on mobile. CSS scroll-behavior: smooth is used instead.
 import GamificationToastHost from './gamification/GamificationToast'
 import { ThemeProvider, useTheme } from './theme/ThemeContext'
 import { NavigationProvider } from './navigation/NavigationContext'
@@ -64,9 +65,7 @@ createRoot(document.getElementById('root')!).render(
         <ThemeProvider>
           <NavigationProvider>
             <Suspense fallback={<PageFallback />}>
-              <SmoothScroll>
-                <RouterProvider router={router} />
-              </SmoothScroll>
+              <RouterProvider router={router} />
               {/* App-wide XP / level-up notifications */}
               <GamificationToastHost />
             </Suspense>

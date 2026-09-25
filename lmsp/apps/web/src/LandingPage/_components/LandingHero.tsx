@@ -1,8 +1,14 @@
+import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { gradientBtn } from "../landingTools/landingTools";
-import EarthCanvas from "../../threejs/EarthCanvas";
 import { useTheme } from "../../theme/ThemeContext";
+
+// Lazy-load the heavy Three.js earth (600KB JS + ~12MB textures)
+const EarthCanvas = lazy(() => import("../../threejs/EarthCanvas"));
+
+// Transparent placeholder while the 3D scene loads
+const EarthFallback = () => <div className="absolute inset-0" />;
 
 const LandingHero = () => {
   const { isDark } = useTheme();
@@ -18,7 +24,9 @@ const LandingHero = () => {
         <div className="absolute inset-0">
           {/* Earth canvas kept as texture, but visually faded into paper */}
           <div className="absolute inset-0 opacity-30">
-            <EarthCanvas />
+            <Suspense fallback={<EarthFallback />}>
+              <EarthCanvas />
+            </Suspense>
           </div>
 
           {/* Cream overlay for vintage paper look */}
@@ -131,7 +139,9 @@ const LandingHero = () => {
     >
       {/* HERO BACKGROUND (THREE.JS 3D EARTH) */}
       <div className="absolute inset-0">
-        <EarthCanvas />
+        <Suspense fallback={<EarthFallback />}>
+          <EarthCanvas />
+        </Suspense>
 
         {/* Dark overlay for left content readability */}
         <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-[#020409] via-[#020409]/75 via-[48%] to-transparent" />

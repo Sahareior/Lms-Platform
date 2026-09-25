@@ -487,7 +487,7 @@ const AIChatInterface = () => {
    };
 
    return (
-      <div className={`w-full md:h-[calc(100dvh-40px)] h-full font-sans overflow-hidden ${c.outerBg}`}>
+      <div className={`w-full  md:h-[calc(100dvh-40px)] h-full font-sans overflow-hidden ${c.outerBg}`}>
          <main className={`w-full min-h-0 flex flex-col h-full rounded-2xl border relative overflow-hidden ${c.mainCard}`}>
             {/* --- Header --- */}
             <header className={`border-b md:p-4 p-1  flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-10 ${c.header}`}>

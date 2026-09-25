@@ -48,7 +48,7 @@ const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((o) => o.trim().replace(/\/$/, ''))
   .filter(Boolean);
-const defaultOrigins = ['http://localhost:5173', 'https://geneseon.netlify.app', 'http://localhost:8081'];
+const defaultOrigins = ['http://localhost:5173', 'https://geneseon.netlify.app', 'https://astonishing-cannoli-f915b5.netlify.app'];
 const corsOrigins = Array.from(new Set([...allowedOrigins, ...defaultOrigins])).map((o) => o.replace(/\/$/, ''));
 
 app.use(

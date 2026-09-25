@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, Suspense } from 'react';
 import { ConfigProvider, Layout, theme as antdTheme } from 'antd';
 import { useTheme } from './theme/ThemeContext';
 import {
@@ -6,7 +6,8 @@ import {
   LayoutGrid,
 } from 'lucide-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import Swal from 'sweetalert2';
+// Lazy-load SweetAlert2 — only pulled in when the user actually clicks logout
+const getSwal = () => import('sweetalert2').then(m => m.default);
 import {
   useAppDispatch,
   useAppSelector,
@@ -171,7 +172,7 @@ const App: React.FC = () => {
             <div className="p-6 pb-4 shrink-0">
               <div className="flex items-center gap-1">
                {
-                !isDark? (<img className="w-24" src="/a2.png" alt="" />):(<img className="w-24" src="/a.png" alt="" />)
+                !isDark? (<img className="w-24" src="/a2.webp" alt="" />):(<img className="w-24" src="/a.webp" alt="" />)
                }
                 <div>
                   <h1
@@ -254,7 +255,8 @@ const App: React.FC = () => {
                   </p>
                 </div>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    const Swal = await getSwal();
                     Swal.fire({
                       title: 'Are you sure?',
                       text: 'You will be logged out from your current session.',
@@ -342,7 +344,15 @@ const App: React.FC = () => {
                   </button>
                 </div>
               )}
-              <Outlet />
+              <Suspense
+                fallback={
+                  <div className="flex items-center justify-center py-32">
+                    <div className="h-7 w-7 animate-spin rounded-full border-2 border-current border-t-transparent opacity-40" />
+                  </div>
+                }
+              >
+                <Outlet />
+              </Suspense>
             </div>
           </Content>
         </Layout>

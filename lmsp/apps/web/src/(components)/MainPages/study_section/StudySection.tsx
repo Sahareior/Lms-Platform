@@ -112,7 +112,7 @@ const StudySection = () => {
         )}
 
         {/* ── Study Section Grid ────────────────────────────── */}
-        <div className="grid grid-cols-1 mt-5 md:mt-12 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 px-4 md:px-0 mt-5 md:mt-12 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {studyItems.map((item, index) => {
             if (isDark) {
               return (

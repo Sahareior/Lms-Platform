@@ -3,13 +3,18 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import ScrollToTop from './ScrollToTop';
 import Seo from './seo/Seo';
 import App from './App';
-import { Login, SignUp, ForgotPassword, ResetPassword } from './auth/AuthPages';
 import AuthGuard from './auth/AuthGuard';
-import HomeRedirect from './auth/HomeRedirect';
-import Omer from './(components)/MainPages/mock_exam/ExamPaper/omr/Omr';
-import PrivacyPolicy from './legal/PrivacyPolicy';
 import { useTheme } from './theme/ThemeContext';
 import { Loader2 } from 'lucide-react';
+
+// ─── Lazy-loaded route-level pages (previously eager) ────────
+const HomeRedirect = lazy(() => import('./auth/HomeRedirect'));
+const Login = lazy(() => import('./auth/AuthPages').then(m => ({ default: m.Login })));
+const SignUp = lazy(() => import('./auth/AuthPages').then(m => ({ default: m.SignUp })));
+const ForgotPassword = lazy(() => import('./auth/AuthPages').then(m => ({ default: m.ForgotPassword })));
+const ResetPassword = lazy(() => import('./auth/AuthPages').then(m => ({ default: m.ResetPassword })));
+const Omer = lazy(() => import('./(components)/MainPages/mock_exam/ExamPaper/omr/Omr'));
+const PrivacyPolicy = lazy(() => import('./legal/PrivacyPolicy'));
 
 const RouteLoadingFallback = () => {
   const { isDark } = useTheme();
@@ -113,23 +118,27 @@ const router = createBrowserRouter([
       </Suspense>
     ),
   },
-  // Old /landing URL → redirect to the new home
+  // Old /landing URL → redirect to the new homei wana consistance padding md:p-4 p-1 to all my pages
   {
     path: '/landing',
     element: <Navigate to="/" replace />,
   },
   {
     path: 'omr',
-    element: <Omer />
+    element: (
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <Omer />
+      </Suspense>
+    ),
   },
 
   {
     element: (
-      <>
+      <Suspense fallback={<RouteLoadingFallback />}>
         <Seo />
         <ScrollToTop />
         <Outlet />
-      </>
+      </Suspense>
     ),
     children: [
       // ── Public Routes (no auth required) ──────────────────

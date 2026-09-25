@@ -59,7 +59,7 @@ export default function ExamCategorySelection() {
         }}
       >
         <div className="backdrop-blur-xl border-b border-[#d8d4cb] bg-[#f2efe9]/95 shadow-[0_3px_0px_0px_#1a1a1a]">
-          <div className="max-w-8xl mx-auto px-4 sm:px-6 py-6">
+          <div className="max-w-8xl mx-auto md:p-4 p-1 sm:px-6 py-6">
             <div className="text-center">
               <div className="inline-flex items-center gap-1.5 text-[10px] font-black px-3.5 py-1.5 rounded-full uppercase tracking-widest mb-4 border border-[#1a1a1a] bg-[#f2efe9] text-[#1a1a1a] font-serif">
                 <Star size={11} className="fill-[#1a1a1a]" />
@@ -77,7 +77,7 @@ export default function ExamCategorySelection() {
         </div>
 
         {/* Content */}
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-8 pb-20">
+        <div className="max-w-8xl mx-auto md:p-4 p-1 py-8 pb-20">
           {/* Loading state */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -96,14 +96,14 @@ export default function ExamCategorySelection() {
 
           {/* Exam Grid */}
           {user?.selectedExams && user?.selectedExams.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 px-4 md:px-0 gap-5">
               {user?.selectedExams.map((exam: Exam, idx: number) => {
                 const { icon, subtitle } = examMeta(exam.name);
                 return (
                   <button
                     key={exam._id}
                     onClick={() => navigate(`/question-center/${exam._id}`)}
-                    className="group relative flex h-full flex-col rounded-lg border transition-all duration-300 overflow-hidden text-left active:scale-[0.98] bg-[#f2efe9] border-[#d8d4cb] hover:border-[#1a1a1a] shadow-[3px_3px_0px_0px_#1a1a1a] hover:shadow-[4px_4px_0px_0px_#1a1a1a]"
+                    className="group md:w-80 relative flex h-full flex-col rounded-lg border transition-all duration-300 overflow-hidden text-left active:scale-[0.98] bg-[#f2efe9] border-[#d8d4cb] hover:border-[#1a1a1a] shadow-[3px_3px_0px_0px_#1a1a1a] hover:shadow-[4px_4px_0px_0px_#1a1a1a]"
                   >
                     {/* Top accent bar */}
                     <div className="h-1.5 w-full bg-[#b91c1c] transition-all duration-300 group-hover:h-2" />
@@ -195,7 +195,7 @@ export default function ExamCategorySelection() {
         )}
 
         {user?.selectedExams && user?.selectedExams.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 px-4 md:px-0 gap-5">
             {user?.selectedExams.map((exam: Exam, idx: number) => {
               const { icon, color, subtitle } = examMeta(exam.name);
               return (

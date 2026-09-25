@@ -294,7 +294,7 @@ export default function AvailableCourses() {
   if (!isDark) {
     return (
       <div
-        className="w-full text-[#1a1a1a] space-y-6 max-w-8xl p-4 mx-auto"
+        className="w-full text-[#1a1a1a] space-y-6 max-w-8xl md:p-4 p-1 mx-auto"
         style={{
           backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
           backgroundSize: '16px 16px',

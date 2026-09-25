@@ -203,7 +203,7 @@ export default function SubjectCategorySelection() {
         }}
       >
         <div className="sticky -top-1 z-20 border-b border-[#d8d4cb] bg-[#f2efe9]/95 backdrop-blur-xl shadow-[0_3px_0px_0px_#1a1a1a]">
-          <div className="max-w-8xl mx-auto px-4 sm:px-6 py-5">
+          <div className="max-w-8xl mx-auto md:px-4 px-1 py-5">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-start sm:items-center gap-3.5">
                 <button
@@ -245,7 +245,7 @@ export default function SubjectCategorySelection() {
           </div>
         </div>
 
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 py-8 pb-24">
+        <div className="max-w-8xl mx-auto px-1 md:px-4 py-8 pb-24">
           <div className="mb-6 flex items-center justify-between">
             <p className="text-sm text-[#4a4a4a] font-serif italic">
               Choose a subject under <span className="font-bold text-[#1a1a1a]">{examName}</span> to view question sets and practice model tests.
@@ -284,7 +284,7 @@ export default function SubjectCategorySelection() {
 
           {/* Subjects Grid */}
           {!isLoading && !isError && filteredSubjects.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 px-4 md:px-0 lg:grid-cols-3 gap-5">
               {filteredSubjects.map((subject) => {
                 const { icon, subtitle } = subjectMeta(subject.name);
 
@@ -489,7 +489,7 @@ export default function SubjectCategorySelection() {
         )}
 
         {!isLoading && !isError && filteredSubjects.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 px-4 md:px-0 lg:grid-cols-3 gap-5">
             {filteredSubjects.map((subject) => {
               const { icon, color, subtitle } = subjectMeta(subject.name);
 

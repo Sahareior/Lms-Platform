@@ -40,7 +40,7 @@ export default function CourseSelectionScreen({ enrolledCourses, onSelectCourse 
 
         {/* ────── COURSES GRID ────── */}
         {coursesList.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 px-4 md:px-0 gap-5">
             {coursesList.map((course: any) => {
               const _id = course._id || course.id;
               const title = course.title || 'Course Title';
@@ -140,7 +140,7 @@ export default function CourseSelectionScreen({ enrolledCourses, onSelectCourse 
 
       {/* ────── COURSES GRID ────── */}
       {coursesList.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 px-4 md:px-0 gap-5">
           {coursesList.map((course: any) => {
             const _id = course._id || course.id;
             const title = course.title || 'Course Title';

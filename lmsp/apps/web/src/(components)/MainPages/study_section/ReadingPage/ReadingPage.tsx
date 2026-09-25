@@ -77,7 +77,7 @@ const StatChip: React.FC<{
     accent?: boolean;
 }> = ({ label, value, isDark, accent }) => (
     <span
-        className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${isDark
+        className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${isDark
             ? 'bg-[#1C1F26] border-[#23262D] text-[#A1A8B3]'
             : 'bg-white border-[#1a1a1a] text-[#333]'
             }`}
@@ -459,7 +459,7 @@ const ReadingPage: React.FC = () => {
         >
             <div className="max-w-8xl mx-auto px-2  pt-3 md:pt-4">
                 {/* ── Breadcrumb ─────────────────────────────────────── */}
-                <div className="flex items-center gap-1.5 text-[11px] mb-2 font-medium">
+                <div className="flex items-center gap-1.5 text-[10px] mb-2 font-medium">
                     <button
                         type="button"
                         onClick={() => navigate('/study-section')}
@@ -530,29 +530,23 @@ const ReadingPage: React.FC = () => {
                 >
                     <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest border border-[#2F80ED]/30 bg-[#2F80ED]/10 text-[#2F80ED]">
-                                <GraduationCap size={12} />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest border border-[#2F80ED]/30 bg-[#2F80ED]/10 text-[#2F80ED]">
+                                <GraduationCap size={11} />
                                 সৃজনশীল প্রশ্নব্যাংক
                             </span>
-                            <h1 className="text-base md:text-lg font-black tracking-tight leading-tight">
+                            <h1 className="text-sm md:text-base font-black tracking-tight leading-tight">
                                 তথ্য ও যোগাযোগ প্রযুক্তি (ICT) টেস্ট পেপার
                             </h1>
                         </div>
                         <p
-                            className={`text-[11px] md:text-xs leading-relaxed ${isDark ? 'text-[#A1A8B3]' : 'text-[#444]'
+                            className={`text-[10px] md:text-[14px] leading-relaxed ${isDark ? 'text-[#A1A8B3]' : 'text-[#444]'
                                 }`}
                         >
                             বিগত বছরের সকল বোর্ড ও শীর্ষ কলেজ-ক্যাডেট কলেজের প্রশ্নসহ
                             পূর্ণাঙ্গ সমাধান। অধ্যায়, বোর্ড ও সাল অনুযায়ী ফিল্টার করে পড়ুন।
                         </p>
 
-                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                            <StatChip label="মোট" value={totalQuestions} isDark={isDark} accent />
-                            <StatChip label="বোর্ড" value={countBoard} isDark={isDark} />
-                            <StatChip label="কলেজ" value={countCollege} isDark={isDark} />
-                            <StatChip label="ক্যাডেট" value={countCadet} isDark={isDark} />
-                            <StatChip label="বুকমার্ক" value={bookmarkedIds.size} isDark={isDark} />
-                        </div>
+                 
                     </div>
 
 
