@@ -9,7 +9,13 @@ const scheduleExamSchema = new mongoose.Schema({
   examVersion: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ExamVersion',
-    required: true,
+    required: false,
+    default: null,
+  },
+  board: {
+    type: String,
+    enum: ['Barishal', 'Chattogram', 'Comilla', 'Dhaka', 'Dinajpur', 'Jessore', 'Rajshahi', 'Sylhet'],
+    default: null,
   },
   title: {
     type: String,
@@ -44,6 +50,24 @@ const scheduleExamSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isLevelingRandom: {
+    type: Boolean,
+    default: false,
+  },
+  generatedQuestions: [
+    {
+      question_number: { type: Number, required: true },
+      question_text: { type: String, required: true, trim: true },
+      scenario_text: { type: String, default: "" },
+      image_url: { type: String, default: "" },
+      options: { type: Map, of: String, required: true },
+      subjectName: { type: String, default: null },
+      topic: { type: String, default: null },
+      correct_answer: { type: String, default: "" },
+      originalQuestionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      questionDocId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    }
+  ],
 }, { timestamps: true });
 
 scheduleExamSchema.index({ exam: 1, status: 1 });

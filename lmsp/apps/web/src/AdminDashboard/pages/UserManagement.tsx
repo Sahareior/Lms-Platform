@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Table, Card, Avatar, Tag, Modal, Descriptions, Spin, Alert, Input, Button, Space, Popconfirm, message } from 'antd';
-import { SearchOutlined, ReloadOutlined, MailOutlined, PhoneOutlined, DeleteOutlined } from '@ant-design/icons';
+import { SearchOutlined, ReloadOutlined, MailOutlined, PhoneOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useGetAdminUsersQuery, useGetAdminUserByIdQuery, useDeleteAdminUserMutation, type AdminUser } from '@my-monorepo/store';
+import { downloadCsv } from '../../reusable/downloadCsv';
 
 const UserManagement: React.FC = () => {
   const { data: users, isLoading, error, refetch } = useGetAdminUsersQuery();
@@ -11,6 +12,8 @@ const UserManagement: React.FC = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
+
+  console.log(users,'thus is users')
 
   const handleDeleteUser = async (userId: string) => {
     try {
@@ -22,12 +25,21 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  const handleExportCsv = async () => {
+    try {
+      await downloadCsv('/auth/users/export', 'users.csv');
+      message.success('Users exported');
+    } catch (err: any) {
+      message.error(err?.message || 'Failed to export users');
+    }
+  };
+
   // Filter users based on search
   const filteredUsers = users?.filter((user) => {
     if (!searchText) return true;
     const search = searchText.toLowerCase();
     return (
-      user.username?.toLowerCase().includes(search) ||
+      user.name?.toLowerCase().includes(search) ||
       user.email?.toLowerCase().includes(search) ||
       user.division?.toLowerCase().includes(search) ||
       user.district?.toLowerCase().includes(search) ||
@@ -38,8 +50,8 @@ const UserManagement: React.FC = () => {
   const columns: ColumnsType<AdminUser> = [
     {
       title: 'User',
-      dataIndex: 'username',
-      key: 'username',
+      dataIndex: 'name',
+      key: 'name',
       render: (name: string, record: AdminUser) => (
         <div className="flex items-center gap-3">
           <Avatar style={{ backgroundColor: '#14532D', verticalAlign: 'middle' }} size="large">
@@ -51,7 +63,7 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       ),
-      sorter: (a, b) => (a.username || '').localeCompare(b.username || ''),
+      sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
     },
     {
       title: 'Contact',
@@ -71,27 +83,8 @@ const UserManagement: React.FC = () => {
         </div>
       ),
     },
-    {
-      title: 'Location',
-      key: 'location',
-      render: (_: unknown, record: AdminUser) => (
-        <span className="text-sm text-[#9BA8A0]">
-          {[record.division, record.district, record.thana].filter(Boolean).join(', ') || '—'}
-        </span>
-      ),
-    },
-    {
-      title: 'Education',
-      dataIndex: 'education',
-      key: 'education',
-      render: (val: string) => val || '—',
-    },
-    {
-      title: 'Institute',
-      dataIndex: 'institute',
-      key: 'institute',
-      render: (val: string) => val || '—',
-    },
+
+
     {
       title: 'Exams',
       dataIndex: 'selectedExams',
@@ -163,6 +156,7 @@ const UserManagement: React.FC = () => {
             style={{ width: 250 }}
             allowClear
           />
+         
           <Button icon={<ReloadOutlined />} onClick={refetch}>
             Refresh
           </Button>
@@ -206,7 +200,7 @@ const UserDetail: React.FC<{ userId: string }> = ({ userId }) => {
 
   return (
     <Descriptions column={2} bordered size="small" className="mt-4">
-      <Descriptions.Item label="Username">{user.username || 'N/A'}</Descriptions.Item>
+      <Descriptions.Item label="Username">{user.name || 'N/A'}</Descriptions.Item>
       <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
       <Descriptions.Item label="Phone">{user.phone || 'N/A'}</Descriptions.Item>
       <Descriptions.Item label="Date of Birth">{user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : 'N/A'}</Descriptions.Item>

@@ -5,10 +5,12 @@ export interface StartAttemptRequest {
   userId: string;
   examId?: string;
   examVersionId?: string;
+  scheduleExamId?: string;
   subjectId?: string;
   type?: 'mock_exam' | 'practice';
   source?: 'question_center' | 'mock_exam' | 'quiz_practice';
   totalQuestions?: number;
+  board?: string;
 }
 
 export interface SaveAnswerRequest {
@@ -29,6 +31,21 @@ export interface BatchSaveAnswersRequest {
 
 export interface CompleteAttemptRequest {
   attemptId: string;
+}
+
+/** XP/level/streak payload returned alongside a completed attempt. */
+export interface GamificationPayload {
+  xp: number;
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDate: string | null;
+  level: number;
+  previousLevel?: number;
+  levelUp?: boolean;
+  xpIntoLevel: number;
+  xpForNextLevel: number;
+  progress: number;
+  xpAwarded: number;
 }
 
 export interface QuestionResponse {
@@ -76,6 +93,55 @@ export interface Attempt {
   updatedAt: string;
 }
 
+/** Minimal completed-attempt record used by the weekly activity chart. */
+export interface WeeklyAttempt {
+  _id: string;
+  createdAt: string;
+  percentage: number;
+  totalQuestions: number;
+  correctCount: number;
+  type: string;
+  source: string;
+}
+
+export interface WeeklyActivityResponse {
+  attempts: WeeklyAttempt[];
+}
+
+/** Aggregated totals across every completed attempt. */
+export interface OverallOverview {
+  attempts: number;
+  questions: number;
+  correct: number;
+  incorrect: number;
+  accuracy: number;
+}
+
+export interface ExamOverview {
+  examId: string;
+  examName: string;
+  attempts: number;
+  questions: number;
+  correct: number;
+  incorrect: number;
+  accuracy: number;
+}
+
+export interface SubjectOverview {
+  subject: string;
+  attempted: number;
+  correct: number;
+  accuracy: number;
+  isWeak: boolean;
+  isCritical: boolean;
+}
+
+export interface QuizOverviewResponse {
+  overall: OverallOverview;
+  byExam: ExamOverview[];
+  bySubject: SubjectOverview[];
+}
+
 // ─── Injected Endpoints ─────────────────────────────────────
 const quizAttemptApi = api.injectEndpoints({
   endpoints: (build) => ({
@@ -114,7 +180,10 @@ const quizAttemptApi = api.injectEndpoints({
     }),
 
     // ── Complete an attempt ──────────────────────────────────
-    completeAttempt: build.mutation<{ message: string; attempt: Attempt }, CompleteAttemptRequest>({
+    completeAttempt: build.mutation<
+      { message: string; attempt: Attempt; gamification?: GamificationPayload | null },
+      CompleteAttemptRequest
+    >({
       query: ({ attemptId }) => ({
         url: `/quiz-attempts/${attemptId}/complete`,
         method: 'POST',
@@ -128,23 +197,29 @@ const quizAttemptApi = api.injectEndpoints({
     }),
 
     // ── Get active attempt ───────────────────────────────────
-    getActiveAttempt: build.query<Attempt | null, { userId: string; examId?: string }>({
-      query: ({ userId, examId }) => {
+    getActiveAttempt: build.query<
+      Attempt | null,
+      { userId: string; examId?: string; scheduleExamId?: string; versionId?: string }
+    >({
+      query: ({ userId, examId, scheduleExamId, versionId }) => {
         let url = `/quiz-attempts/active?userId=${userId}`;
         if (examId) url += `&examId=${examId}`;
+        if (scheduleExamId) url += `&scheduleExamId=${scheduleExamId}`;
+        if (versionId) url += `&versionId=${versionId}`;
         return { url };
       },
-      providesTags: (_result, _error, { examId }) => [
-        { type: 'QuizAttempt', id: examId || 'ACTIVE' },
+      providesTags: (_result, _error, { examId, scheduleExamId }) => [
+        { type: 'QuizAttempt', id: scheduleExamId || examId || 'ACTIVE' },
       ],
     }),
 
     // ── Get user attempts ────────────────────────────────────
-    getUserAttempts: build.query<Attempt[], { userId: string; type?: string; limit?: number }>({
-      query: ({ userId, type, limit }) => {
+    getUserAttempts: build.query<Attempt[], { userId: string; type?: string; source?: string; limit?: number }>({
+      query: ({ userId, type, source, limit }) => {
         let url = `/quiz-attempts/user/${userId}`;
         const params = new URLSearchParams();
         if (type) params.set('type', type);
+        if (source) params.set('source', source);
         if (limit) params.set('limit', String(limit));
         const qs = params.toString();
         if (qs) url += `?${qs}`;
@@ -157,6 +232,18 @@ const quizAttemptApi = api.injectEndpoints({
     getAttemptById: build.query<Attempt, string>({
       query: (id) => ({ url: `/quiz-attempts/${id}` }),
       providesTags: (_result, _error, id) => [{ type: 'QuizAttempt', id }],
+    }),
+
+    // ── Get weekly activity (last-8-days completed attempts) ──
+    getWeeklyActivity: build.query<WeeklyActivityResponse, { userId: string }>({
+      query: ({ userId }) => ({ url: `/quiz-attempts/activity/weekly?userId=${userId}` }),
+      providesTags: [{ type: 'QuizAttempt', id: 'LIST' }],
+    }),
+
+    // ── Get performance overview across all exams (dashboard) ──
+    getQuizOverview: build.query<QuizOverviewResponse, { userId: string }>({
+      query: ({ userId }) => ({ url: `/quiz-attempts/overview?userId=${userId}` }),
+      providesTags: [{ type: 'QuizAttempt', id: 'LIST' }],
     }),
   }),
   overrideExisting: false,
@@ -171,4 +258,6 @@ export const {
   useGetActiveAttemptQuery,
   useGetUserAttemptsQuery,
   useGetAttemptByIdQuery,
+  useGetWeeklyActivityQuery,
+  useGetQuizOverviewQuery,
 } = quizAttemptApi;

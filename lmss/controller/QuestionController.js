@@ -1,49 +1,104 @@
+import mongoose from "mongoose";
 import QuestionModel from "../models/QuestionModel.js";
 import QuestionPatternModel from "../models/QuestionPatternModel.js";
+import CollegeModel from "../models/CollegeModel.js";
+import { resolveTopics } from "../utils/topicMatcher.js";
+import { invalidatePrefix } from "../middleware/cache.js";
+
+// Mark a question document as analyzed so the Question Bank can show a Yes/No
+// analyzed badge and let admins retry a failed analysis from the stored set.
+// When questionDocumentId is provided, ONLY that single document is marked —
+// otherwise the broad exam/version/subject/board filter is used (legacy path).
+const markQuestionsAnalyzed = async (exam, versionLabel, subjectRef, boardRef, questionDocumentId) => {
+    if (questionDocumentId) {
+        await QuestionModel.updateOne({ _id: questionDocumentId }, { $set: { analyzed: true } });
+        return;
+    }
+    const filter = { exam };
+    if (versionLabel) filter.examVersion = versionLabel;
+    if (subjectRef) filter.subject = subjectRef;
+    if (boardRef) filter.board = boardRef;
+    await QuestionModel.updateMany(filter, { $set: { analyzed: true } });
+};
+
+const VALID_QUESTION_TYPES = ['board', 'testpaper', 'mockexam'];
 
 export const saveQuestionsInDb = async (req, res) => {
     try {
-        const { exam, examVersion, subject, data } = req.body;
+        const { exam, examVersion, subject, board, division, questionType, college, year, data } = req.body;
 
-        if (!exam || !examVersion || !Array.isArray(data) || data.length === 0) {
+        // examVersion is optional: board sets use versions (e.g. HSC years),
+        // while testpaper sets use College+year and mockexam sets use neither.
+        if (!exam || !Array.isArray(data) || data.length === 0) {
             return res.status(400).json({
                 message: "Invalid request"
             });
         }
 
-        // Prevent duplicate document
-        const existing = await QuestionModel.findOne({
-            exam,
-            examVersion,
-            subject: subject || null
-        });
-
-        if (existing) {
-            return res.status(409).json({
-                message: "Questions already exist for this exam/version/subject."
-            });
+        if (questionType !== undefined && questionType !== null && questionType !== '') {
+            if (!VALID_QUESTION_TYPES.includes(questionType)) {
+                return res.status(400).json({
+                    message: `Invalid questionType "${questionType}". Must be one of: ${VALID_QUESTION_TYPES.join(', ')}`
+                });
+            }
         }
 
-        // Prevent duplicate question numbers inside uploaded data
-        const numbers = new Set();
+        // Type-aware payload: board sets carry a board, testpaper sets carry a
+        // college (from the College master) + year, mockexam sets carry neither.
+        if (questionType === 'board' && !board) {
+            return res.status(400).json({ message: "Board is required for board question sets" });
+        }
+        if (questionType === 'testpaper') {
+            if (!college) {
+                return res.status(400).json({ message: "College is required for testpaper question sets" });
+            }
+            if (!mongoose.Types.ObjectId.isValid(college)) {
+                return res.status(400).json({ message: "Invalid college id" });
+            }
+            const collegeExists = await CollegeModel.findById(college);
+            if (!collegeExists) {
+                return res.status(400).json({ message: "Selected college does not exist" });
+            }
+        }
+        if (questionType === 'mockexam' && (board || college)) {
+            return res.status(400).json({ message: "Mockexam question sets must not have a board or college" });
+        }
+        if (year !== undefined && year !== null && year !== '') {
+            const yr = Number(year);
+            if (!Number.isInteger(yr) || yr < 1990 || yr > 2100) {
+                return res.status(400).json({ message: "Year must be a valid year (1990-2100)" });
+            }
+        }
 
+        // Prevent duplicate question numbers inside the same upload
+        const numbers = new Set();
         for (const q of data) {
             if (numbers.has(q.question_number)) {
                 return res.status(400).json({
-                    message: `Duplicate question number ${q.question_number}`
+                    message: `Duplicate question number ${q.question_number} in uploaded data`
                 });
             }
-
             numbers.add(q.question_number);
         }
 
-        const saved = await QuestionModel.create({
+        // Always create a new document — each scrape is a separate question set
+        const createPayload = {
             exam,
-            examVersion,
             subject,
-            data
-        });
+            data,
+        };
+        if (examVersion) createPayload.examVersion = examVersion;
+        if (board) createPayload.board = board;
+        if (division) createPayload.division = division;
+        if (questionType) createPayload.questionType = questionType;
+        if (college) createPayload.college = college;
+        if (year !== undefined && year !== null && year !== '') {
+            createPayload.year = Number(year);
+        }
 
+        const saved = await QuestionModel.create(createPayload);
+
+        await invalidatePrefix('cache:question');
         res.status(201).json(saved);
 
     } catch (err) {
@@ -54,14 +109,109 @@ export const saveQuestionsInDb = async (req, res) => {
     }
 };
 
-export const getAllQuestions = async (req,res) => {
-try {
-    const questions = await QuestionModel.find();
-    res.status(200).json(questions);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Unable to fetch exams' });
-  }}
+// Projection for list views: every consumer of GET /questions only needs the
+// document metadata plus a question count — the full `data` array (question
+// texts, options, explanations) is what made this endpoint slow.
+const QUESTION_SUMMARY_PROJECTION = {
+    exam: 1,
+    examVersion: 1,
+    subject: 1,
+    board: 1,
+    division: 1,
+    questionType: 1,
+    college: 1,
+    year: 1,
+    analyzed: 1,
+    createdAt: 1,
+    updatedAt: 1,
+};
+
+export const getAllQuestions = async (req, res) => {
+    try {
+        // Optional filters: exam / examVersion / subject / board / questionType /
+        // college / year
+        const { exam, examVersion, subject, board, questionType, college, year, include } = req.query;
+        const filter = {};
+        if (exam) filter.exam = exam;
+        if (examVersion) filter.examVersion = examVersion;
+        if (subject) filter.subject = subject;
+        if (board) filter.board = board;
+        if (questionType) filter.questionType = questionType;
+        if (college) filter.college = college;
+        if (year) filter.year = Number(year);
+
+        // Legacy escape hatch: ?include=data returns full documents.
+        // Prefer GET /questions/:questionId for a single full document.
+        if (include === 'data') {
+            const questions = await QuestionModel.find(filter);
+            return res.status(200).json(questions);
+        }
+
+        // Lightweight summaries: one aggregation computes data size per document
+        // server-side instead of shipping every nested question to the client.
+        // Mongoose does NOT cast $match values in aggregations, so ObjectId-typed
+        // filter fields must be cast from strings manually.
+        const match = {};
+        for (const key of ['exam', 'examVersion', 'subject']) {
+            if (filter[key] === undefined) continue;
+            if (mongoose.Types.ObjectId.isValid(filter[key])) {
+                match[key] = new mongoose.Types.ObjectId(filter[key]);
+            } else {
+                // A non-ObjectId value can never match an ObjectId field.
+                return res.status(200).json([]);
+            }
+        }
+        if (filter.board !== undefined) match.board = filter.board;
+        if (filter.questionType !== undefined) match.questionType = filter.questionType;
+        if (filter.college !== undefined) {
+            match.college = mongoose.Types.ObjectId.isValid(filter.college)
+                ? new mongoose.Types.ObjectId(filter.college)
+                : filter.college;
+        }
+        if (filter.year !== undefined) match.year = filter.year;
+
+        const questions = await QuestionModel.aggregate([
+            { $match: match },
+            {
+                $project: {
+                    ...QUESTION_SUMMARY_PROJECTION,
+                    questionCount: { $size: { $ifNull: ['$data', []] } },
+                },
+            },
+            { $sort: { createdAt: -1 } },
+        ]);
+
+        res.status(200).json(questions);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Unable to fetch exams' });
+    }
+}
+
+// ─── GET a single question document (full data) ────────────
+export const getQuestionById = async (req, res) => {
+    try {
+        const { questionId } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(questionId)) {
+            return res.status(400).json({ message: 'Invalid question id' });
+        }
+
+        const question = await QuestionModel.findById(questionId)
+            .populate('exam', 'name category')
+            .populate('examVersion', 'examVersion')
+            .populate('subject', 'name');
+
+        if (!question) {
+            return res.status(404).json({ message: 'Question document not found' });
+        }
+
+        res.status(200).json(question);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Unable to fetch question document' });
+    }
+};
 
 export const postQuestionPattern = async(req, res) => {
     try {
@@ -98,38 +248,88 @@ export const postQuestionPattern = async(req, res) => {
             });
         }
 
-        // Accept examVersion from either patternData (res) or top-level req.body
+        // Accept examVersion and board from either patternData (res) or top-level req.body
         const versionLabel = patternData?.examVersion || bodyExamVersion || '';
         const subjectRef = bodySubject || '';
+        const boardRef = patternData?.board || req.body.board || '';
+        const questionDocumentId = req.body.questionDocumentId || '';
         
-        // Build query filter: include subject if provided
+        // Build query filter: include subject and board if provided
         const queryFilter = { exam };
         if (versionLabel) queryFilter.examVersion = versionLabel;
         if (subjectRef) queryFilter.subject = subjectRef;
+        if (boardRef) queryFilter.board = boardRef;
         
         const existingPattern = await QuestionPatternModel.findOne(queryFilter);
 
         if (existingPattern) {
+            // The pattern already exists — the set is effectively analyzed.
+            await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef, questionDocumentId);
             return res.status(409).json({
                 status: 'DUPLICATE',
-                message: `Question pattern for exam "${exam}"${versionLabel ? ` version "${versionLabel}"` : ''}${subjectRef ? ` subject "${subjectRef}"` : ''} already exists.`,
+                message: `Question pattern for exam "${exam}"${versionLabel ? ` version "${versionLabel}"` : ''}${subjectRef ? ` subject "${subjectRef}"` : ''}${boardRef ? ` board "${boardRef}"` : ''} already exists.`,
                 data: existingPattern
             });
         }
 
-        // Create new pattern
+        // Resolve and canonicalize topics against DB Topic collection
+        const questionsBySubject = new Map();
+        for (const q of categorized_questions) {
+            const sName = (q.subject || '').trim();
+            if (!questionsBySubject.has(sName)) {
+                questionsBySubject.set(sName, []);
+            }
+            questionsBySubject.get(sName).push(q.topic);
+        }
+
+        const canonicalMapping = new Map();
+        for (const [sName, rawTopicsList] of questionsBySubject.entries()) {
+            const resolved = await resolveTopics({
+                exam,
+                subject: subjectRef || undefined,
+                subjectName: sName,
+                rawTopics: rawTopicsList,
+            });
+            for (const [raw, canonical] of resolved.entries()) {
+                canonicalMapping.set(raw, canonical);
+            }
+        }
+
+        // Apply canonical topic names to categorized_questions
+        const canonicalQuestions = categorized_questions.map((q) => ({
+            ...q,
+            topic: canonicalMapping.get(q.topic) || q.topic,
+        }));
+
+        // Rebuild canonical topics counter map
+        const canonicalTopics = {};
+        for (const q of canonicalQuestions) {
+            if (q.topic) {
+                canonicalTopics[q.topic] = (canonicalTopics[q.topic] || 0) + 1;
+            }
+        }
+
+        // Create new pattern with canonicalized topics
         const questionPattern = new QuestionPatternModel({
             exam,
-            topics,
+            topics: canonicalTopics,
             subjects,
-            categorized_questions
+            categorized_questions: canonicalQuestions
         });
         
         // Only set if provided (optional fields)
         if (versionLabel) questionPattern.examVersion = versionLabel;
         if (subjectRef) questionPattern.subject = subjectRef;
+        if (boardRef) questionPattern.board = boardRef;
 
         await questionPattern.save();
+
+        // The analysis succeeded and was stored — reflect that on the question set.
+        await markQuestionsAnalyzed(exam, versionLabel, subjectRef, boardRef, questionDocumentId);
+
+        await invalidatePrefix('cache:question');
+        await invalidatePrefix('cache:question-pattern');
+        await invalidatePrefix('cache:topics');
 
         const displayName = versionLabel ? `${exam} ${versionLabel}` : exam;
         return res.status(201).json({
@@ -140,6 +340,7 @@ export const postQuestionPattern = async(req, res) => {
                 exam: questionPattern.exam,
                 examVersion: questionPattern.examVersion,
                 subject: questionPattern.subject,
+                board: questionPattern.board,
                 totalQuestions: questionPattern.totalQuestions,
                 topicsCount: questionPattern.topics.size,
                 subjectsCount: questionPattern.subjects.size,
@@ -154,6 +355,8 @@ export const postQuestionPattern = async(req, res) => {
         
         // Handle duplicate key error
         if (err.code === 11000) {
+            await markQuestionsAnalyzed(req.body.exam, req.body.examVersion || '', req.body.subject || '', req.body.board || '', req.body.questionDocumentId || '');
+            await invalidatePrefix('cache:question');
             return res.status(409).json({
                 status: 'DUPLICATE_ERROR',
                 message: `Question pattern for "${req.body.exam}" already exists.`,
@@ -180,13 +383,18 @@ export const postQuestionPattern = async(req, res) => {
     }
 };
 
-export const getQuestionPattern =async (req,res) => {
+export const getQuestionPattern = async (req, res) => {
     try {
-        const { exam, examVersion } = req.query;
+        const { exam, examVersion, subject, board } = req.query;
         const filter = {};
         if (exam) filter.exam = exam;
         if (examVersion) filter.examVersion = examVersion;
-        const patterns = await QuestionPatternModel.find(filter);
+        if (subject) filter.subject = subject;
+        if (board) filter.board = board;
+        const patterns = await QuestionPatternModel.find(filter)
+            .populate('exam', 'name category')
+            .populate('examVersion', 'examVersion')
+            .populate('subject', 'name');
         res.status(200).json(patterns);
     } catch (err) {
         console.error(err);
@@ -194,18 +402,37 @@ export const getQuestionPattern =async (req,res) => {
     }
 }
 
+const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const getQuestionsByExam = async (req, res) => {
   try {
     const { examId } = req.params;
-    const { versionId } = req.query;
-
+    const { versionId, board, subject, questionType, college, year } = req.query;
     const filter = { exam: examId };
     if (versionId) filter.examVersion = versionId;
+    if (board) filter.board = board;
+    if (questionType) filter.questionType = questionType;
+    if (college) filter.college = college;
+    if (year) filter.year = Number(year);
+
+    if (subject) {
+      if (mongoose.Types.ObjectId.isValid(subject)) {
+        filter.subject = subject;
+      } else {
+        const normalized = String(subject).trim();
+        filter.$or = [
+          { subject: subject },
+          { 'data.subjectName': { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') } },
+          { 'data.subjectName': { $regex: new RegExp(`^${escapeRegex(normalized.toLowerCase().replace(/\s+/g, ' '))}$`, 'i') } },
+        ];
+      }
+    }
 
     const questions = await QuestionModel.find(filter)
-      .populate('exam', 'name')
+      .populate('exam', 'name category')
       .populate('examVersion', 'examVersion')
-      .populate('subject', 'name');
+      .populate('subject', 'name')
+      .populate('college', 'name');
 
     res.status(200).json(questions);
   } catch (err) {
@@ -231,6 +458,7 @@ export const updateQuestionDocument = async (req, res) => {
         if (!updated) {
             return res.status(404).json({ message: 'Question document not found' });
         }
+        await invalidatePrefix('cache:question');
         res.status(200).json(updated);
     } catch (err) {
         console.error(err);
@@ -246,6 +474,7 @@ export const deleteQuestionDocument = async (req, res) => {
         if (!deleted) {
             return res.status(404).json({ message: 'Question document not found' });
         }
+        await invalidatePrefix('cache:question');
         res.status(200).json({ message: 'Question document deleted successfully' });
     } catch (err) {
         console.error(err);
@@ -277,14 +506,76 @@ export const updateSingleQuestion = async (req, res) => {
     if (updates.correct_answer !== undefined) target.correct_answer = updates.correct_answer;
     if (updates.scenario_text !== undefined) target.scenario_text = updates.scenario_text;
     if (updates.image_url !== undefined) target.image_url = updates.image_url;
+    if (updates.explanation !== undefined) target.explanation = updates.explanation;
 
     await doc.save();
+
+    await invalidatePrefix('cache:question');
 
     const populated = await doc.populate(['exam', 'examVersion', 'subject']);
     res.status(200).json(populated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Unable to update question' });
+  }
+};
+
+// ─── UPDATE question explanation directly ─────────────────
+export const updateQuestionExplanation = async (req, res) => {
+  try {
+    const { questionId, questionNumber } = req.params;
+    const { explanation } = req.body;
+
+    if (explanation === undefined) {
+      return res.status(400).json({ message: 'explanation field is required' });
+    }
+
+    let doc = null;
+    if (mongoose.Types.ObjectId.isValid(questionId)) {
+      doc = await QuestionModel.findById(questionId);
+    }
+    if (!doc) {
+      doc = await QuestionModel.findOne({
+        $or: [
+          { 'data._id': questionId },
+          { 'data._id': questionNumber },
+        ]
+      });
+    }
+    if (!doc) {
+      return res.status(404).json({ message: 'Question document not found' });
+    }
+
+    const target = doc.data.find(
+      (q) =>
+        q.question_number === parseInt(questionNumber, 10) ||
+        String(q._id) === String(questionNumber) ||
+        String(q._id) === String(questionId)
+    );
+    if (!target) {
+      return res.status(404).json({ message: 'Question not found in document' });
+    }
+
+    target.explanation = explanation;
+    doc.markModified('data');
+    await doc.save();
+
+    await QuestionModel.updateOne(
+      { _id: doc._id, 'data._id': target._id },
+      { $set: { 'data.$.explanation': explanation } }
+    );
+
+    await invalidatePrefix('cache:question');
+
+    res.status(200).json({
+      success: true,
+      message: 'Question explanation updated successfully',
+      questionNumber: target.question_number,
+      explanation: target.explanation,
+    });
+  } catch (err) {
+    console.error('updateQuestionExplanation error:', err);
+    res.status(500).json({ message: err.message || 'Unable to update question explanation' });
   }
 };
 
@@ -306,6 +597,8 @@ export const deleteSingleQuestion = async (req, res) => {
 
     doc.data.splice(targetIndex, 1);
     await doc.save();
+
+    await invalidatePrefix('cache:question');
 
     res.status(200).json({
       message: 'Question deleted successfully',

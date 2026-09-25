@@ -19,7 +19,7 @@ const examSchema = new mongoose.Schema({
     enum: ['academic', 'job_preparation'],
     default: 'job_preparation',
   }
-});
+}, { timestamps: true });
 
 const Exam = mongoose.model('Exam', examSchema);
 export default Exam;

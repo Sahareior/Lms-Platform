@@ -15,7 +15,7 @@ const quizPerformance = new mongoose.Schema(
     examVersion: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ExamVersion",
-      required: true,
+      default: null,
     },
     subject: {
       type: mongoose.Schema.Types.ObjectId,

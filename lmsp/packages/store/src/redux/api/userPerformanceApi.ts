@@ -144,7 +144,7 @@ const userPerformanceApi = api.injectEndpoints({
 
 
     getUserPerformanceJson:build.query({
-      query: (id) => `quiz-performance/${id}`
+      query: (id) => ({ url: `quiz-performance/${id}` })
     }),
 
     // ── Get today's AI report (generate + cache it if missing) ─

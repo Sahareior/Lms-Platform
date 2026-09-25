@@ -1,742 +1,476 @@
 import {
   useGetAnalyzedQuestionsQuery,
   useGetSubjectsByExamQuery,
+  useGetQuestionsByExamQuery,
 } from "@my-monorepo/store/src/redux/api/examApi";
-import { useGetMeQuery, useGetExamVersionsByExamQuery } from "@my-monorepo/store";
-import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
 import {
-  BookOpen,
-  BarChart3,
-  Sparkles,
+  useGetMeQuery,
+  useGetExamVersionsByExamQuery,
+  BANGLADESH_BOARDS,
+} from "@my-monorepo/store";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import {
   ArrowRight,
-  ChevronRight,
-  Target,
   GraduationCap,
   Loader2,
-  FileText,
-  Brain,
-  Download,
+  LayoutGrid,
 } from "lucide-react";
 import AiPredictTopic from "./_components/AiPredictTopic";
-
-// Types
-interface TopicData {
-  _id: string;
-  topic: string;
-  subject: string;
-}
-
-interface AnalysisData {
-  _id: string;
-  subjects: Record<string, number>;
-  categorized_questions: TopicData[];
-}
-
-/* ==================================================================
-   EXAM SELECTION SCREEN (shown when no examId is in the URL)
-   ================================================================== */
-function ExamSelectionScreen({ onSelectExam }: { onSelectExam: (examId: string) => void }) {
-  const navigate = useNavigate();
-  const { data: userData, isLoading: profileLoading } = useGetMeQuery();
-  const selectedExams = userData?.selectedExams || [];
-
-  const accentColors = [
-    "border-[#9B51E0]/50 hover:border-[#9B51E0]",
-    "border-[#2F80ED]/50 hover:border-[#2F80ED]",
-    "border-[#00E5B3]/50 hover:border-[#00E5B3]",
-    "border-[#F2C94C]/50 hover:border-[#F2C94C]",
-    "border-[#EB5757]/50 hover:border-[#EB5757]",
-  ];
-
-  if (profileLoading) {
-    return (
-      <div className="flex-1 min-h-screen flex items-center justify-center bg-[#0B0D12]">
-        <div className="text-center space-y-4">
-          <Loader2 size={32} className="animate-spin text-[#9B51E0] mx-auto" />
-          <p className="text-[#A1A8B3] font-semibold">Loading your exams...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!selectedExams || selectedExams.length === 0) {
-    return (
-      <div className="flex-1 min-h-screen flex items-center justify-center bg-[#0B0D12]">
-        <div className="text-center max-w-md p-10 bg-[#111318] rounded-2xl border border-[#23262D]">
-          <div className="w-16 h-16 bg-[#161920] border border-[#23262D] rounded-full flex items-center justify-center mx-auto mb-4">
-            <BookOpen size={28} className="text-[#6B7280]" />
-          </div>
-          <h3 className="text-lg font-bold text-[#F5F7FA] mb-2">No Exams Selected Yet</h3>
-          <p className="text-sm text-[#A1A8B3] mb-6">
-            You haven't selected any exams yet. Start by enrolling in a course from your dashboard.
-          </p>
-          <button
-            onClick={() => navigate("/")}
-            className="inline-flex items-center gap-2 bg-[#2F80ED] text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#256BCE] transition-all active:scale-95"
-          >
-            <ArrowRight size={15} />
-            Go to Dashboard
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-4">
-      <div className="max-w-8xl space-y-10">
-        {/* Header */}
-        <div className="text-center max-w-2xl mx-auto space-y-4">
-          <div className="inline-flex items-center gap-1.5 bg-[#9B51E0]/10 text-[#9B51E0] text-[10px] font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider border border-[#9B51E0]/30">
-            <Sparkles size={11} />
-            Question Pattern Analysis
-          </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
-            Choose an Exam to Analyze
-          </h1>
-          <p className="text-[#A1A8B3] text-sm leading-relaxed">
-            Select one of your enrolled exams to discover high-probability topics, subject distributions, and AI-powered pattern insights.
-          </p>
-        </div>
-
-        {/* Exam Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {selectedExams.map((exam: any, idx: number) => {
-            const accent = accentColors[idx % accentColors.length];
-            return (
-              <button
-                key={exam._id}
-                onClick={() => onSelectExam(exam._id)}
-                className={`group bg-[#111318] rounded-2xl overflow-hidden border ${accent} shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-left active:scale-[0.98]`}
-              >
-                <div className="p-6 space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="w-12 h-12 rounded-xl bg-[#9B51E0]/10 border border-[#9B51E0]/30 flex items-center justify-center flex-shrink-0">
-                      <FileText size={22} className="text-[#9B51E0]" />
-                    </div>
-                    <ChevronRight size={18} className="text-[#6B7280] group-hover:text-[#9B51E0] group-hover:translate-x-1 transition-all" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg text-[#F5F7FA] group-hover:text-[#9B51E0] transition-colors">{exam.name}</h3>
-                    <p className="text-xs text-[#A1A8B3] font-medium mt-1">Click to view question patterns</p>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-[#6B7280] pt-2 border-t border-[#23262D]">
-                    <BarChart3 size={12} />
-                    <span>Pattern Analysis</span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Footer link back to dashboard */}
-        <div className="text-center">
-          <button
-            onClick={() => navigate("/")}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#6B7280] hover:text-[#F5F7FA] transition-colors"
-          >
-            <ArrowRight size={14} className="rotate-180" />
-            Back to Dashboard
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import ExamSelectionScreen from "./_components/ExamSelectionScreen";
+import SubjectSelectionScreen from "./_components/SubjectSelectionScreen";
+import AnalysisHero, { AnalysisStats } from "./_components/AnalysisHero";
+import AnalysisFilters from "./_components/AnalysisFilters";
+import {
+  TopSubjectsChart,
+  SubjectDistributionChart,
+  FrequentTopicsChart,
+} from "./_components/AnalysisCharts";
+import { processAnalysis } from "./_components/patternUtils";
+import type { AnalysisData } from "./_components/patternUtils";
+import { useTheme } from "../../../theme/ThemeContext";
 
 /* ==================================================================
    MAIN QuestionPatterns COMPONENT
    ================================================================== */
 const QuestionPatterns = () => {
+  const { isDark } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const examId = searchParams.get("examId");
-  
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const selectedSubjectId = searchParams.get("subjectId");
+  const selectedSubjectName = searchParams.get("subjectName");
+  const selectedVersionId = searchParams.get("versionId");
+  const selectedBoard = searchParams.get("board");
+  const showAllCombined = searchParams.get("viewAll") === "true";
   const [cachedAnalysis, setCachedAnalysis] = useState<any[] | null>(null);
 
+  const hasSubjectSelected = Boolean(selectedSubjectId || selectedSubjectName || showAllCombined);
+
+  // Query analyzed patterns for active exam, subject, version (year), and board
   const {
     data: analysisData,
     isLoading: isAnalysisLoading,
     isFetching: isAnalysisFetching,
     isError: isAnalysisError,
   } = useGetAnalyzedQuestionsQuery(
-    examId ? { examId, versionId: selectedVersionId || undefined } : undefined,
+    examId
+      ? {
+        examId,
+        versionId: selectedVersionId || undefined,
+        subjectId: selectedSubjectId || undefined,
+        board: selectedBoard || undefined,
+      }
+      : undefined,
     { skip: !examId }
   );
 
-  // Remember the last successfully loaded analysis so switching version tabs
-  // keeps the current charts visible (this RTK Query version has no keepPreviousData flag).
+  // Fallback broad query (exam-wide) to populate global subjects/counts if filtered query is empty
+  const {
+    data: broadAnalysisData,
+    isLoading: isBroadLoading,
+  } = useGetAnalyzedQuestionsQuery(
+    examId ? { examId } : undefined,
+    { skip: !examId }
+  );
+
+  // Remember the last successfully loaded analysis
   useEffect(() => {
     if (analysisData && analysisData.length > 0) {
       setCachedAnalysis(analysisData);
+    } else if (!isAnalysisLoading && analysisData && analysisData.length === 0) {
+      setCachedAnalysis(null);
     }
-  }, [analysisData]);
+  }, [analysisData, isAnalysisLoading]);
 
-  // While a new version is being fetched, show the previously loaded data;
-  // once the fetch settles, use the fresh result (even if it's empty).
-  const visibleAnalysis = isAnalysisLoading && cachedAnalysis ? cachedAnalysis : analysisData;
+  // When filters are active, visible analysis must reflect analysisData directly
+  // (do not fall back to broad exam-wide data when filtered data is empty)
+  const isFiltered = Boolean(selectedVersionId || selectedBoard || selectedSubjectId || selectedSubjectName);
+
+  const visibleAnalysis =
+    isAnalysisLoading && cachedAnalysis
+      ? cachedAnalysis
+      : analysisData && analysisData.length > 0
+        ? analysisData
+        : isFiltered
+          ? []
+          : broadAnalysisData;
 
   const {
     data: examVersions = [],
     isLoading: isVersionsLoading,
   } = useGetExamVersionsByExamQuery(examId || "", { skip: !examId });
 
-  const { data: subjects } = useGetSubjectsByExamQuery(examId || "", { skip: !examId });
+  const { data: subjects = [], isLoading: isSubjectsLoading } = useGetSubjectsByExamQuery(
+    examId || "",
+    { skip: !examId }
+  );
+
+  const { data: questionSets = [] } = useGetQuestionsByExamQuery(
+    { examId: examId! },
+    { skip: !examId }
+  );
 
   const { data: userData } = useGetMeQuery();
 
-  // Find the current exam name from user's selected exams
+  // Find current exam name from user's selected exams or question sets
   const currentExam = useMemo<any>(() => {
-    if (!examId || !userData?.selectedExams) return null;
-    return userData.selectedExams.find((ex: any) => ex._id === examId);
-  }, [examId, userData]);
+    if (!examId) return null;
+    if (userData?.selectedExams) {
+      const found = userData.selectedExams.find((ex: any) => ex._id === examId);
+      if (found) return found;
+    }
+    if (questionSets && questionSets.length > 0 && questionSets[0]?.exam) {
+      return questionSets[0].exam;
+    }
+    return null;
+  }, [examId, userData, questionSets]);
 
-  const examVersionWithQuestions = examVersions?.filter(examV => (
-    examV?.questions?.length>0
-  ))
+  // Filter versions with questions or all exam versions
+  const examVersionWithQuestions = useMemo(() => {
+    if (!examVersions || examVersions.length === 0) return [];
+    const withQuestions = examVersions.filter((examV: any) => examV?.questions?.length > 0);
+    return withQuestions.length > 0 ? withQuestions : examVersions;
+  }, [examVersions]);
 
-  console.log(examVersionWithQuestions,'rrrrrrrrrrrr')
-
-  // Find the currently selected exam version object
+  // Find currently selected exam version object (Year)
   const currentVersion = useMemo(() => {
-    if (!selectedVersionId || examVersionWithQuestions.length === 0) return null;
-    return examVersionWithQuestions.find((v: any) => v._id === selectedVersionId) || null;
-  }, [selectedVersionId, examVersionWithQuestions]);
+    if (!selectedVersionId || examVersions.length === 0) return null;
+    return examVersions.find((v: any) => v._id === selectedVersionId) || null;
+  }, [selectedVersionId, examVersions]);
 
-  // Process API data
-  const processedData = useMemo(() => {
-    if (!visibleAnalysis || visibleAnalysis.length === 0) return null;
-    const rawData = visibleAnalysis[0] as AnalysisData;
+  // When viewing subject patterns, ensure first Year and Board are always set in the URL
+  useEffect(() => {
+    if (!hasSubjectSelected) return;
 
-    const totalQuestions = Object.values(rawData.subjects).reduce((a, b) => a + b, 0);
-    const topSubjects = Object.entries(rawData.subjects)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6);
+    let changed = false;
+    const next = new URLSearchParams(searchParams);
 
-    const topicFrequency: Record<string, number> = {};
-    rawData.categorized_questions.forEach((item) => {
-      topicFrequency[item.topic] = (topicFrequency[item.topic] || 0) + 1;
-    });
-    const topTopics = Object.entries(topicFrequency)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+    if (examVersionWithQuestions.length > 0) {
+      const isValid = examVersionWithQuestions.some((v: any) => v._id === selectedVersionId);
+      if (!selectedVersionId || !isValid) {
+        next.set("versionId", examVersionWithQuestions[0]._id);
+        changed = true;
+      }
+    }
 
-    return {
-      raw: rawData,
-      totalQuestions,
-      topSubjects,
-      topTopics,
-      subjectCount: Object.keys(rawData.subjects).length,
-      topicCount: rawData.categorized_questions.length,
-    };
-  }, [visibleAnalysis]);
+    if (BANGLADESH_BOARDS.length > 0) {
+      const isValid = selectedBoard && BANGLADESH_BOARDS.includes(selectedBoard as any);
+      if (!selectedBoard || !isValid) {
+        next.set("board", BANGLADESH_BOARDS[0]);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [hasSubjectSelected, examVersionWithQuestions, selectedVersionId, selectedBoard, searchParams, setSearchParams]);
+
+  // Build subject list: combine subjects fetched from API with analysis & question set subjects
+  const subjectMap = useMemo(() => {
+    const map = new Map<string, { _id: string; name: string; code?: string; description?: string }>();
+    if (Array.isArray(subjects)) {
+      subjects.forEach((s: any) => {
+        if (s?._id && s?.name) {
+          map.set(s.name.trim().toLowerCase(), {
+            _id: s._id,
+            name: s.name,
+            code: s.code,
+            description: s.description,
+          });
+        }
+      });
+    }
+    if (Array.isArray(questionSets)) {
+      questionSets.forEach((qs: any) => {
+        const sName = qs?.subject?.name || qs?.subjectName;
+        const sId = qs?.subject?._id || qs?.subject;
+        if (sName) {
+          const key = sName.trim().toLowerCase();
+          if (!map.has(key)) {
+            map.set(key, { _id: sId || sName, name: sName, code: qs?.subject?.code });
+          }
+        }
+      });
+    }
+    return map;
+  }, [subjects, questionSets]);
+
+  const subjectOptions = useMemo(() => Array.from(subjectMap.values()), [subjectMap]);
+
+  // Process broad API data for subject question counts
+  const broadProcessed = useMemo(
+    () => processAnalysis(broadAnalysisData as AnalysisData[] | undefined),
+    [broadAnalysisData]
+  );
+
+  // Process active API data with active subject filter
+  const processedData = useMemo(
+    () => processAnalysis(
+      visibleAnalysis && visibleAnalysis.length > 0
+        ? (visibleAnalysis as AnalysisData[])
+        : null,
+      selectedSubjectName
+    ),
+    [visibleAnalysis, selectedSubjectName]
+  );
 
   const handleSelectExam = (id: string) => {
-    setSearchParams({ examId: id });
-    setSelectedSubject(null);
-    setSelectedVersionId(null);
     setCachedAnalysis(null);
+    setSearchParams({ examId: id });
   };
 
   const handleClearExam = () => {
-    setSearchParams({});
-    setSelectedSubject(null);
-    setSelectedVersionId(null);
     setCachedAnalysis(null);
+    setSearchParams({});
   };
 
-  // ═══════════════════ SHOW EXAM SELECTION ═══════════════════
+  const handleSubjectSelect = (id: string | null, name: string | null) => {
+    const params = new URLSearchParams();
+    if (examId) params.set("examId", examId);
+
+    if (id && name) {
+      params.set("subjectId", id);
+      params.set("subjectName", name);
+    } else {
+      params.set("viewAll", "true");
+    }
+
+    // Auto-select first available Year (exam version)
+    if (examVersionWithQuestions.length > 0) {
+      params.set("versionId", examVersionWithQuestions[0]._id);
+    }
+
+    // Auto-select first available Board
+    if (BANGLADESH_BOARDS.length > 0) {
+      params.set("board", BANGLADESH_BOARDS[0]);
+    }
+
+    setCachedAnalysis(null);
+    setSearchParams(params);
+  };
+
+  const handleBackToSubjectSelection = () => {
+    const params = new URLSearchParams();
+    if (examId) params.set("examId", examId);
+    setCachedAnalysis(null);
+    setSearchParams(params);
+  };
+
+  const handleViewAllCombined = () => {
+    handleSubjectSelect(null, null);
+  };
+
+  const handleVersionSelect = (versionId: string | null) => {
+    if (!versionId) return;
+    const params = new URLSearchParams(searchParams);
+    params.set("versionId", versionId);
+    setCachedAnalysis(null);
+    setSearchParams(params);
+  };
+
+  const handleBoardSelect = (board: string | null) => {
+    if (!board) return;
+    const params = new URLSearchParams(searchParams);
+    params.set("board", board);
+    setCachedAnalysis(null);
+    setSearchParams(params);
+  };
+
+  // ═══════════════════ STEP 1: EXAM SELECTION ═══════════════════
   if (!examId) {
     return <ExamSelectionScreen onSelectExam={handleSelectExam} />;
   }
 
-  // ═══════════════════ LOADING ═══════════════════
-  // Show the full-screen loader only when nothing has loaded yet; version
-  // switches keep previous charts visible via cachedAnalysis.
-  if ((isAnalysisLoading || isVersionsLoading) && !visibleAnalysis) {
+  // ═══════════════════ STEP 2: SUBJECT SELECTION SCREEN ═══════════════════
+  // When exam is chosen and user has not picked a subject yet and not viewing all combined
+  if (!hasSubjectSelected) {
+    if (isSubjectsLoading && subjectOptions.length === 0) {
+      return (
+        <div className={`flex-1 min-h-screen font-sans flex items-center justify-center ${isDark ? "bg-[#0B0D12]" : "bg-[#e8e4db]"}`}>
+          <div className="text-center space-y-4">
+            <Loader2 size={32} className={`animate-spin mx-auto ${isDark ? "text-[#9B51E0]" : "text-[#b91c1c]"}`} />
+            <p className={isDark ? "text-[#A1A8B3] font-medium" : "text-[#4a4a4a] font-serif italic"}>Loading subjects...</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="flex-1 min-h-screen font-sans flex items-center justify-center bg-[#0B0D12]">
+      <SubjectSelectionScreen
+        examName={currentExam?.name || "Exam"}
+        subjects={subjectOptions}
+        rawSubjectsCount={broadProcessed?.raw?.subjects || {}}
+        onSelectSubject={(id, name) => handleSubjectSelect(id, name)}
+        onViewAllCombined={handleViewAllCombined}
+        onChangeExam={handleClearExam}
+      />
+    );
+  }
+
+  // ═══════════════════ STEP 3: PATTERN ANALYSIS LOADING ═══════════════════
+  if ((isAnalysisLoading || isVersionsLoading) && !visibleAnalysis && !cachedAnalysis) {
+    return (
+      <div className={`flex-1 min-h-screen font-sans flex items-center justify-center ${isDark ? "bg-[#0B0D12]" : "bg-[#e8e4db]"}`}>
         <div className="text-center space-y-4">
-          <Loader2 size={32} className="animate-spin text-[#9B51E0] mx-auto" />
-          <p className="text-[#A1A8B3] font-medium">Analyzing question patterns...</p>
+          <Loader2 size={32} className={`animate-spin mx-auto ${isDark ? "text-[#9B51E0]" : "text-[#b91c1c]"}`} />
+          <p className={isDark ? "text-[#A1A8B3] font-medium" : "text-[#4a4a4a] font-serif italic"}>Analyzing question patterns...</p>
         </div>
       </div>
     );
   }
 
   // ═══════════════════ ERROR / NO DATA ═══════════════════
-  if (isAnalysisError || !processedData) {
+  if (isAnalysisError && !visibleAnalysis && !processedData) {
     return (
-      <div className="flex-1 min-h-screen font-sans flex items-center justify-center bg-[#0B0D12]">
-        <div className="text-center max-w-md p-8 bg-[#111318] rounded-2xl border border-[#23262D]">
+      <div className={`flex-1 min-h-screen font-sans flex items-center justify-center ${isDark ? "bg-[#0B0D12]" : "bg-[#e8e4db]"}`}>
+        <div className={`text-center max-w-md p-8 rounded-2xl border ${isDark ? "bg-[#111318] border-[#23262D]" : "bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]"}`}>
           <div className="text-4xl mb-4">⚠️</div>
-          <h3 className="text-lg font-bold text-[#EB5757] mb-2">Unable to load analysis</h3>
-          <p className="text-[#A1A8B3] text-sm mb-4">
-            No question patterns found for this exam yet. Try uploading a question paper first.
+          <h3 className={isDark ? "text-lg font-bold text-[#EB5757] mb-2" : "text-lg font-black text-[#b91c1c] mb-2 font-serif"}>Unable to load analysis</h3>
+          <p className={isDark ? "text-[#A1A8B3] text-sm mb-4" : "text-[#4a4a4a] text-sm mb-4 font-serif italic"}>
+            No question patterns found for this selection. Try uploading a question paper or selecting another subject.
           </p>
-          <button
-            onClick={handleClearExam}
-            className="inline-flex items-center gap-2 bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#1C1F26] transition-all"
-          >
-            Choose Another Exam
-          </button>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={handleBackToSubjectSelection}
+              className={isDark ? "inline-flex items-center gap-2 bg-[#161920] text-[#F5F7FA] border border-[#23262D] px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#1C1F26] transition-all" : "inline-flex items-center gap-2 bg-[#e8e4db] text-[#1a1a1a] border border-[#d8d4cb] px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#f7f3ec] transition-all font-serif"}
+            >
+              Choose Another Subject
+            </button>
+            <button
+              onClick={handleClearExam}
+              className={isDark ? "inline-flex items-center gap-2 bg-[#9B51E0] text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#8A40CE] transition-all" : "inline-flex items-center gap-2 bg-[#1a1a1a] text-[#f2efe9] px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-[#2a2a2a] transition-all shadow-[3px_3px_0px_0px_#b91c1c] font-serif"}
+            >
+              Change Exam
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  const { raw, totalQuestions, topSubjects, topTopics, subjectCount, topicCount } = processedData;
-
-  // Build the subject filter list: merge subjects from analysis with the subjects fetched by exam
-  const analysisSubjectNames = Object.keys(raw.subjects);
-  const examSubjects = subjects || [];
-  const subjectOptions = examSubjects.length > 0
-    ? examSubjects.map((s: any) => ({ name: s.name, _id: s._id }))
-    : analysisSubjectNames.map((name) => ({ name, _id: name }));
-
-  // BrainForge consistent accent colors for charts
-  const chartColors = ["#2F80ED", "#9B51E0", "#00E5B3", "#F2C94C", "#EB5757", "#00C8FF"];
-
-  const getSubjectColor = (subject: string) => {
-    const colors: Record<string, string> = {
-      Math: "from-[#2F80ED] to-[#00C8FF]",
-      "Mental Ability": "from-[#9B51E0] to-[#D04EDB]",
-      "Computer & Information Technology": "from-[#00E5B3] to-[#00C8FF]",
-      "International Affairs": "from-[#F2C94C] to-[#F2994A]",
-      "Bengali Literature": "from-[#00E5B3] to-[#2F80ED]",
-      "English Literature": "from-[#2F80ED] to-[#F2C94C]",
-      "General Science": "from-[#9B51E0] to-[#2F80ED]",
-      "Bangladesh Affairs": "from-[#EB5757] to-[#9B51E0]",
-      "Governance & Good Governance": "from-[#F2C94C] to-[#EB5757]",
-      "Bengali Language": "from-[#00C8FF] to-[#2F80ED]",
-      "Geography, Environment & Disaster Management": "from-[#00E5B3] to-[#9B51E0]",
-      "English Language": "from-[#9B51E0] to-[#00E5B3]",
+  const { raw, totalQuestions, topSubjects, topTopics, subjectCount, topicCount } =
+    processedData || {
+      raw: { subjects: {}, categorized_questions: [] },
+      totalQuestions: 0,
+      topSubjects: [],
+      topTopics: [],
+      subjectCount: 0,
+      topicCount: 0,
     };
-    return colors[subject] || "from-[#2F80ED] to-[#00E5B3]";
-  };
 
-  const getSubjectBadgeColor = (subject: string) => {
-    const colors: Record<string, string> = {
-      Math: "bg-[#2F80ED]/10 text-[#2F80ED] border-[#2F80ED]/30",
-      "Mental Ability": "bg-[#9B51E0]/10 text-[#9B51E0] border-[#9B51E0]/30",
-      "Computer & Information Technology": "bg-[#00E5B3]/10 text-[#00E5B3] border-[#00E5B3]/30",
-      "International Affairs": "bg-[#F2C94C]/10 text-[#F2C94C] border-[#F2C94C]/30",
-      "Bengali Literature": "bg-[#00E5B3]/10 text-[#00E5B3] border-[#00E5B3]/30",
-      "English Literature": "bg-[#2F80ED]/10 text-[#2F80ED] border-[#2F80ED]/30",
-      "General Science": "bg-[#9B51E0]/10 text-[#9B51E0] border-[#9B51E0]/30",
-      "Bangladesh Affairs": "bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30",
-      "Governance & Good Governance": "bg-[#F2C94C]/10 text-[#F2C94C] border-[#F2C94C]/30",
-      "Bengali Language": "bg-[#00C8FF]/10 text-[#00C8FF] border-[#00C8FF]/30",
-      "Geography, Environment & Disaster Management": "bg-[#00E5B3]/10 text-[#00E5B3] border-[#00E5B3]/30",
-      "English Language": "bg-[#2F80ED]/10 text-[#2F80ED] border-[#2F80ED]/30",
-    };
-    return colors[subject] || "bg-[#A1A8B3]/10 text-[#A1A8B3] border-[#A1A8B3]/30";
-  };
-
-  /* ═══════════════════ RENDER ANALYSIS PAGE ═══════════════════ */
+  /* ═══════════════════ STEP 3: SUBJECT QUESTION PATTERN ANALYSIS ═══════════════════ */
   return (
-    <div className="flex-1 min-h-screen font-sans text-[#F5F7FA] bg-[#0B0D12]">
-      <div className="max-w-8xl mx-auto py-6 px-2 space-y-7">
-        {/* ── TOP NAV BACK ── */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={handleClearExam}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#A1A8B3] hover:text-[#F5F7FA] transition-colors group"
-          >
-            <ArrowRight size={14} className="rotate-180 group-hover:-translate-x-0.5 transition-transform" />
-            <span>Change Exam</span>
-          </button>
-          {currentExam && (
-            <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#F5F7FA] bg-[#111318] px-3 py-1.5 rounded-xl border border-[#23262D]">
-              <GraduationCap size={13} className="text-[#9B51E0]" />
-              <span>{currentExam.name}</span>
-            </div>
-          )}
-        </div>
-
-        {/* ═══════════ HERO HEADER ═══════════ */}
-        <div className="relative overflow-hidden rounded-2xl bg-[#111318] border border-[#23262D] p-7 md:p-10 shadow-sm">
-          <div className="absolute -top-20 -right-20 w-72 h-72 bg-[#9B51E0]/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-[#2F80ED]/15 rounded-full blur-3xl" />
-
-          <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-[#9B51E0]/10 border border-[#9B51E0]/30 rounded-2xl flex items-center justify-center flex-shrink-0">
-                  <Brain size={22} className="text-[#9B51E0]" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-                    Question Pattern Analysis
-                  </h1>
-                  <p className="text-sm text-[#A1A8B3] mt-1 max-w-xl">
-                    {currentExam
-                      ? `High-probability topics and trends for ${currentExam.name}${
-                          currentVersion ? ` • ${currentVersion.examVersion}` : ""
-                        }`
-                      : "Discover high-probability topics and trends from exam data powered by AI analysis."}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex md:mb-6 items-center gap-3 text-xs font-semibold bg-[#161920] text-[#F5F7FA] px-4 py-2.5 rounded-xl border border-[#23262D]">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#00E5B3] animate-pulse" />{" "}
-                10 Years
-              </span>
-              <span className="w-px h-3.5 bg-[#23262D]" />
-              <span>{raw.categorized_questions.length} Topics</span>
-              <span className="w-px h-3.5 bg-[#23262D]" />
-              <span>{totalQuestions}+ Qs</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ═══════════ STATS ═══════════ */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            {
-              number: totalQuestions.toLocaleString() + "+",
-              label: "Questions Analyzed",
-              accent: "border-[#2F80ED]",
-              iconBg: "bg-[#2F80ED]/10 text-[#2F80ED] border border-[#2F80ED]/30",
-              icon: <BarChart3 size={18} />,
-            },
-            {
-              number: topicCount,
-              label: "Topics Identified",
-              accent: "border-[#9B51E0]",
-              iconBg: "bg-[#9B51E0]/10 text-[#9B51E0] border border-[#9B51E0]/30",
-              icon: <Target size={18} />,
-            },
-            {
-              number: subjectCount,
-              label: "Subjects Covered",
-              accent: "border-[#00E5B3]",
-              iconBg: "bg-[#00E5B3]/10 text-[#00E5B3] border border-[#00E5B3]/30",
-              icon: <BookOpen size={18} />,
-            },
-         
-            {
-              number: "91%",
-              label: "Predicted Accuracy",
-              accent: "border-[#00C8FF]",
-              iconBg: "bg-[#00C8FF]/10 text-[#00C8FF] border border-[#00C8FF]/30",
-              icon: <Sparkles size={18} />,
-            },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className={`bg-[#111318] rounded-2xl border ${stat.accent} p-4 flex items-center gap-3.5 hover:border-opacity-70 transition-all duration-200`}
+    <div className={`flex-1 min-h-screen px-1.5 font-sans ${isDark ? "text-[#F5F7FA] bg-[#0B0D12]" : "text-[#1a1a1a] bg-[#e8e4db]"}`}>
+      <div className="max-w-8xl mx-auto py-6 sm:px-3 space-y-10">
+        <div className={`flex flex-wrap items-center justify-between gap-3 border-b pb-4 ${isDark ? "border-[#23262D]/60" : "border-[#d8d4cb]"}`}>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBackToSubjectSelection}
+              className={isDark ? "inline-flex items-center gap-2 text-xs font-bold text-[#A1A8B3] hover:text-[#F5F7FA] bg-[#161920] px-3.5 py-2 rounded-xl border border-[#23262D] hover:border-[#323742] transition-all group" : "inline-flex items-center gap-2 text-xs font-bold text-[#1a1a1a] hover:text-[#b91c1c] bg-[#f2efe9] px-3.5 py-2 rounded-xl border border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a] transition-all group font-serif"}
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${stat.iconBg}`}>
-                {stat.icon}
-              </div>
-              <div className="min-w-0">
-                <div className="text-lg md:text-xl font-extrabold text-[#F5F7FA] leading-tight">
-                  {stat.number}
-                </div>
-                <div className="text-[11px] text-[#A1A8B3] font-semibold mt-0.5 truncate">
-                  {stat.label}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              <LayoutGrid size={14} className={isDark ? "text-[#00E5B3]" : "text-[#1a1a1a]"} />
+              <span>All Subjects</span>
+            </button>
 
-        {/* ═══════════ FILTERS ═══════════ */}
-        <div className="bg-[#111318] rounded-2xl border border-[#23262D] overflow-hidden">
-          <div className="p-5 md:p-6 space-y-6">
-            <div className="flex flex-col gap-6">
-              {/* Exam Version Filter */}
-              {examVersionWithQuestions.length > 0 && (
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-[11px] font-bold text-[#A1A8B3] uppercase tracking-widest">
-                      Filter
-                    </label>
-                    <span className="text-[10px] font-semibold text-[#6B7280] flex items-center gap-1.5">
-                      {isAnalysisFetching && (
-                        <Loader2 size={11} className="animate-spin text-[#9B51E0]" />
-                      )}
-                      {examVersionWithQuestions.length} version{examVersionWithQuestions.length > 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2.5">
-                  
-                    {examVersionWithQuestions.map((version: any) => (
-                      <button
-                        key={version._id}
-                        onClick={() => setSelectedVersionId(version._id)}
-                        className={`px-3 py-2.5 text-xs font-bold rounded-xl transition-all text-center whitespace-nowrap ${
-                          selectedVersionId === version._id
-                            ? "bg-[#9B51E0]/10 text-[#9B51E0] border border-[#9B51E0]/30"
-                            : "bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:border-[#323742] hover:text-[#F5F7FA]"
-                        }`}
-                      >
-                        {version.examVersion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Subject Filter */}
-              <div className="space-y-2.5">
-                <label className="block text-[11px] font-bold text-[#A1A8B3] uppercase tracking-widest">
-                  Topics
-                </label>
-                <div className="flex flex-wrap gap-2.5">
-               
-                  {subjectOptions.map((sub: any) => {
-                    const count = raw.subjects[sub.name];
-                    return (
-                      <button
-                        key={sub._id || sub.name}
-                        onClick={() => setSelectedSubject(sub.name)}
-                        className={`px-3 py-2.5 text-xs font-bold rounded-xl transition-all text-center whitespace-nowrap ${
-                          selectedSubject === sub.name
-                            ? "bg-[#9B51E0]/10 text-[#9B51E0] border border-[#9B51E0]/30"
-                            : "bg-[#161920] text-[#A1A8B3] border border-[#23262D] hover:border-[#323742] hover:text-[#F5F7FA]"
-                        }`}
-                      >
-                        {sub.name}
-                        {count !== undefined && (
-                          <span className="ml-1.5 text-[10px] opacity-60">
-                            ({count})
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ═══════════ CHARTS ROW ═══════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chart 1: Top Subjects */}
-          <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-2 flex flex-col h-[460px]">
-            <div className="flex justify-between items-center mb-4 shrink-0">
-              <div>
-                <h3 className="font-bold text-[#F5F7FA] text-sm flex items-center gap-2">
-                  <BookOpen size={16} className="text-[#2F80ED]" />
-                  Top Subjects
-                </h3>
-                <p className="text-xs text-[#A1A8B3] mt-0.5">By total question count</p>
-              </div>
-    
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1.5 space-y-3">
-              {topSubjects.map(([subject, count], idx) => {
-                const maxCount = topSubjects[0][1];
-                const percentage = Math.round((count / maxCount) * 100);
-                const totalPct = Math.round((count / totalQuestions) * 100);
-                const gradient = getSubjectColor(subject);
-                return (
-                  <div
-                    key={idx}
-                    className="bg-[#161920]/60 hover:bg-[#161920] border border-[#23262D] hover:border-[#323742] p-3.5 rounded-xl transition-all duration-200 group"
-                  >
-                    <div className="flex justify-between items-center text-xs mb-2">
-                      <div className="flex items-center gap-2 min-w-0 pr-2">
-                        <span className="text-[10px] font-extrabold text-[#6B7280] w-4 text-center">
-                          0{idx + 1}
-                        </span>
-                       <div className="flex items-center gap-2 pr-2">
-   <span className="font-semibold flex flex-grow text-[#F5F7FA] group-hover:text-[#2F80ED] leading-snug transition-colors break-words">
-     {subject}
-   </span>
-</div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] text-[#A1A8B3] font-medium">
-                          ({totalPct}%)
-                        </span>
-                        <span className="text-xs font-bold text-[#F5F7FA] bg-[#1F2430] px-2 py-0.5 rounded-md border border-[#2B303C]">
-                          {count} Qs
-                        </span>
-                      </div>
-                    </div>
-                    <div className="w-full h-2 bg-[#1C1F26] rounded-full overflow-hidden">
-                      <div
-                        className={`h-full bg-gradient-to-r ${gradient} rounded-full transition-all duration-500`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <button
+              onClick={handleClearExam}
+              className={isDark ? "inline-flex items-center gap-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#A1A8B3] transition-colors" : "inline-flex items-center gap-1.5 text-xs font-semibold text-[#4a4a4a] hover:text-[#1a1a1a] transition-colors font-serif"}
+            >
+              <ArrowRight size={13} className="rotate-180" />
+              <span>Change Exam</span>
+            </button>
           </div>
 
-          {/* Chart 2: Subject Distribution (Donut) */}
-          <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-2 flex flex-col h-[460px]">
-            <div className="mb-4 shrink-0">
-              <h3 className="font-bold text-[#F5F7FA] text-sm flex items-center gap-2">
-                <BarChart3 size={16} className="text-[#00C8FF]" />
-                Subject Distribution
-              </h3>
-              <p className="text-xs text-[#A1A8B3] mt-0.5">
-                {currentExam ? currentExam.name : "Exam"} breakdown
-              </p>
-            </div>
-
-            <div className="flex flex-col items-center justify-between flex-1 min-h-0">
-              {/* Donut graphic */}
-              <div className="relative w-36 h-36 shrink-0 my-auto">
-                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="15.9155"
-                    fill="none"
-                    stroke="#1C1F26"
-                    strokeWidth="4"
-                  />
-                  {topSubjects.map(([, count], idx) => {
-                    const percentage = (count / totalQuestions) * 100;
-                    const offset = topSubjects
-                      .slice(0, idx)
-                      .reduce((acc, [, c]) => acc + (c / totalQuestions) * 100, 0);
-                    return (
-                      <circle
-                        key={idx}
-                        cx="18"
-                        cy="18"
-                        r="15.9155"
-                        fill="none"
-                        stroke={chartColors[idx % chartColors.length]}
-                        strokeWidth="4.5"
-                        strokeDasharray={`${percentage}, 100`}
-                        strokeDashoffset={`-${offset}`}
-                        strokeLinecap="round"
-                      />
-                    );
-                  })}
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="text-2xl font-extrabold text-[#F5F7FA]">
-                    {totalQuestions}
-                  </div>
-                  <div className="text-[9px] text-[#A1A8B3] font-bold uppercase tracking-widest">
-                    Questions
-                  </div>
-                </div>
+          <div className="flex items-center gap-2">
+            {currentExam && (
+              <div className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border ${isDark ? "text-[#A1A8B3] bg-[#111318] border-[#23262D]" : "text-[#1a1a1a] bg-[#f2efe9] border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a] font-serif"}`}>
+                <GraduationCap size={13} className="text-[#9B51E0]" />
+                <span>{currentExam.name}</span>
               </div>
+            )}
 
-              {/* Legend List */}
-              <div className="w-full max-h-[170px] overflow-y-auto custom-scrollbar space-y-1.5 pr-1 shrink-0 mt-2">
-                {topSubjects.map(([subject, count], idx) => {
-                  const percentage = Math.round((count / totalQuestions) * 100);
-                  return (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-[#161920]/50 border border-[#23262D]/60 text-xs"
-                    >
-                      <span className="flex items-center gap-2 min-w-0 pr-2">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: chartColors[idx % chartColors.length] }}
-                        />
-                        <span className="truncate text-[#A1A8B3] font-medium">
-                          {subject}
-                        </span>
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0 font-bold text-[#F5F7FA]">
-                        <span>{count}</span>
-                        <span className="text-[10px] text-[#6B7280] font-normal">({percentage}%)</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Chart 3: Most Frequent Topics */}
-          <div className="bg-[#111318] rounded-2xl border border-[#23262D] p-2 flex flex-col h-[460px]">
-            <div className="mb-4 shrink-0">
-              <h3 className="font-bold text-[#F5F7FA] text-sm flex items-center gap-2">
-                <Sparkles size={16} className="text-[#9B51E0]" />
-                Most Frequent Topics
-              </h3>
-              <p className="text-xs text-[#A1A8B3] mt-0.5">Highest frequency across exam papers</p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1.5 space-y-3 min-h-0">
-              {topTopics.map(([topic, count], idx) => {
-                const maxCount = topTopics[0][1];
-                const percentage = (count / maxCount) * 100;
-                const topicData = raw.categorized_questions.find((t) => t.topic === topic);
-
-                return (
-                  <div
-                    key={idx}
-                    className="bg-[#161920]/80 hover:bg-[#161920] border border-[#23262D] hover:border-[#9B51E0]/40 p-2 rounded-xl transition-all duration-200 group flex flex-col justify-between"
-                  >
-                    {/* Header: Rank + Topic Name + Count Pill */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-start gap-2.5 min-w-0">
-                        <span className="text-[10px] font-extrabold text-[#9B51E0] bg-[#9B51E0]/10 border border-[#9B51E0]/20 w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5">
-                          #{idx + 1}
-                        </span>
-                        <h4 className="font-bold text-xs md:text-sm text-[#F5F7FA] group-hover:text-[#9B51E0] transition-colors leading-snug">
-                          {topic}
-                        </h4>
-                      </div>
-                      <span className="shrink-0 text-xs font-extrabold text-yellow-500 bg-[#9B51E0]/15 border border-[#9B51E0]/30 px-2.5 py-0.5 rounded-lg">
-                        {count} Qs
-                      </span>
-                    </div>
-
-                    {/* Meta: Subject Badge */}
-                    {topicData && (
-                      <div className="flex items-center gap-2 my-1">
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getSubjectBadgeColor(topicData.subject)}`}>
-                          {topicData.subject}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Progress Bar */}
-                    <div className="w-full h-1.5 bg-[#1C1F26] rounded-full overflow-hidden mt-2">
-                      <div
-                        className="h-full bg-gradient-to-r from-[#9B51E0] via-[#00C8FF] to-[#00E5B3] rounded-full transition-all duration-500"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Bottom Highlight Pill */}
-            {topTopics.length > 0 && (
-              <div className="bg-[#00E5B3]/10 border border-[#00E5B3]/30 rounded-xl p-3 text-xs text-[#00E5B3] font-semibold leading-relaxed flex items-center gap-2.5 shrink-0 mt-3">
-                <span className="text-base leading-none">⚡</span>
-                <span className="truncate">
-                  <strong className="text-white">{topTopics[0]?.[0]}</strong> is the top topic with{" "}
-                  <strong className="text-white">{topTopics[0]?.[1]} questions</strong>.
-                </span>
+            {selectedSubjectName && (
+              <div className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl border ${isDark ? "text-[#00C8FF] bg-[#00C8FF]/10 border-[#00C8FF]/30" : "text-[#1a1a1a] bg-[#e8e4db] border-[#d8d4cb] font-serif"}`}>
+                <span>{selectedSubjectName}</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* ═══════════ AI PREDICTED TOPICS ═══════════ */}
-        <AiPredictTopic examId={examId} />
+        <AnalysisHero
+          examName={currentExam?.name || null}
+          subjectName={selectedSubjectName}
+          versionName={currentVersion?.examVersion}
+          boardName={selectedBoard}
+          topicCount={topicCount}
+          totalQuestions={totalQuestions}
+        />
 
+        <AnalysisStats
+          totalQuestions={totalQuestions}
+          topicCount={topicCount}
+          subjectCount={selectedSubjectName ? 1 : subjectCount}
+        />
+
+        <AnalysisFilters
+          subjectOptions={subjectOptions}
+          rawSubjects={broadProcessed?.raw?.subjects || raw.subjects}
+          selectedSubjectId={selectedSubjectId}
+          selectedSubjectName={selectedSubjectName}
+          onSubjectSelect={handleSubjectSelect}
+          versions={examVersionWithQuestions}
+          selectedVersionId={selectedVersionId}
+          onVersionSelect={handleVersionSelect}
+          selectedBoard={selectedBoard}
+          onBoardSelect={handleBoardSelect}
+          isFetching={isAnalysisFetching}
+          examName={currentExam?.name}
+        />
+
+        {totalQuestions > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <TopSubjectsChart topSubjects={topSubjects} totalQuestions={totalQuestions} />
+            <SubjectDistributionChart
+              topSubjects={topSubjects}
+              totalQuestions={totalQuestions}
+              examName={selectedSubjectName || currentExam?.name}
+            />
+            <FrequentTopicsChart topTopics={topTopics} raw={raw} />
+          </div>
+        ) : (
+          <div className={`p-10 text-center rounded-2xl border space-y-4 max-w-xl mx-auto ${isDark ? "bg-[#111318] border-[#23262D] shadow-lg shadow-black/20" : "bg-[#f2efe9] border-[#d8d4cb] shadow-[3px_3px_0px_0px_#1a1a1a]"}`}>
+            <div className="space-y-1.5">
+              <h4 className={isDark ? "text-lg font-extrabold text-[#F5F7FA] tracking-tight" : "text-lg font-black text-[#1a1a1a] tracking-tight font-serif"}>
+                Not Analyzed Yet
+              </h4>
+              <p className={isDark ? "text-xs text-[#A1A8B3] max-w-md mx-auto leading-relaxed" : "text-xs text-[#4a4a4a] max-w-md mx-auto leading-relaxed font-serif italic"}>
+                No question paper patterns have been analyzed yet for{" "}
+                {selectedSubjectName ? (
+                  <span className={isDark ? "text-[#00C8FF] font-semibold" : "text-[#1a1a1a] font-semibold"}>{selectedSubjectName}</span>
+                ) : (
+                  "this subject"
+                )}
+                {currentVersion?.examVersion ? (
+                  <> in <span className={isDark ? "text-[#2F80ED] font-semibold" : "text-[#1a1a1a] font-semibold"}>{currentVersion.examVersion}</span></>
+                ) : null}
+                {selectedBoard ? (
+                  <> (<span className={isDark ? "text-[#F2C94C] font-semibold" : "text-[#b91c1c] font-semibold"}>{selectedBoard} Board</span>)</>
+                ) : null}.
+              </p>
+            </div>
+            <p className={isDark ? "text-[11px] text-[#6B7280]" : "text-[11px] text-[#4a4a4a] font-serif italic"}>
+              Upload and analyze question papers for this Year and Board to see topic breakdowns and frequent patterns.
+            </p>
+          </div>
+        )}
+
+        <AiPredictTopic examId={examId} />
       </div>
     </div>
   );
 };
 
 export default QuestionPatterns;
+
+

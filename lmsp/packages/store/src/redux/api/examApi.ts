@@ -1,5 +1,5 @@
 import { api } from "./baseApi";
-import type { Exam } from '../../types';
+import type { Exam, QuestionType } from '../../types';
 
 export interface courseResponse {
     data: Exam[];
@@ -20,7 +20,17 @@ const examApi = api.injectEndpoints({
         }),
 
         postScrapQuestions: builder.mutation({
-            query:(data) =>({
+            query:(data: {
+                exam: string;
+                data: any[];
+                examVersion?: string;
+                subject?: string;
+                board?: string;
+                division?: string;
+                questionType?: string;
+                college?: string;
+                year?: number;
+            }) =>({
                 method:'POST',
                 url:'/questions/save',
                 body:data
@@ -35,11 +45,13 @@ const examApi = api.injectEndpoints({
             })
         }),
 
-        getAnalyzedQuestions: builder.query<any[], { examId?: string; versionId?: string } | void>({
+        getAnalyzedQuestions: builder.query<any[], { examId?: string; versionId?: string; subjectId?: string; board?: string } | void>({
             query: (params) => {
                 const search = new URLSearchParams();
                 if (params?.examId) search.set('exam', params.examId);
                 if (params?.versionId) search.set('examVersion', params.versionId);
+                if (params?.subjectId) search.set('subject', params.subjectId);
+                if (params?.board) search.set('board', params.board);
                 const qs = search.toString();
                 return { url: `/questions/question-pattern${qs ? `?${qs}` : ''}` };
             },
@@ -72,15 +84,55 @@ const examApi = api.injectEndpoints({
         }),
 
         getImportentTopics:builder.query({
-            query:(examId) => `/important-topics?exam=${examId}`
+            query:(examId) => ({ url: `/important-topics?exam=${examId}` })
         }),
 
-        getQuestionsByExam: builder.query<any[], { examId: string; versionId?: string }>({
-            query: ({ examId, versionId }) => {
+        getQuestionsByExam: builder.query<any[], { examId: string; versionId?: string; board?: string; subjectId?: string; questionType?: QuestionType | ''; college?: string; year?: number }>({
+            query: ({ examId, versionId, board, subjectId, questionType, college, year }) => {
                 let url = `/questions/exam/${examId}`;
-                if (versionId) url += `?versionId=${versionId}`;
+                const params = new URLSearchParams();
+                if (versionId) params.append("versionId", versionId);
+                if (board) params.append("board", board);
+                if (subjectId) params.append("subject", subjectId);
+                if (questionType) params.append("questionType", questionType);
+                if (college) params.append("college", college);
+                if (year) params.append("year", String(year));
+                // (params appended below via toString)
+                
+                const queryString = params.toString();
+                if (queryString) {
+                    url += `?${queryString}`;
+                }
                 return { url };
             },
+            providesTags: ['Question'],
+        }),
+
+        getScheduleExamQuestions: builder.query<any[], string>({
+            query: (scheduleId) => ({ url: `/schedule-exams/${scheduleId}/questions` }),
+            providesTags: (_result, _error, id) => [{ type: 'ScheduleExam', id }],
+        }),
+
+        getSubjects: builder.query<SubjectByExam[], void>({
+            query: () => ({ url: '/subjects' }),
+        }),
+
+        getTopicsByExamAndSubject: builder.query<any[], { examId: string; subjectId?: string; subjectName?: string }>({
+            query: ({ examId, subjectId, subjectName }) => {
+                const params = new URLSearchParams();
+                if (examId) params.set('exam', examId);
+                if (subjectId) params.set('subject', subjectId);
+                if (subjectName) params.set('subjectName', subjectName);
+                return { url: `/topics?${params.toString()}` };
+            },
+        }),
+
+        resolveTopics: builder.mutation<{ mapping: Record<string, string> }, { exam: string; subject?: string; subjectName?: string; topics: string[] }>({
+            query: (data) => ({
+                url: '/topics/resolve',
+                method: 'POST',
+                body: data,
+            }),
         }),
     }),
 });
@@ -92,7 +144,12 @@ export const { useGetExamsQuery,
      usePostScrapQuestionsMutation,
      usePostQuestionPatternMutation,
      useGetSubjectsByExamQuery,
+     useGetSubjectsQuery,
      useGetImportentTopicsQuery,
      useGetExamVersionsByExamQuery,
-     useGetQuestionsByExamQuery } = examApi;
+     useGetQuestionsByExamQuery,
+     useGetScheduleExamQuestionsQuery,
+     useGetTopicsByExamAndSubjectQuery,
+     useLazyGetTopicsByExamAndSubjectQuery,
+     useResolveTopicsMutation } = examApi;
 export default examApi;

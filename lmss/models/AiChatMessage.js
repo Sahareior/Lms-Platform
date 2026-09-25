@@ -21,13 +21,18 @@ const aiChatMessageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // Optional chapter or lesson identifier to scope chat histories per lesson/chapter
+    chapter: {
+      type: String,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );
 
-// Cursor pagination reads messages newest-first per user (sorted by _id,
-// which is monotonically increasing with insertion time).
-aiChatMessageSchema.index({ user: 1, _id: -1 });
+// Cursor pagination reads messages newest-first per user & chapter
+aiChatMessageSchema.index({ user: 1, chapter: 1, _id: -1 });
 
 const AiChatMessage = mongoose.model("AiChatMessage", aiChatMessageSchema);
 export default AiChatMessage;

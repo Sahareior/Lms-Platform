@@ -3,12 +3,13 @@ import AiChatMessage from "../models/AiChatMessage.js";
 
 // ─── Save chat messages ─────────────────────────────────────
 // POST /ai-chat/messages
-// Body: { messages: [{ sender: 'user' | 'ai', text: string }, ...] }
-// Persists one or more messages for the authenticated user.
+// Body: { chapter?: string, messages: [{ sender: 'user' | 'ai', text: string }, ...] }
+// Persists one or more messages for the authenticated user and optional chapter.
 export const saveChatMessages = async (req, res) => {
   try {
     const userId = req.user.userId;
     const messages = req.body?.messages;
+    const chapter = req.body?.chapter ? String(req.body.chapter).trim() : null;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return res
@@ -26,7 +27,12 @@ export const saveChatMessages = async (req, res) => {
             "Each message needs a valid sender ('user' or 'ai') and non-empty text",
         });
       }
-      cleaned.push({ user: userId, sender, text });
+      cleaned.push({
+        user: userId,
+        sender,
+        text,
+        chapter: m?.chapter ? String(m.chapter).trim() : chapter,
+      });
     }
 
     const saved = await AiChatMessage.insertMany(cleaned);
@@ -36,6 +42,7 @@ export const saveChatMessages = async (req, res) => {
         _id: m._id,
         sender: m.sender,
         text: m.text,
+        chapter: m.chapter,
         createdAt: m.createdAt,
       })),
     });
@@ -46,11 +53,10 @@ export const saveChatMessages = async (req, res) => {
 };
 
 // ─── Get chat history (cursor pagination) ───────────────────
-// GET /ai-chat/history?limit=30&before=<messageId>
+// GET /ai-chat/history?limit=30&before=<messageId>&chapter=<chapterId>
 // Returns the user's messages oldest → newest (suitable for display).
-// Without `before` it returns the most recent `limit` messages; with
-// `before` it returns the `limit` messages older than that cursor.
-// `nextCursor` is the id to pass as `before` for the next (older) page.
+// When `chapter` is passed, filters specifically for that chapter/lesson.
+// When `chapter` is omitted, returns global or null-chapter messages.
 export const getChatHistory = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -59,6 +65,7 @@ export const getChatHistory = async (req, res) => {
       100
     );
     const before = req.query.before || null;
+    const chapter = req.query.chapter ? String(req.query.chapter).trim() : null;
 
     if (before && !mongoose.Types.ObjectId.isValid(before)) {
       return res.status(400).json({ message: "Invalid `before` cursor" });
@@ -66,6 +73,7 @@ export const getChatHistory = async (req, res) => {
 
     const filter = {
       user: userId,
+      ...(chapter !== null ? { chapter } : {}),
       ...(before ? { _id: { $lt: before } } : {}),
     };
 
