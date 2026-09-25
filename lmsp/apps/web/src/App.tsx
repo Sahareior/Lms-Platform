@@ -6,6 +6,7 @@ import {
   LayoutGrid,
 } from 'lucide-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { prefetchRoute, prefetchAllRoutes } from './routePrefetch';
 // Lazy-load SweetAlert2 — only pulled in when the user actually clicks logout
 const getSwal = () => import('sweetalert2').then(m => m.default);
 import {
@@ -41,6 +42,12 @@ const App: React.FC = () => {
   const { user } = useAppSelector((state) => state.user);
   const [getOrGenerateAiPerformance] = useGetOrGenerateAiPerformanceMutation();
   const lastSentKey = useRef<string | null>(null);
+
+  // ─── Prefetch all route chunks after 3s idle ────────────────
+  useEffect(() => {
+    const timer = setTimeout(prefetchAllRoutes, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
@@ -203,6 +210,8 @@ const App: React.FC = () => {
                       navigate(item.path);
                       if (isMobile) setCollapsed(true);
                     }}
+                    onMouseEnter={() => prefetchRoute(item.path)}
+                    onTouchStart={() => prefetchRoute(item.path)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${
                       isDark
                         ? active
