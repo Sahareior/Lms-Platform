@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Native smooth scroll replaces Lenis/GSAP (zero JS overhead) */
+html,
+[data-scroll-container] {
+  scroll-behavior: smooth;
+}
+
 @layer base {
   :root {
     --bg-main: #0B0D12;

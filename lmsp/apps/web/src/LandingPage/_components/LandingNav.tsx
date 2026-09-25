@@ -42,7 +42,7 @@ const LandingNav = () => {
               {/* Logo */}
               <Link to="/" aria-label="Geneseon home" className="flex items-center gap-2.5 group">
                 {
-                  isDark? (<img className="w-9" src="/nav.png" alt="" />):(<img className="w-9" src="/d.png" alt="" />)
+                  isDark? (<img className="w-9" src="/nav.webp" alt="" />):(<img className="w-9" src="/d.webp" alt="" />)
                 }
                 <span
                   className="text-sm font-black tracking-[0.3em] text-[#1a1a1a] font-serif"
