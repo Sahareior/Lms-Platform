@@ -15,6 +15,7 @@ import {
 import { useGetExamsQuery, useGetMeQuery } from "@my-monorepo/store";
 import type { Exam } from "@my-monorepo/store";
 import { useTheme } from "../../../theme/ThemeContext";
+import ReusableHeader from "../../../reusable/ReusableHeader";
 
 /** Map exam names to category-based icons & colours */
 function examMeta(
@@ -58,23 +59,11 @@ export default function ExamCategorySelection() {
           backgroundSize: '16px 16px',
         }}
       >
-        <div className="backdrop-blur-xl border-b border-[#d8d4cb] bg-[#f2efe9]/95 shadow-[0_3px_0px_0px_#1a1a1a]">
-          <div className="max-w-8xl mx-auto md:p-4 p-1 sm:px-6 py-6">
-            <div className="text-center">
-              <div className="inline-flex items-center gap-1.5 text-[10px] font-black px-3.5 py-1.5 rounded-full uppercase tracking-widest mb-4 border border-[#1a1a1a] bg-[#f2efe9] text-[#1a1a1a] font-serif">
-                <Star size={11} className="fill-[#1a1a1a]" />
-                <span>Question Center</span>
-                <Star size={11} className="fill-[#1a1a1a]" />
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight mb-2 text-[#1a1a1a] font-serif">
-                Select Your Exam
-              </h1>
-              <p className="text-sm max-w-xl mx-auto text-[#4a4a4a] font-serif italic">
-                Choose your target exam to access curated question banks, model tests, and past papers.
-              </p>
-            </div>
-          </div>
-        </div>
+
+     <div className="md:p-4 p-1"> 
+        <ReusableHeader title='Question Center' badge='Select Your Exam' subtitle=' Choose your target exam to access curated question banks, model tests, and past papers.' icon={BookOpen} />
+
+     </div>
 
         {/* Content */}
         <div className="max-w-8xl mx-auto md:p-4 p-1 py-8 pb-20">
@@ -161,23 +150,10 @@ export default function ExamCategorySelection() {
   // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className="min-h-screen bg-[#0B0D12] text-[#F5F7FA]">
-      <div className="backdrop-blur-xl border-b bg-[#111318]/95 border-[#23262D]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-          <div className="text-center">
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider mb-4 border bg-[#9B51E0]/10 text-[#9B51E0] border-[#9B51E0]/30">
-              <Star size={11} />
-              <span>Question Center</span>
-              <Star size={11} />
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-2 text-[#F5F7FA]">
-              Select Your Exam
-            </h1>
-            <p className="text-sm max-w-xl mx-auto text-[#A1A8B3]">
-              Choose your target exam to access curated question banks, model tests, and past papers.
-            </p>
-          </div>
-        </div>
-      </div>
+      <div className="md:p-4 p-1"> 
+        <ReusableHeader title='Question Center' badge='Select Your Exam' subtitle=' Choose your target exam to access curated question banks, model tests, and past papers.' icon={BookOpen} />
+
+     </div>
 
       <div className="max-w-8xl mx-auto px-4 sm:px-6 py-8 pb-20">
         {isLoading && (

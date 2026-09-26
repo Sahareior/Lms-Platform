@@ -18,6 +18,8 @@ import {
   type NotebookItem,
 } from '@my-monorepo/store';
 import { useTheme } from '../../../theme/ThemeContext';
+import ReusableHeader from '../../../reusable/ReusableHeader';
+
 
 type Tab = 'right' | 'wrong' | 'favorites';
 
@@ -260,9 +262,7 @@ function NotebookCard({ item, accent, isDark }: { item: NotebookItem; accent: st
               {isRight ? (
                 <span className="text-[#00E5B3] font-semibold">You answered this correctly.</span>
               ) : (
-                <span className="text-[#EB5757] font-semibold">
-                 
-                </span>
+                <span className="text-[#EB5757] font-semibold"></span>
               )}
             </p>
           )}
@@ -313,28 +313,27 @@ export default function Notebook() {
     { key: 'favorites', count: stats?.favoriteCount },
   ];
 
+  // ─── Shared header ─────────────────────────────────────────
+  const header = (
+    <ReusableHeader
+      
+      icon={NotebookPen}
+      badge="Your Journal"
+      title="Notebook"
+      subtitle="Your personal question journal — every right answer, every mistake, and your favorites in one place."
+    />
+  );
+
   // ─── LIGHT MODE (Vintage Paper Style) ───────────────────────
   if (!isDark) {
     return (
-      <div 
+      <div
         className="w-full max-w-8xl mx-auto p-4 text-[#1a1a1a] space-y-6 min-h-screen"
         style={{
           backgroundImage: 'radial-gradient(#d8d4cb 1px, transparent 1px)',
-         
         }}
       >
-        {/* ── Header ── */}
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-[#1a1a1a] border border-[#1a1a1a]">
-            <NotebookPen size={18} className="text-[#f2efe9]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black tracking-tight font-serif">Notebook</h1>
-            <p className="text-xs text-[#4a4a4a] font-serif italic">
-              Your personal question journal — every right answer, every mistake, and your favorites in one place.
-            </p>
-          </div>
-        </div>
+        {header}
 
         {/* ── Summary strip ── */}
         {stats && (
@@ -348,9 +347,7 @@ export default function Notebook() {
                 key={label}
                 className="bg-[#f2efe9] border border-[#d8d4cb] rounded-lg px-4 py-3 shadow-[2px_2px_0px_0px_#1a1a1a]"
               >
-                <p className="text-lg font-black font-serif text-[#1a1a1a]">
-                  {value}
-                </p>
+                <p className="text-lg font-black font-serif text-[#1a1a1a]">{value}</p>
                 <p className="text-[10px] uppercase tracking-widest text-[#4a4a4a] font-black font-serif">
                   {label}
                 </p>
@@ -448,17 +445,7 @@ export default function Notebook() {
   // ─── DARK MODE (Original Code - Unchanged) ─────────────────
   return (
     <div className="w-full max-w-8xl mx-auto p-4 text-[#F5F7FA] space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-[#9B51E0]/10 border border-[#9B51E0]/30">
-          <NotebookPen size={18} className="text-[#9B51E0]" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Notebook</h1>
-          <p className="text-xs text-[#A1A8B3]">
-            Your personal question journal — every right answer, every mistake, and your favorites in one place.
-          </p>
-        </div>
-      </div>
+      {header}
 
       {stats && (
         <div className="grid grid-cols-3 gap-3">

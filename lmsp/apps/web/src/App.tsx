@@ -339,7 +339,7 @@ const App: React.FC = () => {
             >
               {/* Floating menu button in hub mode — quick access to the hub page */}
               {isHub && (
-                <div className="fixed bottom-5 right-5 z-50">
+                <div className="fixed bottom-32 right-5 z-50">
                   <button
                     onClick={() => navigate('/navigate')}
                     title="Open Navigation Hub"

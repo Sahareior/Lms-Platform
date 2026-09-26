@@ -453,7 +453,7 @@ export default function Dashboard() {
             />
           </div>
         ) : filteredEnrolled.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 px-3 gap-5">
             {filteredEnrolled.map((course) => (
               <EnrolledCard
                 isDark={isDark}
@@ -546,7 +546,7 @@ export default function Dashboard() {
             />
           </div>
         ) : availableCoursesList.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 px-3 gap-5">
             {availableCoursesList.map((course: any) => (
               <AvailableCard
                 isDark={isDark}

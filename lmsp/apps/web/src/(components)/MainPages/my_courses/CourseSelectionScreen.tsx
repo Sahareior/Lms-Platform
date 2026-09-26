@@ -3,6 +3,7 @@ import {
 } from 'lucide-react';
 import { ProgressRing } from '../lesson/_components/VideoPlayer';
 import { useTheme } from '../../../theme/ThemeContext';
+import ReusableHeader from '../../../reusable/ReusableHeader';
 
 interface CourseSelectionScreenProps {
   enrolledCourses: any[];
@@ -251,19 +252,8 @@ export default function CourseSelectionScreen({
       }
     >
       {/* ────── PAGE HEADER (always visible) ────── */}
-      <div
-        className={`flex items-center gap-3 pb-6 border-b ${t.headerBorder}`}
-      >
-        <div className={t.headerIconWrap}>
-          <BookOpen size={20} className={t.headerIcon} />
-        </div>
-        <div>
-          <h1 className={t.headerTitle}>My Courses</h1>
-          <p className={t.headerSubtitle}>
-            Select a course to start learning
-          </p>
-        </div>
-      </div>
+
+      <ReusableHeader title='My Courses' badge='My enrolled courses' subtitle=' Select a course to start learning' icon={BookOpen} />
 
       {/* ────── BODY (loading / grid / empty) ────── */}
       {renderBody()}
