@@ -487,8 +487,8 @@ const AIChatInterface = () => {
    };
 
    return (
-      <div className={`w-full  md:h-[calc(100dvh-40px)] h-full font-sans overflow-hidden ${c.outerBg}`}>
-         <main className={`w-full min-h-0 flex flex-col h-full rounded-2xl border relative overflow-hidden ${c.mainCard}`}>
+      <div className={`w-full  md:h-[calc(100dvh-10px)] h-full font-sans overflow-hidden ${c.outerBg}`}>
+         <main className={`w-full min-h-0 flex flex-col h-full border relative overflow-hidden ${c.mainCard}`}>
             {/* --- Header --- */}
             <header className={`border-b md:p-4 p-1  flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-10 ${c.header}`}>
                <div className="flex items-center gap-3.5">
@@ -603,8 +603,10 @@ const AIChatInterface = () => {
 
             {/* --- Footer Input Area --- */}
             <div
-               className={`${kbOffset > 0 ? 'fixed' : 'absolute'} left-0 right-0 border-t p-4 pb-6 z-10 rounded-b-2xl ${c.footer}`}
-               style={{ bottom: 0 }}
+               className={`border-t p-4 pb-6 z-10 rounded-b-2xl ${c.footer} ${kbOffset > 0 ? 'sticky bottom-0' : ''}`}
+               style={{
+                  paddingBottom: kbOffset > 0 ? `${Math.max(24, kbOffset + 24)}px` : undefined,
+               }}
             >
                <div className="flex items-center gap-3 relative">
                   <input

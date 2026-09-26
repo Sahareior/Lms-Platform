@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useTheme } from "../../../../theme/ThemeContext";
+import ReusableHeader from "../../../../reusable/ReusableHeader";
 
 
 /* ==================================================================
@@ -70,18 +71,10 @@ export default function ExamSelectionScreen({
   return (
     <div className={`p-4 ${isDark ? "bg-[#0B0D12]" : "bg-[#e8e4db]"} h-screen`}>
       <div className="max-w-8xl space-y-10">
-        <div className="text-center max-w-2xl mx-auto space-y-4">
-          <div className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider border ${isDark ? "bg-[#9B51E0]/10 text-[#9B51E0] border-[#9B51E0]/30" : "bg-[#f2efe9] text-[#1a1a1a] border-[#d8d4cb] shadow-[2px_2px_0px_0px_#1a1a1a]"}`}>
-            <Sparkles size={11} />
-            Question Pattern Analysis
-          </div>
-          <h1 className={isDark ? "text-3xl md:text-4xl font-extrabold tracking-tight leading-tight" : "text-3xl md:text-4xl font-black tracking-tight leading-tight text-[#1a1a1a] font-serif"}>
-            Choose an Exam to Analyze
-          </h1>
-          <p className={isDark ? "text-[#A1A8B3] text-sm leading-relaxed" : "text-sm leading-relaxed text-[#4a4a4a] font-serif italic"}>
-            Select one of your enrolled exams to discover high-probability topics, subject distributions, and AI-powered pattern insights.
-          </p>
-        </div>
+
+
+           <ReusableHeader title='Choose an Exam to Analyze' badge=' Question Pattern Analysis' subtitle=' Select one of your enrolled exams to discover high-probability topics, subject distributions, and AI-powered pattern insights.' icon={BookOpen} />
+
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {selectedExams.map((exam: any, idx: number) => {
