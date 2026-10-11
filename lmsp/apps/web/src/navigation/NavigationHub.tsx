@@ -3,6 +3,7 @@ import { ArrowRight, Compass, Menu } from 'lucide-react';
 import { navItemConfigs } from './navItems';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigationMode } from './NavigationContext';
+import { prefetchRoute } from '../routePrefetch';
 
 /**
  * NavigationHub — an alternative "menu page" navigation system.
@@ -54,6 +55,8 @@ const NavigationHub: React.FC = () => {
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
+              onMouseEnter={() => prefetchRoute(item.path)}
+              onTouchStart={() => prefetchRoute(item.path)}
               className={`group relative text-left rounded-2xl p-5 transition-all duration-200 border ${
                 isDark
                   ? isActive

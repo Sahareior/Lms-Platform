@@ -15,14 +15,6 @@ const LessonPage = () => {
   const { data: enrolledCourses, isLoading: isLoadingEnrolledCourses } =
     useGetEnrolledCourseQuery(userId, { skip: !userId });
 
-  if (isLoadingEnrolledCourses) {
-    return (
-      <div className={`w-full h-screen flex items-center justify-center ${isDark ? 'bg-[#0B0D14] text-[#F5F7FA]' : 'bg-[#f3f7fb] text-[#1a1a1a]'}`}>
-        <div className={`w-8 h-8 border-4 ${isDark ? 'border-[#2F80ED] border-t-transparent' : 'border-[#b91c1c] border-t-transparent'} rounded-full animate-spin`} />
-      </div>
-    );
-  }
-
   if (!courseId || courseId === 'undefined') {
     return (
       <CourseSelectionScreen

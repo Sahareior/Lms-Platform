@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticate, requireRole } from '../middleware/auth.js';
+import { authenticate, requireRole, requireSelfOrAdmin } from '../middleware/auth.js';
 import { cacheMiddleware } from '../middleware/cache.js';
 import { createExam, listExams, selectExamForUser, removeExamForUser, getUserExams, updateExam, deleteExam } from '../controller/Exam.js';
 
@@ -11,7 +11,7 @@ router.get('/', cacheMiddleware({ ttl: 300, keyPrefix: 'cache:exam' }), listExam
 // Protected: user-specific operations
 router.post('/select', authenticate, selectExamForUser);
 router.post('/remove', authenticate, removeExamForUser);
-router.get('/user/:userId', authenticate, getUserExams);
+router.get('/user/:userId', authenticate, requireSelfOrAdmin('userId'), getUserExams);
 
 // Admin only: create, update, delete exams
 router.post('/', authenticate, requireRole('admin'), createExam);
