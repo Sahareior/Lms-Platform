@@ -4,6 +4,11 @@ import BlogPost from '../models/BlogPost.js';
 import StudyGroupLink from '../models/StudyGroupLink.js';
 import { invalidatePrefix } from '../middleware/cache.js';
 
+// Escape regex metacharacters so user-supplied search terms are matched
+// literally. Without this, a query like "(a+)+$" can trigger catastrophic
+// backtracking (ReDoS) and stall queries, and operators leak into the regex.
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // ─── Study PDFs Helpers ─────────────────────────────────────────
 
 export const getCloudinaryPublicId = (pdf) => {
@@ -50,7 +55,7 @@ export const getStudyPdfs = async (req, res) => {
     // Admin panel passes includeUnpublished=true to also see drafts.
     if (includeUnpublished !== 'true') filter.isPublished = true;
     if (search) {
-      const rx = { $regex: String(search).trim(), $options: 'i' };
+      const rx = { $regex: escapeRegex(String(search).trim()), $options: 'i' };
       filter.$or = [{ title: rx }, { description: rx }];
     }
 
@@ -204,9 +209,9 @@ export const getBlogPosts = async (req, res) => {
     const filter = {};
 
     if (includeUnpublished !== 'true') filter.isPublished = true;
-    if (tag) filter.tags = { $regex: `^${String(tag).trim()}$`, $options: 'i' };
+    if (tag) filter.tags = { $regex: `^${escapeRegex(String(tag).trim())}$`, $options: 'i' };
     if (search) {
-      const rx = { $regex: String(search).trim(), $options: 'i' };
+      const rx = { $regex: escapeRegex(String(search).trim()), $options: 'i' };
       filter.$or = [{ title: rx }, { content: rx }, { excerpt: rx }];
     }
 
