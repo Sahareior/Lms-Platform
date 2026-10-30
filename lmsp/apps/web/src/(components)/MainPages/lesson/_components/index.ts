@@ -6,4 +6,4 @@ export { default as ResourcesTab } from './ResourcesTab';
 export { default as CourseCurriculum } from './CourseCurriculum';
 export { default as ProgressCard } from './ProgressCard';
 export { default as LessonPlayerScreen } from './LessonPlayerScreen';
-export { default as CourseSelectionScreen } from './CourseSelectionScreen';
+export { default as CourseSelectionScreen } from '../../my_courses/CourseSelectionScreen';

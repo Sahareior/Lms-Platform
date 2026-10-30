@@ -20,6 +20,7 @@ export interface UploadSignature {
   api_key: string;
   timestamp: number;
   folder: string;
+  access_mode?: string;
   signature: string;
 }
 

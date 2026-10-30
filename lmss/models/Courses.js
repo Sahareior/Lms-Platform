@@ -38,5 +38,9 @@ const courseSchema = new mongoose.Schema({
     }]
 });
 
+// Fast lookups: courses by enrolled student, and courses by exam.
+courseSchema.index({ enrolledStudents: 1 });
+courseSchema.index({ exam: 1 });
+
 const CourseModel = mongoose.model('Course', courseSchema);
 export default CourseModel;

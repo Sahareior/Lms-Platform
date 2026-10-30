@@ -34,11 +34,19 @@ export interface UpdateUser {
   notes?: string;
   agreed?: boolean;
   selectedExams?: string[];
+  studentClass?: string;
+  class?: string;
+  hometown?: string;
+  location?: string;
 }
 
 export interface AuthResponse {
   user: User;
   token: string;
+}
+
+export interface GoogleSignInRequest {
+  idToken: string;
 }
 
 // ─── Injected Endpoints ─────────────────────────────────────
@@ -85,6 +93,33 @@ const authApi = api.injectEndpoints({
       providesTags: ['User'],
     }),
 
+    // ── Password reset ───────────────────────────────────────
+    forgotPassword: build.mutation<{ message: string }, { email: string }>({
+      query: (data) => ({
+        url: '/auth/forgot-password',
+        method: 'POST',
+        body: data,
+      }),
+    }),
+
+    resetPassword: build.mutation<{ message: string }, { token: string; email?: string; newPassword: string }>({
+      query: (data) => ({
+        url: '/auth/reset-password',
+        method: 'POST',
+        body: data,
+      }),
+    }),
+
+    // ── Google Sign-In ───────────────────────────────────────
+    googleSignIn: build.mutation<AuthResponse, GoogleSignInRequest>({
+      query: (data) => ({
+        url: '/auth/google',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['User'],
+    }),
+
     // ── Update Profile ───────────────────────────────────────
     updateProfile: build.mutation<User, Partial<User>>({
       query: (data) => ({
@@ -105,5 +140,8 @@ export const {
   useGetProfileQuery,
   useGetMeQuery,
   useUpdateProfileMutation,
-  useAddUserInfoMutation
+  useAddUserInfoMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
+  useGoogleSignInMutation,
 } = authApi;

@@ -16,7 +16,7 @@ const { Text } = Typography;
 interface MediaUploadProps {
   type: 'image' | 'video' | 'file';
   value?: string;
-  onChange?: (url: string, meta?: { duration?: number; name?: string; mimeType?: string }) => void;
+  onChange?: (url: string, meta?: { duration?: number; name?: string; mimeType?: string; publicId?: string }) => void;
   onLoadingChange?: (loading: boolean) => void;
   label?: string;
   accept?: string;
@@ -116,17 +116,18 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
         mimeType: (file as File).type,
       };
 
-      // Pass upload metadata (duration, original name, mime type) so callers
+      // Pass upload metadata (duration, original name, mime type, publicId) so callers
       // can auto-fill fields like the lesson duration or resource type.
       onChange?.(result.url, {
         duration: result.duration,
         name: result.name,
         mimeType: result.mimeType,
+        publicId: result.publicId,
       });
       message.success(
         type === 'image' ? 'Image uploaded successfully' :
-        type === 'video' ? 'Video uploaded successfully' :
-        'File uploaded successfully'
+          type === 'video' ? 'Video uploaded successfully' :
+            'File uploaded successfully'
       );
       onSuccess?.(result);
     } catch (err: any) {
@@ -181,8 +182,8 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
             {type === 'video'
               ? 'Uploading video... Please wait'
               : type === 'image'
-              ? 'Uploading image...'
-              : 'Uploading file... Please wait'}
+                ? 'Uploading image...'
+                : 'Uploading file... Please wait'}
           </span>
         </span>
       )}

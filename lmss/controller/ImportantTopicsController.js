@@ -79,6 +79,8 @@ export const getImportantTopics = async (req, res) => {
   try {
     const { exam, examVersion, subject, subjectName, limit } = req.query;
 
+    console.log(exam,examVersion,subjectName,subject)
+
     if (!exam) {
       return res.status(400).json({ message: "exam is required" });
     }

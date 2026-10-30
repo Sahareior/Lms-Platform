@@ -20,6 +20,7 @@ export interface AiChatHistoryResponse {
 export interface SaveAiChatMessageInput {
   sender: 'user' | 'ai';
   text: string;
+  chapter?: string;
 }
 
 export interface SaveAiChatMessagesResponse {
@@ -37,30 +38,33 @@ const aiChatApi = api.injectEndpoints({
     // to fetch older messages when the user scrolls to the top.
     getAiChatHistory: build.query<
       AiChatHistoryResponse,
-      { limit?: number; before?: string }
+      { limit?: number; before?: string; chapter?: string }
     >({
-      query: ({ limit = 30, before }) => {
+      query: ({ limit = 30, before, chapter }) => {
         const params = new URLSearchParams();
         params.set('limit', String(limit));
         if (before) params.set('before', before);
+        if (chapter) params.set('chapter', chapter);
         return { url: `/ai-chat/history?${params.toString()}` };
       },
-      providesTags: [{ type: 'AiChat' }],
+      providesTags: (_result, _error, arg) => [
+        { type: 'AiChat', id: arg?.chapter || 'GLOBAL' },
+      ],
     }),
 
     // ── Persist chat messages ────────────────────────────────
     saveAiChatMessages: build.mutation<
       SaveAiChatMessagesResponse,
-      { messages: SaveAiChatMessageInput[] }
+      { messages: SaveAiChatMessageInput[]; chapter?: string }
     >({
       query: (data) => ({
         url: '/ai-chat/messages',
         method: 'POST',
         body: data,
       }),
-      // Invalidate cached history so returning to the page refetches
-      // the latest messages from the server.
-      invalidatesTags: [{ type: 'AiChat' }],
+      invalidatesTags: (_result, _error, arg) => [
+        { type: 'AiChat', id: arg?.chapter || 'GLOBAL' },
+      ],
     }),
   }),
   overrideExisting: false,

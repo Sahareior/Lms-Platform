@@ -84,7 +84,7 @@ const FeaturedExamControl: React.FC = () => {
       title: 'Version',
       key: 'version',
       render: (_: unknown, record: ScheduleExam) => {
-        const v = typeof record.examVersion === 'object' ? record.examVersion.examVersion : record.examVersion;
+        const v = record.examVersion && typeof record.examVersion === 'object' ? record.examVersion.examVersion : record.examVersion;
         return <Tag color="purple">{v || '—'}</Tag>;
       },
     },
@@ -216,7 +216,7 @@ const FeaturedExamControl: React.FC = () => {
               </div>
               <Text type="secondary" style={{ fontSize: 13 }}>
                 {typeof featuredExam.exam === 'object' ? featuredExam.exam.name : ''}
-                {typeof featuredExam.examVersion === 'object' && featuredExam.examVersion.examVersion
+                {featuredExam.examVersion && typeof featuredExam.examVersion === 'object' && featuredExam.examVersion.examVersion
                   ? ` • ${featuredExam.examVersion.examVersion}` : ''}
                 {' • '}{featuredExam.totalQuestions} Questions • {featuredExam.duration} min
                 {' • '}{dayjs(featuredExam.endDate).format('DD MMM YYYY, hh:mm A')}

@@ -10,7 +10,7 @@ const uploadToCloudinary = (buffer, options = {}) =>
       {
         folder: 'brainforge',
         resource_type: 'auto',
-         chunk_size: 6000000, // 6 MB chunk size
+        chunk_size: 6000000, // 6 MB chunk size
         timeout: 600000,
         ...options,
       },

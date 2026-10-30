@@ -37,7 +37,7 @@ function ConditionalHeader({}: Props) {
     } else if(location.pathname ==="/quiz"){
 
     } else if(location.pathname ==="/mock-exam"){
-        return       <header className="bg-[#1a2332] text-white px-6 py-3 flex items-center justify-between shadow-md  top-0 z-50">
+        return       <header className="bg-[#1a2332] text-white px-6 py-3 flex items-center justify-between shadow-md  -top-1 z-50">
                 <div className="flex items-center gap-4">
                   <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                     <Play size={16} fill="white" className="text-white ml-0.5" />

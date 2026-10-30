@@ -1,5 +1,5 @@
 import { api } from './baseApi';
-import type { ExamCategory } from '../../types';
+import type { ExamCategory, BangladeshBoard } from '../../types';
 
 // ─── Admin Types ──────────────────────────────────────────────
 export interface AdminUser {
@@ -56,7 +56,25 @@ export interface AdminExam {
   description?: string;
   applicants?: string;
   category?: ExamCategory;
+  board?: BangladeshBoard;
   createdAt?: string;
+}
+
+/**
+ * Lightweight summary returned by GET /questions (no nested `data` array).
+ * The server computes the question count so list views don't need the payloads.
+ */
+export interface AdminQuestionSummary {
+  _id: string;
+  exam: string;
+  examVersion?: string;
+  subject?: string;
+  board?: BangladeshBoard;
+  division?: string;
+  analyzed?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  questionCount: number;
 }
 
 export interface AdminQuestion {
@@ -64,6 +82,9 @@ export interface AdminQuestion {
   exam: string;
   examVersion?: string;
   subject?: string;
+  board?: BangladeshBoard;
+  division?: string;
+  analyzed?: boolean;
   data: Array<{
     question_number: number;
     question_text: string;
@@ -71,6 +92,7 @@ export interface AdminQuestion {
     image_url?: string;
     options: Record<string, string>;
     correct_answer?: string;
+    explanation?: string;
   }>;
 }
 
@@ -79,6 +101,7 @@ export interface AdminQuestionPattern {
   exam: string;
   examVersion?: string;
   subject?: string;
+  board?: BangladeshBoard;
   topics: Record<string, number>;
   subjects: Record<string, number>;
   categorized_questions: Array<{
@@ -166,7 +189,8 @@ export interface UpdateSubjectRequest {
 export interface ScheduleExam {
   _id: string;
   exam: { _id: string; name: string; image?: string } | string;
-  examVersion: { _id: string; examVersion: string } | string;
+  examVersion?: { _id: string; examVersion: string } | string | null;
+  board?: BangladeshBoard;
   title: string;
   description?: string;
   startDate: string;
@@ -175,24 +199,29 @@ export interface ScheduleExam {
   totalQuestions: number;
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
   isFeatured?: boolean;
+  isLevelingRandom?: boolean;
+  generatedQuestions?: any[];
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface CreateScheduleExamRequest {
   exam: string;
-  examVersion: string;
+  examVersion?: string;
+  board?: BangladeshBoard;
   title: string;
   description?: string;
   startDate: string;
   endDate: string;
   duration?: number;
   totalQuestions?: number;
+  isLevelingRandom?: boolean;
 }
 
 export interface UpdateScheduleExamRequest {
   exam?: string;
   examVersion?: string;
+  board?: BangladeshBoard;
   title?: string;
   description?: string;
   startDate?: string;
@@ -200,6 +229,7 @@ export interface UpdateScheduleExamRequest {
   duration?: number;
   totalQuestions?: number;
   status?: 'upcoming' | 'active' | 'completed' | 'cancelled';
+  isLevelingRandom?: boolean;
 }
 
 // ─── Quiz Attempt Types (for admin performance) ─────────────
@@ -209,10 +239,21 @@ export interface QuizAttemptSummary {
   completedAttempts: number;
 }
 
+export interface AdminQuizAttemptQuestion {
+  questionNumber: number;
+  questionText?: string;
+  options?: Record<string, string>;
+  selectedOption?: string | null;
+  correctAnswer?: string | null;
+  isCorrect?: boolean | null;
+  timeTaken?: number;
+}
+
 export interface AdminQuizAttempt {
   _id: string;
   user: {
     _id: string;
+    name?: string;
     username?: string;
     email?: string;
     phone?: string;
@@ -221,6 +262,16 @@ export interface AdminQuizAttempt {
   };
   exam?: { _id: string; name: string; image?: string } | null;
   examVersion?: { _id: string; examVersion: string } | null;
+  /** The scheduled exam instance this attempt belongs to (created in Exam Control). */
+  scheduleExam?: {
+    _id: string;
+    title?: string;
+    startDate?: string;
+    endDate?: string;
+    duration?: number;
+    status?: string;
+  } | null;
+  board?: string;
   subject?: string;
   type: 'mock_exam' | 'practice';
   source: 'question_center' | 'mock_exam' | 'quiz_practice';
@@ -235,6 +286,7 @@ export interface AdminQuizAttempt {
   isActive: boolean;
   isCompleted: boolean;
   timeTaken: number;
+  questions?: AdminQuizAttemptQuestion[];
   createdAt: string;
 }
 
@@ -246,6 +298,34 @@ export interface AdminQuizAttemptResponse {
   summary: QuizAttemptSummary;
 }
 
+// ─── Module Types ────────────────────────────────────────────
+export interface AdminModule {
+  _id: string;
+  title: string;
+  description?: string;
+  course: string;
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminModuleWithLessons extends AdminModule {
+  lessons: AdminLesson[];
+}
+
+export interface CreateModuleRequest {
+  title: string;
+  description?: string;
+  course: string;
+  order?: number;
+}
+
+export interface UpdateModuleRequest {
+  title?: string;
+  description?: string;
+  order?: number;
+}
+
 // ─── Lesson Types ────────────────────────────────────────────
 export interface AdminLesson {
   _id: string;
@@ -254,6 +334,7 @@ export interface AdminLesson {
   videoUri: string;
   material?: string[];
   course: string;
+  module?: string | AdminModule | null;
   order: number;
   duration: number;
   isPreview: boolean;
@@ -273,6 +354,7 @@ export interface CreateLessonRequest {
   description: string;
   videoUri: string;
   course: string;
+  module?: string | null;
   order?: number;
   duration?: number;
   isPreview?: boolean;
@@ -284,6 +366,7 @@ export interface UpdateLessonRequest {
   title?: string;
   description?: string;
   videoUri?: string;
+  module?: string | null;
   order?: number;
   duration?: number;
   isPreview?: boolean;
@@ -380,12 +463,14 @@ const adminApi = api.injectEndpoints({
 
     // ── Course Management ────────────────────────────────────
     getAdminCourses: build.query<AdminCourse[], void>({
-      query: () => ({ url: '/course' }),
+      // withStudents=true asks the backend to populate the enrolled-student
+      // list (public course listings skip it for performance).
+      query: () => ({ url: '/course?withStudents=true' }),
       providesTags: ['Course'],
     }),
 
     getAdminCourseById: build.query<AdminCourse, string>({
-      query: (courseId) => ({ url: `/course/by-course/${courseId}` }),
+      query: (courseId) => ({ url: `/course/by-course/${courseId}?withStudents=true` }),
       providesTags: (_result, _error, id) => [{ type: 'Course', id }],
     }),
 
@@ -423,9 +508,44 @@ const adminApi = api.injectEndpoints({
       invalidatesTags: ['User'],
     }),
 
+    // ── Module Management ───────────────────────────────────
+    getCourseModules: build.query<
+      { modules: AdminModuleWithLessons[]; uncategorized: AdminLesson[] },
+      { courseId: string }
+    >({
+      query: ({ courseId }) => ({ url: `/module/${courseId}` }),
+      providesTags: ['Module'],
+    }),
+
+    createAdminModule: build.mutation<{ message: string; module: AdminModule }, CreateModuleRequest>({
+      query: (data) => ({
+        url: '/module/create',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Module', 'Lesson', 'Course'],
+    }),
+
+    updateAdminModule: build.mutation<{ message: string; module: AdminModule }, { moduleId: string; data: UpdateModuleRequest }>({
+      query: ({ moduleId, data }) => ({
+        url: `/module/update/${moduleId}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Module', 'Lesson'],
+    }),
+
+    deleteAdminModule: build.mutation<{ message: string }, string>({
+      query: (moduleId) => ({
+        url: `/module/delete/${moduleId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Module', 'Lesson', 'Course'],
+    }),
+
     // ── Lesson Management ────────────────────────────────────
     getCourseLessons: build.query<{ lessons: AdminLesson[] }, { courseId: string }>({
-      query: ({ courseId }) => `/lesson/${courseId}`,
+      query: ({ courseId }) => ({ url: `/lesson/${courseId}` }),
       providesTags: ['Lesson'],
     }),
 
@@ -435,7 +555,7 @@ const adminApi = api.injectEndpoints({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: ['Lesson', 'Course'],
+      invalidatesTags: ['Lesson', 'Module', 'Course'],
     }),
 
     updateAdminLesson: build.mutation<{ message: string; lesson: AdminLesson }, { lessonId: string; data: UpdateLessonRequest }>({
@@ -444,7 +564,7 @@ const adminApi = api.injectEndpoints({
         method: 'PUT',
         body: data,
       }),
-      invalidatesTags: ['Lesson'],
+      invalidatesTags: ['Lesson', 'Module'],
     }),
 
     deleteAdminLesson: build.mutation<{ message: string }, string>({
@@ -452,7 +572,7 @@ const adminApi = api.injectEndpoints({
         url: `/lesson/delete/${lessonId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Lesson', 'Course'],
+      invalidatesTags: ['Lesson', 'Module', 'Course'],
     }),
 
     // ── Subject Management ──────────────────────────────────
@@ -545,9 +665,24 @@ const adminApi = api.injectEndpoints({
     }),
 
     // ── Question Bank Management ────────────────────────────
-    getAdminQuestions: build.query<AdminQuestion[], void>({
-      query: () => ({ url: '/questions' }),
+    // Returns lightweight summaries (metadata + questionCount, no question payloads).
+    getAdminQuestions: build.query<AdminQuestionSummary[], { exam?: string; examVersion?: string; subject?: string; board?: string } | void>({
+      query: (params) => {
+        const queryParams = new URLSearchParams();
+        if (params?.exam) queryParams.set('exam', params.exam);
+        if (params?.examVersion) queryParams.set('examVersion', params.examVersion);
+        if (params?.subject) queryParams.set('subject', params.subject);
+        if (params?.board) queryParams.set('board', params.board);
+        const qs = queryParams.toString();
+        return { url: qs ? `/questions?${qs}` : '/questions' };
+      },
       providesTags: ['Question'],
+    }),
+
+    // Single question document including its full data array.
+    getAdminQuestionById: build.query<AdminQuestion, string>({
+      query: (questionId) => ({ url: `/questions/${questionId}` }),
+      providesTags: (_result, _error, questionId) => [{ type: 'Question', id: questionId }],
     }),
 
     updateAdminQuestionDocument: build.mutation<AdminQuestion, { questionId: string; data: Partial<AdminQuestion> }>({
@@ -569,12 +704,24 @@ const adminApi = api.injectEndpoints({
 
     updateAdminSingleQuestion: build.mutation<
       AdminQuestion,
-      { questionId: string; questionNumber: number; data: { question_text?: string; scenario_text?: string; image_url?: string; options?: Record<string, string>; correct_answer?: string } }
+      { questionId: string; questionNumber: number; data: { question_text?: string; scenario_text?: string; image_url?: string; options?: Record<string, string>; correct_answer?: string; explanation?: string } }
     >({
       query: ({ questionId, questionNumber, data }) => ({
         url: `/questions/${questionId}/question/${questionNumber}`,
         method: 'PUT',
         body: data,
+      }),
+      invalidatesTags: ['Question'],
+    }),
+
+    updateAdminQuestionExplanation: build.mutation<
+      { success: boolean; message: string; explanation: string },
+      { questionId: string; questionNumber: number; explanation: string }
+    >({
+      query: ({ questionId, questionNumber, explanation }) => ({
+        url: `/questions/${questionId}/question/${questionNumber}/explanation`,
+        method: 'PUT',
+        body: { explanation },
       }),
       invalidatesTags: ['Question'],
     }),
@@ -598,13 +745,18 @@ const adminApi = api.injectEndpoints({
     // ── Quiz Attempt Performance ────────────────────────────
     getAllQuizAttempts: build.query<
       AdminQuizAttemptResponse,
-      { type?: string; examId?: string; userId?: string; page?: number; limit?: number }
+      { type?: string; examId?: string; examVersionId?: string; board?: string; userId?: string; scheduleExamId?: string; startDate?: string; endDate?: string; page?: number; limit?: number }
     >({
       query: (params) => {
         const queryParams = new URLSearchParams();
         if (params.type) queryParams.set('type', params.type);
         if (params.examId) queryParams.set('examId', params.examId);
+        if (params.examVersionId) queryParams.set('examVersionId', params.examVersionId);
+        if (params.board) queryParams.set('board', params.board);
         if (params.userId) queryParams.set('userId', params.userId);
+        if (params.scheduleExamId) queryParams.set('scheduleExamId', params.scheduleExamId);
+        if (params.startDate) queryParams.set('startDate', params.startDate);
+        if (params.endDate) queryParams.set('endDate', params.endDate);
         if (params.page) queryParams.set('page', String(params.page));
         if (params.limit) queryParams.set('limit', String(params.limit));
         return { url: `/quiz-attempts?${queryParams.toString()}` };
@@ -629,12 +781,19 @@ export const {
   useUpdateAdminExamMutation,
   useDeleteAdminExamMutation,
   useGetAdminQuestionsQuery,
+  useGetAdminQuestionByIdQuery,
+  useLazyGetAdminQuestionByIdQuery,
   useUpdateAdminQuestionDocumentMutation,
   useDeleteAdminQuestionDocumentMutation,
   useUpdateAdminSingleQuestionMutation,
+  useUpdateAdminQuestionExplanationMutation,
   useDeleteAdminSingleQuestionMutation,
   useGetAdminQuestionPatternsQuery,
   useGetCourseLessonsQuery,
+  useGetCourseModulesQuery,
+  useCreateAdminModuleMutation,
+  useUpdateAdminModuleMutation,
+  useDeleteAdminModuleMutation,
   useCreateAdminLessonMutation,
   useUpdateAdminLessonMutation,
   useDeleteAdminLessonMutation,

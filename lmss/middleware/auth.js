@@ -42,3 +42,52 @@ export function requireRole(...roles) {
     next();
   };
 }
+
+/**
+ * Middleware that allows admins, or a user acting on their own account.
+ *
+ * Looks for a userId in req.params / req.query / req.body (in that order),
+ * matching the `field` name (default 'userId'). If none is present the request
+ * is treated as self-scoped (e.g. routes that use the token only).
+ * Must be used AFTER `authenticate`.
+ */
+export function requireSelfOrAdmin(field = 'userId') {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Not authenticated.' });
+    }
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
+    const targetId =
+      req.params?.[field] ?? req.query?.[field] ?? req.body?.[field] ?? req.user.userId;
+
+    if (String(targetId) !== String(req.user.userId)) {
+      return res.status(403).json({ message: 'You can only access your own data.' });
+    }
+    next();
+  };
+}
+
+/**
+ * Middleware that blocks non-admins from reading another user's data via a
+ * userId embedded in a resource (e.g. attempt._id). Extracts the owner from
+ * `req.resource` if present (set by controllers) — see usage in controllers
+ * that resolve a resource before responding.
+ */
+export function requireResourceOwner() {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Not authenticated.' });
+    }
+    if (req.user.role === 'admin') {
+      return next();
+    }
+    const ownerId = req.resourceOwner;
+    if (!ownerId || String(ownerId) !== String(req.user.userId)) {
+      return res.status(403).json({ message: 'You can only access your own data.' });
+    }
+    next();
+  };
+}

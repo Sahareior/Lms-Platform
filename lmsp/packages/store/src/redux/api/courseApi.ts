@@ -81,6 +81,21 @@ const courseApi = api.injectEndpoints({
         { type: 'Course', id: 'ENROLLED' },
         { type: 'Lesson' },
       ],
+      async onQueryStarted({ courseId, userId, lessonId }, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          courseApi.util.updateQueryData('getCourseLessonsWithProgress', { courseId, userId }, (draft) => {
+            const lesson = draft.lessons?.find((l: any) => l._id === lessonId || l.id === lessonId);
+            if (lesson) {
+              lesson.isCompleted = true;
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
     }),
   }),
   overrideExisting: false,

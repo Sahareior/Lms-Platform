@@ -6,6 +6,8 @@ import {
   loginFailure,
   logout,
   setAuthToken,
+  setRefreshToken,
+  clearAuthTokens,
   useGetMeQuery,
 } from '@my-monorepo/store';
 
@@ -13,10 +15,11 @@ const AUTH_TOKEN_KEY = 'brainforge_auth_token';
 const AUTH_USER_KEY = 'brainforge_auth_user';
 
 // ─── Persistence helpers ────────────────────────────────────
-export function persistAuth(token: string, user: any) {
+export function persistAuth(token: string, user: any, refreshToken?: string | null) {
   try {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    if (refreshToken) setRefreshToken(refreshToken);
   } catch {
     // localStorage may be unavailable (private browsing, etc.)
   }
@@ -26,6 +29,7 @@ export function clearPersistedAuth() {
   try {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
+    clearAuthTokens(); // also removes the persisted refresh token
   } catch {
     // ignore
   }

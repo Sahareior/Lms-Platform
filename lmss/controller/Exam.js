@@ -1,11 +1,13 @@
 import Exam from '../models/Exam.js';
 import User from '../models/User.js';
+import { invalidatePrefix } from '../middleware/cache.js';
 
 export const createExam = async (req, res) => {
   try {
     const { name, image, applicants, description, category } = req.body;
     const exam = new Exam({ name, image, applicants, description, category });
     await exam.save();
+    await invalidatePrefix('cache:exam');
     res.status(201).json(exam);
   } catch (err) {
     console.error(err);
@@ -20,7 +22,9 @@ export const listExams = async (req, res) => {
     if (category === 'academic' || category === 'job_preparation') {
       filter.category = category;
     }
-    const exams = await Exam.find(filter);
+    // Newest first (_id embeds the creation timestamp) so "Recent Exams"
+    // consumers on the admin dashboard get the latest created exams.
+    const exams = await Exam.find(filter).sort({ _id: -1 });
 
     // Existing exams created before categories existed get the job_preparation default
     for (const exam of exams) {
@@ -35,7 +39,6 @@ export const listExams = async (req, res) => {
 };
 
 export const selectExamForUser = async (req, res) => {
-  console.log('Request body:', req.body); // Log the request body for debugging
   try {
     const {
       userId,
@@ -56,7 +59,11 @@ export const selectExamForUser = async (req, res) => {
       preferredCenter,
       hearAbout,
       notes,
-      agreed
+      agreed,
+      studentClass,
+      class: userClass,
+      hometown,
+      location
     } = req.body;
 
     if (!userId || !examId) {
@@ -80,6 +87,21 @@ export const selectExamForUser = async (req, res) => {
     // Update user profile with provided information
     if (fullName) user.username = fullName;
     if (phone) user.phone = phone;
+    const targetClass = studentClass || userClass;
+    if (targetClass) {
+      user.studentClass = targetClass;
+      user.class = targetClass;
+      if (!user.education) user.education = targetClass;
+    }
+    if (hometown) {
+      user.hometown = hometown;
+      if (!user.district) user.district = hometown;
+    }
+    if (location) {
+      user.location = location;
+      if (!user.district) user.district = location;
+      if (!user.fullAddress) user.fullAddress = location;
+    }
     if (email) user.email = email;
     if (dateOfBirth) user.dateOfBirth = dateOfBirth;
     if (division) user.division = division;
@@ -113,6 +135,10 @@ export const selectExamForUser = async (req, res) => {
         username: user.username,
         email: user.email,
         phone: user.phone,
+        studentClass: user.studentClass,
+        class: user.class,
+        hometown: user.hometown,
+        location: user.location,
         dateOfBirth: user.dateOfBirth,
         division: user.division,
         district: user.district,
@@ -138,7 +164,6 @@ export const selectExamForUser = async (req, res) => {
 export const updateExam = async (req, res) => {
   const { examId } = req.params;
   const { name, image, applicants, description, category } = req.body;
-  console.log(req.body,'yjos')
 
   // Explicitly whitelist updatable fields (keeps category safe to persist)
   const updateData = {};
@@ -156,6 +181,7 @@ export const updateExam = async (req, res) => {
     if (!updatedExam) {
       return res.status(404).json({ message: 'Exam not found' });
     }
+    await invalidatePrefix('cache:exam');
     res.status(200).json(updatedExam);
   } catch (err) {
     console.error(err);
@@ -170,6 +196,7 @@ export const deleteExam = async (req, res) => {
     if (!deletedExam) {
       return res.status(404).json({ message: 'Exam not found' });
     }
+    await invalidatePrefix('cache:exam');
     res.status(200).json({ message: 'Exam deleted successfully' });
   } catch (err) {
     console.error(err);

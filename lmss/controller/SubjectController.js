@@ -1,4 +1,5 @@
 import Subject from '../models/SubjectModel.js';
+import { invalidatePrefix } from '../middleware/cache.js';
 
 // ─── GET all subjects ───────────────────────────────────────
 export const getSubjects = async (req, res) => {
@@ -38,6 +39,7 @@ export const createSubject = async (req, res) => {
     const subject = new Subject({ name, code, description, exam });
     const saved = await subject.save();
     const populated = await saved.populate('exam', 'name');
+    await invalidatePrefix('cache:subject');
     res.status(201).json(populated);
   } catch (error) {
     res.status(500).json({ message: 'Failed to create subject', error: error.message });
@@ -58,6 +60,7 @@ export const updateSubject = async (req, res) => {
     if (!subject) {
       return res.status(404).json({ message: 'Subject not found' });
     }
+    await invalidatePrefix('cache:subject');
     res.status(200).json(subject);
   } catch (error) {
     res.status(500).json({ message: 'Failed to update subject', error: error.message });
@@ -72,6 +75,7 @@ export const deleteSubject = async (req, res) => {
     if (!subject) {
       return res.status(404).json({ message: 'Subject not found' });
     }
+    await invalidatePrefix('cache:subject');
     res.status(200).json({ message: 'Subject deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete subject', error: error.message });
