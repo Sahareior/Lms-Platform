@@ -78,11 +78,16 @@ export const handelSignUps = async(req,res) => {
 export const handelSingIn = async (req,res)=> {
     const {email,password} = req.body
 
+  if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' })
+  }
+
     try{
         const user = await User.findOne({email})
         // Use the same response for "no such user" and "wrong password" so the
         // endpoint doesn't leak which emails are registered (user enumeration).
-        if(!user || !(await bcrypt.compare(password, user.password))){
+    // Some accounts are Google-only and therefore have no local password.
+    if(!user || typeof user.password !== 'string' || !(await bcrypt.compare(password, user.password))){
             return res.status(401).json({ message: 'Invalid email or password' })
         }
 

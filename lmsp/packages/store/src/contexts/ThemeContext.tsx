@@ -27,14 +27,29 @@ function isBrowser(): boolean {
   );
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  /**
+   * Initial theme for non-browser runtimes (React Native has no
+   * localStorage to read at mount). Ignored in the browser.
+   */
+  initialTheme?: Theme;
+  /** Called after every change so native apps can persist it. */
+  onThemeChange?: (theme: Theme) => void;
+}
+
+export function ThemeProvider({
+  children,
+  initialTheme,
+  onThemeChange,
+}: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(() => {
     // Restore saved theme in browser environments only
     if (isBrowser()) {
       const saved = localStorage.getItem('app-theme') as Theme | null;
       if (saved === 'light' || saved === 'dark') return saved;
     }
-    return 'light';
+    return initialTheme ?? 'light';
   });
 
   const toggleTheme = useCallback(() => {
@@ -47,10 +62,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Persist theme changes and apply to <html> in browser only
   useEffect(() => {
+    onThemeChange?.(theme);
     if (!isBrowser()) return;
     localStorage.setItem('app-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+  }, [theme, onThemeChange]);
 
   const value: ThemeContextValue = {
     theme,

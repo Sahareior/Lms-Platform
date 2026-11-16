@@ -15,6 +15,30 @@ import { Loader2 } from 'lucide-react'
 // Point the API client at the backend. Falls back to localhost for local dev.
 configureApi({ baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3000/' })
 
+// A tab left open across a deployment can request a hashed chunk that no
+// longer exists. Reload once to pick up the current index.html, but avoid a
+// reload loop if the chunk is still unavailable.
+const chunkReloadKey = 'vite:chunk-reload-at'
+const chunkReloadCooldownMs = 30_000
+const previousChunkReloadAt = Number(sessionStorage.getItem(chunkReloadKey))
+
+if (previousChunkReloadAt) {
+  if (Date.now() - previousChunkReloadAt >= chunkReloadCooldownMs) {
+    sessionStorage.removeItem(chunkReloadKey)
+  } else {
+    window.setTimeout(() => sessionStorage.removeItem(chunkReloadKey), chunkReloadCooldownMs)
+  }
+}
+
+window.addEventListener('vite:preloadError', (event) => {
+  const lastReloadAt = Number(sessionStorage.getItem(chunkReloadKey))
+  if (lastReloadAt && Date.now() - lastReloadAt < chunkReloadCooldownMs) return
+
+  event.preventDefault()
+  sessionStorage.setItem(chunkReloadKey, String(Date.now()))
+  window.location.reload()
+})
+
 // Suspense boundary for the lazy-loaded route chunks.
 function PageFallback() {
   const { isDark } = useTheme();

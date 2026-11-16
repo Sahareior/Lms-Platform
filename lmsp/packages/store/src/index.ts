@@ -58,7 +58,48 @@ export {
   getRefreshToken,
   clearAuthTokens,
   onAccessTokenRefreshed,
+  setTokenStorage,
+  hydrateRefreshToken,
+  REFRESH_TOKEN_KEY,
 } from './redux/api/baseApi';
+export type { TokenStorage } from './redux/api/baseApi';
+
+// ─── Shared platform-agnostic helpers (web + mobile) ───────
+export {
+  BENGALI_LETTERS,
+  getBengaliLetter,
+  getCorrectAnswerIndex,
+  flattenQuestionDocs,
+  computeLocalScore,
+  buildLocalReview,
+  buildResult,
+  formatTime,
+} from './lib/exam';
+export type {
+  QuestionItem as SharedQuestionItem,
+  QuestionReviewItem as SharedQuestionReviewItem,
+  QuizResultData as SharedQuizResultData,
+  QuestionStats as SharedQuestionStats,
+} from './lib/exam';
+export {
+  getInitials,
+  formatDuration,
+  formatSeconds,
+  formatDate,
+  timeAgo,
+  clamp,
+  percent,
+} from './lib/format';
+export {
+  toBengaliNumber,
+  getSourceCategory,
+  getCleanBoardName,
+  getCQChapters,
+  getCQPartDefaults,
+  EDUCATION_BOARDS,
+  CQ_YEARS,
+} from './lib/cq';
+export type { CQSourceCategory, CQChapterInfo } from './lib/cq';
 
 // ─── RTK Query AI API (separate endpoint on port 5000) ─────
 export { configureAiApi, aiApi, getDocumentFileUrl } from './redux/api/aiApi';
@@ -71,6 +112,7 @@ export {
   useQuestionPaperScraperMutation,
   useAiUserPerFormanceMutation,
   useAiragUploadStatusQuery,
+  useAiQuestionExplainerMutation,
 } from './redux/api/aiApi';
 export type {
   AiChatRequest,
@@ -133,6 +175,7 @@ export {
   useGetCourseByIdQuery,
   useEnrollCourseMutation,
   useCompleteLessonMutation,
+  useGetEnrolledCourseQuery,
   useGetCourseLessonsWithProgressQuery,
 } from './redux/api/courseApi';
 export type {
