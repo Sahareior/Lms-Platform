@@ -48,21 +48,16 @@ const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((o) => o.trim().replace(/\/$/, ''))
   .filter(Boolean);
-const defaultOrigins = ['http://localhost:5173', 'https://geneseon.netlify.app','https://geneseon1.netlify.app',  'https://astonishing-cannoli-f915b5.netlify.app'];
+const defaultOrigins = ['http://localhost:5173', 'http://localhost:8081/', 'https://geneseon.netlify.app','https://geneseon1.netlify.app',  'https://astonishing-cannoli-f915b5.netlify.app'];
 const corsOrigins = Array.from(new Set([...allowedOrigins, ...defaultOrigins])).map((o) => o.replace(/\/$/, ''));
 
 app.use(
   cors({
-    origin(origin, callback) {
-      // Allow same-origin / server-to-server requests with no Origin header.
-      if (!origin) return callback(null, true);
-      const cleanOrigin = origin.replace(/\/$/, '');
-      if (corsOrigins.includes(cleanOrigin)) return callback(null, true);
-      return callback(new Error('Not allowed by CORS'));
-    },
+    origin: true,
     credentials: true,
   })
 );
+
 
 app.use(compression());
 app.use(express.json({ limit: '50mb' }));

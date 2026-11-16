@@ -9,8 +9,8 @@ import {
 // ─── Configuration State ───────────────────────────────────
 // These are read on every request via closure, so they can be
 // updated at any time without rebuilding the API slice.
-let _baseUrl = 'https://lms-platform-fjwv.onrender.com/';
-// let _baseUrl = 'http://localhost:3000/';
+// let _baseUrl = 'https://lms-platform-fjwv.onrender.com/';
+let _baseUrl = 'http://localhost:3000/';
 // let _baseUrl = 'https://lmss-livid.vercel.app/';
 let _token: string | null = null;
 let _refreshToken: string | null = null;
@@ -24,6 +24,25 @@ let refreshInFlight: Promise<boolean> | null = null;
 
 export const REFRESH_TOKEN_KEY = 'brainforge_refresh_token';
 
+/**
+ * Storage used to persist the refresh token.
+ *
+ * Web keeps using localStorage by default. React Native has no
+ * localStorage, so the mobile app plugs AsyncStorage in instead via
+ * `setTokenStorage`. This keeps the API slice identical on both platforms.
+ */
+export interface TokenStorage {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+}
+
+let _tokenStorage: TokenStorage | null = null;
+
+export function setTokenStorage(storage: TokenStorage | null) {
+  _tokenStorage = storage;
+}
+
 export function getRefreshToken(): string | null {
   try {
     return _refreshToken ?? localStorage.getItem(REFRESH_TOKEN_KEY);
@@ -32,8 +51,32 @@ export function getRefreshToken(): string | null {
   }
 }
 
+/** Loads the persisted refresh token into memory (async platforms). */
+export async function hydrateRefreshToken(): Promise<string | null> {
+  if (_refreshToken) return _refreshToken;
+  if (_tokenStorage) {
+    try {
+      _refreshToken = await _tokenStorage.getItem(REFRESH_TOKEN_KEY);
+    } catch {
+      // ignore
+    }
+    return _refreshToken;
+  }
+  return getRefreshToken();
+}
+
 export function setRefreshToken(token: string | null) {
   _refreshToken = token;
+
+  if (_tokenStorage) {
+    const op = token
+      ? _tokenStorage.setItem(REFRESH_TOKEN_KEY, token)
+      : _tokenStorage.removeItem(REFRESH_TOKEN_KEY);
+    op.catch(() => {
+      // ignore
+    });
+  }
+
   try {
     if (token) localStorage.setItem(REFRESH_TOKEN_KEY, token);
     else localStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -54,7 +97,7 @@ export function onAccessTokenRefreshed(cb: TokenListener) {
 }
 
 async function tryRefreshAccessToken(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
+  const refreshToken = await hydrateRefreshToken();
   if (!refreshToken) return false;
   // Deduplicate concurrent refresh attempts into one network call.
   if (!refreshInFlight) {
